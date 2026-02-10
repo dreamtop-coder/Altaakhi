@@ -1,0 +1,275 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .cars-table {
+        width: 100%;
+        margin-top: 18px;
+        border-collapse: collapse;
+        font-size: 15px;
+        background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px #e0e0e0;
+    }
+    .cars-table th {
+        background: #e3eafc;
+        color: #1a237e;
+        padding: 12px 10px;
+        border: 1px solid #ddd;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    .cars-table th.col-plate { min-width: 120px; width: 12%; }
+    .cars-table th.col-brand { min-width: 120px; width: 14%; }
+    .cars-table th.col-model { min-width: 120px; width: 14%; }
+    .cars-table th.col-client { min-width: 180px; width: 18%; }
+    .cars-table th.col-year { min-width: 80px; width: 8%; }
+    .cars-table th.col-color { min-width: 80px; width: 8%; }
+    .cars-table th.col-status { min-width: 100px; width: 10%; }
+    .cars-table th.col-actions { min-width: 180px; width: 16%; }
+    .cars-table td {
+        padding: 12px 10px;
+        border: 1px solid #eee;
+        background: #fff;
+        word-break: break-word;
+        text-align: center;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .cars-table tr:nth-child(even) td {
+        background: #f5f7fa;
+    }
+    .cars-table tr:hover td {
+        background: #e3eafc;
+    }
+    .cars-action-btn {
+        padding: 8px 28px;
+        border-radius: 6px;
+        font-size: 15px;
+        text-decoration: none;
+        box-shadow: 0 1px 4px #eee;
+        font-weight: bold;
+        transition: background 0.2s, color 0.2s;
+        background: #28a745;
+        color: #fff;
+        margin-left: 8px;
+        display: inline-block;
+    }
+</style>
+<style>
+@media (max-width: 900px) {
+    .cars-table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+}
+</style>
+<div style="max-width:1200px;margin:auto;background:#f9f9f9;padding:28px 32px 22px 32px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;">
+    <div style="max-width:400px;margin:0 auto 20px auto;">
+        <form method="get" style="display:flex;align-items:center;gap:7px;justify-content:center;">
+            <input type="text" name="plate_number" value="{{ request.GET.plate_number|default:'' }}" placeholder="بحث برقم السيارة" style="padding:7px 14px;border-radius:5px;border:1.2px solid #c2c7d0;width:180px;">
+            <button type="submit" style="background:#007bff;color:#fff;padding:7px 18px;border-radius:5px;border:none;font-weight:bold;">بحث</button>
+        </form>
+    </div>
+    <div style="text-align:center;margin-bottom:20px;">
+        <span style="font-size:22px;font-weight:bold;color:#333;">قائمة السيارات</span>
+    </div>
+    {% if cars %}
+    <div class="cars-table-responsive cars-table-mobile-conditional">
+        <!-- Desktop Table -->
+        <table class="cars-table desktop-table">
+            <thead>
+                <tr>
+                    <th>رقم السيارة</th>
+                    <th>اسم العميل</th>
+                    <th>الموديل</th>
+                    <th>الصنع</th>
+                    <th>سنة الصنع</th>
+                    <th>الحالة</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for car in cars %}
+                <tr>
+                    <td class="{% if forloop.counter0|divisibleby:2 %}alt-row{% endif %}">{{ car.plate_number }}</td>
+                    <td class="{% if not forloop.counter0|divisibleby:2 %}alt-row{% endif %}">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</td>
+                    <td class="{% if forloop.counter0|divisibleby:2 %}alt-row{% endif %}">{% if car.model %}{{ car.model.name }}{% else %}-{% endif %}</td>
+                    <td class="{% if not forloop.counter0|divisibleby:2 %}alt-row{% endif %}">{% if car.brand %}{{ car.brand.name }}{% else %}-{% endif %}</td>
+                    <td class="{% if forloop.counter0|divisibleby:2 %}alt-row{% endif %}">{{ car.year }}</td>
+                    <td class="{% if not forloop.counter0|divisibleby:2 %}alt-row{% endif %}">{{ car.get_status_display }}</td>
+                    <td class="{% if forloop.counter0|divisibleby:2 %}alt-row{% endif %}">
+                        {% if car.status == 'sold' %}
+                            <span style="color:#888;font-weight:bold;">تم التسليم</span>
+                        {% elif car.status == 'active' and car.entry_date and car.maintenance_records.all|length == 0 %}
+                            <span class="cars-action-btn" style="background:#1976d2;">قيد الانتظار</span>
+                        {% else %}
+                            {% if car.status == 'active' %}
+                                <form method="post" action="{% if car.maintenance_records.all|length > 0 %}{% url 'cars:delete_maintenance_record' car.maintenance_records.first.id %}{% else %}#{% endif %}" style="display:inline; margin-bottom:8px;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="cars-action-btn" style="background:#e74c3c;">حذف الصيانة</button>
+                                </form>
+                                {% if car.maintenance_records.all|length > 0 %}
+                                    <form method="post" action="{% url 'cars:finish_maintenance' car.id %}" style="display:inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="cars-action-btn" style="background:#ff9800;">إنهاء الصيانة</button>
+                                    </form>
+                                {% endif %}
+                            {% elif car.status == 'ready' %}
+                                <form method="post" action="{% url 'cars:deliver_car' car.id %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="cars-action-btn" style="background:#1976d2;">تسليم السيارة</button>
+                                </form>
+                            {% elif car.status == 'pending_payment' %}
+                                {% with unpaid_invoices=car.invoices.all|dictsort:'id' %}
+                                    {% with shown=0 %}
+                                        {% for inv in unpaid_invoices %}
+                                            {% if not inv.paid and shown == 0 %}
+                                                <a href="/invoices/pay/invoice/{{ inv.id }}/" class="cars-action-btn" style="background:#e67e22;">دفع الفاتورة</a>
+                                                {% with shown=1 %}{% endwith %}
+                                            {% endif %}
+                                        {% empty %}
+                                            <span class="cars-action-btn" style="background:#bbb;cursor:not-allowed;">لا توجد فاتورة غير مدفوعة</span>
+                                        {% endfor %}
+                                        {% if unpaid_invoices|length == 0 %}
+                                            <span class="cars-action-btn" style="background:#bbb;cursor:not-allowed;">لا توجد فاتورة غير مدفوعة</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% endwith %}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Mobile Cards -->
+        <div class="mobile-cards">
+            {% for car in cars %}
+            <div class="mobile-card">
+                <div class="mobile-row"><span class="mobile-label">رقم السيارة</span><span class="mobile-value">{{ car.plate_number }}</span></div>
+                <div class="mobile-row"><span class="mobile-label">اسم العميل</span><span class="mobile-value">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</span></div>
+                <div class="mobile-row"><span class="mobile-label">الحالة</span><span class="mobile-value">{{ car.get_status_display }}</span></div>
+                <div class="mobile-row actions"><span class="mobile-label" style="display:none;">الإجراءات</span><span class="mobile-value" style="width:100%;display:block;">
+                    {% if car.status == 'sold' %}
+                        <span style="color:#888;font-weight:bold;">تم التسليم</span>
+                    {% else %}
+                        {% if car.status == 'active' %}
+                            <form method="post" action="{% if car.maintenance_records.all|length > 0 %}{% url 'cars:delete_maintenance_record' car.maintenance_records.first.id %}{% else %}#{% endif %}" style="width:100%;display:block;margin-bottom:8px;">
+                                {% csrf_token %}
+                                <button type="submit" class="cars-action-btn" style="background:#e74c3c;width:100%;">حذف الصيانة</button>
+                            </form>
+                            {% if car.maintenance_records.all|length > 0 %}
+                                <form method="post" action="{% url 'cars:finish_maintenance' car.id %}" style="width:100%;display:block;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="cars-action-btn" style="background:#ff9800;width:100%;">إنهاء الصيانة</button>
+                                </form>
+                            {% endif %}
+                        {% elif car.status == 'ready' %}
+                            <form method="post" action="{% url 'cars:deliver_car' car.id %}" style="width:100%;display:block;">
+                                {% csrf_token %}
+                                <button type="submit" class="cars-action-btn" style="background:#1976d2;width:100%;">تسليم السيارة</button>
+                            </form>
+                        {% elif car.status == 'pending_payment' %}
+                            {% with unpaid_invoices=car.invoices.all|dictsort:'id' %}
+                                {% with shown=0 %}
+                                    {% for inv in unpaid_invoices %}
+                                        {% if not inv.paid and shown == 0 %}
+                                            <a href="/invoices/pay/invoice/{{ inv.id }}/" class="cars-action-btn" style="background:#e67e22;width:100%;">دفع الفاتورة</a>
+                                            {% with shown=1 %}{% endwith %}
+                                        {% endif %}
+                                    {% empty %}
+                                        <span class="cars-action-btn" style="background:#bbb;cursor:not-allowed;width:100%;">لا توجد فاتورة غير مدفوعة</span>
+                                    {% endfor %}
+                                    {% if unpaid_invoices|length == 0 %}
+                                        <span class="cars-action-btn" style="background:#bbb;cursor:not-allowed;width:100%;">لا توجد فاتورة غير مدفوعة</span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endwith %}
+                        {% endif %}
+                    {% endif %}
+                </span></div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% if cars %}
+    <div style="text-align:center;margin-top:18px;">
+        <a href="/maintenance/add/" class="cars-action-btn" style="background:#007bff;">إضافة سجل صيانة</a>
+    </div>
+    {% endif %}
+
+    {% else %}
+        <div class="cars-table-mobile-conditional" style="padding:30px;text-align:center;color:#888;">لا توجد سيارات مسجلة.</div>
+    {% endif %}
+    {% if not request.GET.plate_number %}
+    <div style="text-align:center;color:#999;margin:10px 0;">
+        أدخل رقم المركبة لعرض البيانات
+    </div>
+    {% endif %}
+
+    <!-- CSS الموحد للجوال فقط، يجب أن يكون آخر ستايل في الصفحة -->
+    <style>
+    @media (max-width: 700px) {
+        .desktop-table { display: none; }
+        .mobile-cards { display: block; }
+
+        .mobile-card {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 1px 4px #eee;
+            margin-bottom: 14px;
+            padding: 14px 16px;
+            direction: rtl;
+        }
+
+        .mobile-row {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .mobile-label {
+            display: block;
+            font-weight: bold;
+            color: #555;
+            font-size: 13px;
+            margin-bottom: 3px;
+            text-align: right;
+        }
+
+        .mobile-value {
+            display: block;
+            font-size: 15px;
+            color: #222;
+            text-align: right;
+            word-break: break-word;
+        }
+
+        .mobile-row.actions {
+            margin-top: 12px;
+        }
+
+        .mobile-row.actions .cars-action-btn {
+            width: 100%;
+            margin: 6px 0;
+            font-size: 14px;
+            text-align: center;
+        }
+    }
+    @media (min-width: 701px) {
+        .desktop-table { display: table; }
+        .mobile-cards { display: none; }
+    }
+    </style>
+
+{% endblock %}
+
+<script>
+function confirmDeliver(carId) {
+    if (confirm('هل تريد تحويل حالة السيارة إلى \"معلق للدفع\"؟')) {
+        window.location.href = '/cars/deliver/' + carId + '/';
+    }
+}
+</script>

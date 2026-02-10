@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container" style="max-width:700px;margin:auto;padding:24px 0;">
+    <h2 style="text-align:center;">الحجوزات</h2>
+    <div style="text-align:left;margin-bottom:18px;">
+        <a href="{% url 'booking_create' %}" class="btn btn-primary" style="background:#007bff;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;">إضافة حجز جديد</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table" style="width:100%;background:#fff;border-radius:10px;overflow:hidden;">
+            <thead style="background:#f6c23e;color:#222;">
+                <tr>
+                    <th>رقم السيارة</th>
+                    <th>نوع الخدمة</th>
+                    <th>تاريخ الخدمة</th>
+                    <th>ملاحظات</th>
+                    <th>إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for booking in bookings %}
+                <tr>
+                    <td>
+                        {% if booking.car %}
+                            <a href="/cars/?plate_number={{ booking.car.plate_number }}" style="color:#1976d2;text-decoration:underline;font-weight:bold;">{{ booking.car.plate_number }}</a>
+                        {% elif booking.plate_number %}
+                            {{ booking.plate_number }}
+                        {% else %}-{% endif %}
+                    </td>
+                    <td>{{ booking.service_type }}</td>
+                    <td>{{ booking.service_date }}</td>
+                    <td>{{ booking.notes|default:'-' }}</td>
+                    <td>
+                        <a href="{% url 'booking_edit' booking.id %}" class="btn btn-sm" style="color:#007bff;">تعديل</a>
+                        <a href="{% url 'booking_delete' booking.id %}" class="btn btn-sm" style="color:#c00;">حذف</a>
+                        {% if booking.service_date == today %}
+                        <form method="post" action="{% url 'booking_start_maintenance' booking.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm" style="color:#28a745;font-weight:bold;">بدء الصيانة</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="text-align:center;color:#888;">لا توجد حجوزات.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

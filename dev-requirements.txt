@@ -1,0 +1,8 @@
+flake8==7.3.0
+bandit==1.9.3
+autoflake
+ruff
+
+# Development formatting/security tools
+# Install into your virtualenv with:
+# python -m pip install -r dev-requirements.txt

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin-bottom:24px;">إضافة عميل جديد</h2>
+<form method="post" style="max-width:500px;margin-right:0;background:#fff;padding:28px 32px 22px 32px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;text-align:right;">
+    {% csrf_token %}
+    <div style="display:flex;flex-direction:column;gap:18px;">
+        <style>
+        .input-ar {
+            width:100%;padding:9px 12px;border-radius:6px;border:1.2px solid #bbb;font-size:1.08em;
+        }
+        </style>
+        {% for field in form %}
+            <div style="margin-bottom:0;">
+                <label style="display:block;font-weight:bold;margin-bottom:6px;">{{ field.label_tag }}</label>
+                <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" value="{{ field.value|default_if_none:'' }}" class="input-ar" id="id_{{ field.name }}" {% if field.field.required %}required{% endif %} />
+                {% if field.errors %}
+                    <div style="color:#c00;font-size:0.97em;margin-top:3px;">{{ field.errors|striptags }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+        <div style="display:flex;gap:12px;justify-content:flex-start;">
+            <button type="submit" style="background:#28a745;color:#fff;padding:10px 28px;border-radius:6px;font-weight:bold;font-size:1.1em;">حفظ</button>
+            <a href="{% url 'clients_list' %}" style="background:#eee;color:#222;padding:10px 28px;border-radius:6px;font-weight:bold;font-size:1.1em;text-decoration:none;">إلغاء</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

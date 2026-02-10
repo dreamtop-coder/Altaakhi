@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+@media print {
+    body, #receipt-print {
+        width: 210mm !important;
+        min-width: 210mm !important;
+        max-width: 210mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        display: block !important;
+    }
+    #receipt-print {
+        width: 210mm !important;
+        min-width: 210mm !important;
+        max-width: 210mm !important;
+        margin: 0 auto !important;
+        padding: 24px 18px 24px 18px !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        position: relative !important;
+        min-height: 297mm !important;
+        height: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+    }
+    #receipt-print * {
+        box-sizing: border-box !important;
+        max-width: 100% !important;
+    }
+    .invoice-totals {
+        position: absolute !important;
+        bottom: 32px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 80% !important;
+        background: #f7fafd !important;
+        padding: 18px 32px 14px 32px !important;
+        border-radius: 10px !important;
+        box-shadow: 0 2px 8px #eee !important;
+        min-width: 260px !important;
+        text-align: right !important;
+        font-size: 1.2em !important;
+    }
+}
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+</style>
+<div id="receipt-print" style="max-width:900px;margin:auto;background:#fff;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:ltr;">
+    <div class="header-flex" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;">
+        <div style="flex:1;">
+            <h1 style="color:#bcbcbc;font-size:2.2em;margin:0 0 8px 0;letter-spacing:2px;">Al-Takhi Auto Repair</h1>
+            <img src="/static/altaakhi_logo.png" alt="Al-Takhi Logo" style="width:110px;height:80px;object-fit:contain;border:1px solid #ccc;border-radius:7px;">
+        </div>
+        <div style="flex:2;display:flex;justify-content:space-between;">
+            <div style="min-width:220px;max-width:260px;">
+                <b>FROM :</b><br>
+                Al-Takhi Auto Repair<br>
+                Malkiya of Bahrain<br>
+                Phone: 39471479<br>
+                Email: Dreamtop@gmail.com<br>
+                P.O.Bax: 40213<br>
+                Hamed Town of Bahrain
+            </div>
+            <div style="min-width:220px;max-width:260px;">
+                <div style="text-align:left;">
+                    <div style="font-weight:bold;">Date: <span style="font-weight:normal;">{{ invoice.created_at|date:'d-m-Y' }}</span></div>
+                    <div style="font-weight:bold;">Invoice No: <span style="font-weight:normal;">{{ invoice.invoice_number }}</span></div>
+                    <div style="height:16px;"></div>
+                    <div style="font-weight:bold;">Name: <span style="font-weight:normal;">{{ invoice.client.first_name }} {% if invoice.client.last_name %}{{ invoice.client.last_name }}{% endif %}</span></div>
+                    <div style="font-weight:bold;">Car Number: <span style="font-weight:normal;">{{ invoice.car.plate_number }}</span></div>
+                    <div style="font-weight:bold;">Phone: <span style="font-weight:normal;">{{ invoice.client.phone_number }}</span></div>
+                    <div style="font-weight:bold;">Model: <span style="font-weight:normal;">{{ invoice.car.model|default:'-' }}</span></div>
+                    <div style="font-weight:bold;">Brand: <span style="font-weight:normal;">{{ invoice.car.brand|default:'-' }}</span></div>
+                    <div style="font-weight:bold;">Year: <span style="font-weight:normal;">{{ invoice.car.year|default:'-' }}</span></div>
+                    <div style="font-weight:bold;">Color: <span style="font-weight:normal;">{{ invoice.car.color|default:'-' }}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <h3 style="color:#1976d2;margin-bottom:8px;">Invoice Details</h3>
+        <table style="width:100%;background:#fff;border-radius:6px;border:1px solid #e0e0e0;margin-bottom:10px;direction:ltr;">
+            <thead>
+                <tr style="background:#e3eafc;color:#1a237e;">
+                    <th style="padding:8px 6px;text-align:center;">DESCRIPTION</th>
+                    <th style="padding:8px 6px;text-align:center;">Qty.</th>
+                    <th style="padding:8px 6px;text-align:center;">B.D</th>
+                    <th style="padding:8px 6px;text-align:center;">TAX 0%</th>
+                    <th style="padding:8px 6px;text-align:center;">AMOUNT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for service in invoice.services.all %}
+                <tr>
+                    <td style="padding:8px 6px;text-align:center;">{{ service.name }}</td>
+                    <td style="padding:8px 6px;text-align:center;">1</td>
+                    <td style="padding:8px 6px;text-align:center;">{{ service.sale_price|default:service.default_price }}</td>
+                    <td style="padding:8px 6px;text-align:center;">0</td>
+                    <td style="padding:8px 6px;text-align:center;">{{ service.sale_price|default:service.default_price }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="color:#c00;text-align:center;">No services for this invoice.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div style="width:320px;float:left;margin-top:10px;">
+            <table style="width:100%;border:1px solid #e0e0e0;background:#fafafa;">
+                <tr><td>SUBTOTAL</td><td style="text-align:right;">{{ invoice.amount }}</td></tr>
+                <tr><td>TAX 10%</td><td style="text-align:right;">0</td></tr>
+                <tr><td>DISCOUNT</td><td style="text-align:right;">0</td></tr>
+                <tr><td style="font-weight:bold;background:#eee;">TOTAL</td><td style="font-weight:bold;text-align:right;background:#eee;">{% if paid_amount %}{{ paid_amount }}{% else %}0{% endif %}</td></tr>
+            </table>
+        </div>
+        <div style="clear:both;"></div>
+        <div style="margin-top:40px;font-style:italic;color:#888;">THANK YOU FOR YOUR BUSINESS!</div>
+        <div class="invoice-totals">
+            <div style="margin-bottom:7px;"><b>Original Total:</b> <span style="color:#1976d2;font-weight:bold;">{{ invoice.amount }}</span></div>
+            <div style="margin-bottom:7px;"><b>Paid Amount:</b> <span style="color:#28a745;font-weight:bold;">{% if paid_amount %}{{ paid_amount }}{% else %}0{% endif %}</span></div>
+            <div><b>Remaining Balance:</b> <span style="color:#c00;font-weight:bold;">{% if remaining_balance %}{{ remaining_balance }}{% else %}0{% endif %}</span></div>
+        </div>
+    </div>
+        <div style="text-align:center;margin-top:24px;">
+            <button onclick="window.print()" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;">طباعة الإيصال</button>
+            <button id="download-pdf" style="background:#28a745;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;margin-right:12px;">تنزيل PDF</button>
+        </div>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+                <script>
+                document.getElementById('download-pdf').onclick = function() {
+                        var element = document.getElementById('receipt-print');
+                        var carNumber = "{{ invoice.car.plate_number }}";
+                        html2pdf().set({
+                                margin: 0.5,
+                                filename: carNumber + '.pdf',
+                                html2canvas: { scale: 2 },
+                                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                        }).from(element).save();
+                };
+
+                // مشاركة الفاتورة من الجوال بدلاً من الطباعة
+                function isMobile() {
+                    return window.innerWidth <= 700;
+                }
+                document.addEventListener('DOMContentLoaded', function() {
+                    var printBtn = document.querySelector('button[onclick="window.print()"]');
+                    if (isMobile() && navigator.share && printBtn) {
+                        printBtn.textContent = "مشاركة الفاتورة";
+                        printBtn.onclick = function(e) {
+                            e.preventDefault();
+                            var pdfUrl = window.location.href; // أو رابط PDF إذا كان متوفر
+                            navigator.share({
+                                title: 'فاتورة العميل',
+                                text: 'يرجى مراجعة الفاتورة المرفقة.',
+                                url: pdfUrl
+                            });
+                        };
+                    }
+                });
+                </script>
+</div>
+{% endblock %}

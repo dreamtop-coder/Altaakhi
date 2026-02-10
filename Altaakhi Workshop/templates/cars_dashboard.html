@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block content %}
+<div id="cars-filters-container">
+    <div class="cars-filters" style="display:flex;gap:10px;margin-bottom:20px;">
+        <div class="filter-tab" data-status="waiting" style="color:#007bff;cursor:pointer;">قيد الانتظار <span class="count">({{ counts.waiting }})</span></div>
+        <div class="filter-tab" data-status="in_progress" style="color:#007bff;cursor:pointer;">جاري التنفيذ <span class="count">({{ counts.in_progress }})</span></div>
+        <div class="filter-tab" data-status="done" style="color:#28a745;cursor:pointer;">منتهية <span class="count">({{ counts.done }})</span></div>
+        <div class="filter-tab" data-status="follow" style="color:#ffc107;cursor:pointer;">متابعة <span class="count">({{ counts.follow }})</span></div>
+        <div class="filter-tab" data-status="pending_payment" style="color:#dc3545;cursor:pointer;">معلق للدفع <span class="count">({{ counts.pending_payment }})</span></div>
+        <div class="filter-tab" data-status="bookings" style="color:#007bff;cursor:pointer;">الحجوزات <span class="count">({{ counts.bookings }})</span></div>
+
+    </div>
+</div>
+<div id="cars-list-container">
+    <!-- سيتم تعبئة السيارات هنا عبر AJAX -->
+</div>
+<script>
+    function loadCarsByStatus(status) {
+        if (status === 'bookings') {
+            // عند الضغط على الحجوزات، اعرض أرقام العملاء الذين لديهم حجوزات
+            fetch('/cars/ajax/bookings_clients/')
+                .then(response => response.json())
+                .then(data => {
+                    let html = '<div style="display:flex;flex-wrap:wrap;gap:20px;">';
+                    if (data.phones && data.phones.length > 0) {
+                        data.phones.forEach(function(phone) {
+                            html += `<div style='border:1px solid #007bff;padding:18px 32px;border-radius:12px;background:#f7faff;font-size:1.2em;font-weight:bold;color:#007bff;'>${phone}</div>`;
+                        });
+                    } else {
+                        html += '<div style="color:#888;font-size:1.1em;">لا يوجد حجوزات حالياً</div>';
+                    }
+                    html += '</div>';
+                    document.getElementById('cars-list-container').innerHTML = html;
+                });
+            return;
+        }
+        fetch(`/cars/ajax/filter/?status=${status}`)
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('cars-list-container').innerHTML = html;
+            });
+    }
+
+    // تحديث عداد "منتهية" تلقائياً
+    function updateDoneCount() {
+        fetch('/cars/get_done_count/')
+            .then(response => response.json())
+            .then(data => {
+                document.querySelector('.filter-tab[data-status="done"] .count').textContent = '(' + data.done_count + ')';
+            });
+    }
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.filter-tab').forEach(t => t.style.fontWeight = 'normal');
+            this.style.fontWeight = 'bold';
+            loadCarsByStatus(this.getAttribute('data-status'));
+            updateDoneCount();
+        });
+    });
+    // تحميل السيارات الافتراضية (أول فلتر) وتحديث عداد منتهية
+    window.addEventListener('DOMContentLoaded', function() {
+        let firstTab = document.querySelector('.filter-tab');
+        if(firstTab) firstTab.click();
+        updateDoneCount();
+    });
+</script>
+{% endblock %}

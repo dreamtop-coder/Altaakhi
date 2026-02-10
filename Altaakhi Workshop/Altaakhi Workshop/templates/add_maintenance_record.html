@@ -1,0 +1,242 @@
+
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .maintenance-card {
+        max-width: 480px;
+        margin-left: auto;
+        margin-right: auto;
+        background: #fff;
+        padding: 32px 36px 26px 36px;
+        border-radius: 16px;
+        box-shadow: 0 4px 16px #e0e0e0;
+        direction: rtl;
+        font-family: 'Cairo', Tahoma, Arial, sans-serif;
+        width: 100%;
+    }
+    .maintenance-title {
+        text-align: center;
+        margin-bottom: 24px;
+        font-size: 26px;
+        font-weight: bold;
+        color: #1a237e;
+        letter-spacing: 1px;
+    }
+    .maintenance-form {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+    .maintenance-label {
+        font-weight: bold;
+        margin-bottom: 6px;
+        color: #333;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .maintenance-input,
+    .maintenance-form select,
+    .maintenance-form textarea {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 7px 12px;
+        border: 1.5px solid #bdbdbd;
+        border-radius: 7px;
+        font-size: 15px;
+        background: #f5f7fa;
+        transition: border 0.2s;
+        margin-top: 2px;
+    }
+    .maintenance-input:focus,
+    .maintenance-form select:focus,
+    .maintenance-form textarea:focus {
+        border-color: #1976d2;
+        outline: none;
+        background: #fff;
+    }
+    .maintenance-actions {
+        margin-top: 24px;
+        text-align: center;
+    }
+    .maintenance-btn {
+        background: linear-gradient(90deg,#1976d2 60%,#2196f3 100%);
+        color: #fff;
+        padding: 10px 32px;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 16px;
+        box-shadow: 0 2px 8px #e3e3e3;
+        cursor: pointer;
+        margin-left: 8px;
+        transition: background 0.2s;
+    }
+    .maintenance-btn:hover {
+        background: linear-gradient(90deg,#1565c0 60%,#1976d2 100%);
+    }
+    .maintenance-cancel {
+        background: #fff;
+        color: #1976d2;
+        border: 1px solid #1976d2;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 15px;
+        cursor: pointer;
+        margin-right: 8px;
+        transition: background 0.2s, color 0.2s;
+    }
+    .maintenance-cancel:hover {
+        background: #e3f2fd;
+        color: #0d47a1;
+    }
+    @media (max-width: 700px) {
+        .maintenance-card {
+            max-width: 98vw;
+            padding: 18px 6vw 18px 6vw;
+        }
+        .maintenance-title {
+            font-size: 20px;
+        }
+        .maintenance-form > div, .maintenance-form label, .maintenance-form input, .maintenance-form textarea, .maintenance-form select {
+            font-size: 15px !important;
+        }
+    }
+    @media (max-width: 480px) {
+        .maintenance-card {
+            max-width: 100vw;
+            padding: 10px 1vw 10px 20vw;
+        }
+        .maintenance-title {
+            font-size: 17px;
+        }
+        .maintenance-form > div, .maintenance-form label, .maintenance-form input, .maintenance-form textarea, .maintenance-form select {
+            font-size: 13px !important;
+        }
+    }
+</style>
+<div class="maintenance-card">
+    <div class="maintenance-title">
+        سجل الصيانة للسيارة
+    </div>
+    <form method="post" id="maintenance-form">
+        {% csrf_token %}
+        {% if form.errors %}
+        <div style="background:#ffeaea;color:#c00;padding:12px 18px;border-radius:8px;margin-bottom:18px;font-size:15px;">
+            <strong>يرجى تصحيح الأخطاء التالية:</strong>
+            <ul style="margin:8px 0 0 0;padding:0;list-style:inside disc;">
+            {% for field in form %}
+                {% for error in field.errors %}
+                    <li>{{ field.label }}: {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <div class="maintenance-form">
+            {% if car_instance %}
+                <div style="padding:12px 16px;background:#f5f7fa;border-radius:8px;border:1px solid #e0e0e0;font-size:15px;margin-bottom:18px;">
+                    <div style="margin-bottom:8px;"><b>رقم السيارة:</b> <input type="text" name="plate_number" id="id_plate_number" value="{{ car_instance.plate_number }}" class="maintenance-input" style="width:140px;display:inline-block;text-align:center;font-weight:bold;" readonly /></div>
+                    <div><b>الاسم:</b> {{ car_instance.client.first_name }}{% if car_instance.client.last_name %} {{ car_instance.client.last_name }}{% endif %}</div>
+                    <div><b>الموديل:</b> {% if car_instance.model %}{{ car_instance.model.name }}{% else %}-{% endif %}</div>
+                    <div><b>الصنع:</b> {% if car_instance.brand %}{{ car_instance.brand.name }}{% else %}-{% endif %}</div>
+                    <div><b>سنة الصنع:</b> {% if car_instance.year %}{{ car_instance.year }}{% else %}-{% endif %}</div>
+                    <div><b>اللون:</b> {% if car_instance.color %}{{ car_instance.color }}{% else %}-{% endif %}</div>
+                </div>
+            {% else %}
+                <div>
+                    <label for="id_plate_number" class="maintenance-label"><span>رقم السيارة:</span></label>
+                    {{ form.plate_number }}
+                    <div id="car-info-box" style="display:none;margin-top:10px;"></div>
+                </div>
+            {% endif %}
+            <div>
+                <label for="id_service" class="maintenance-label" style="display:block;margin-bottom:6px;"><span>نوع الخدمة:</span></label>
+                {{ form.service }}
+            </div>
+            <div style="background:#f5f7fa;border-radius:7px;border:1px solid #e0e0e0;padding:10px 12px 8px 12px;margin-bottom:10px;">
+                <label for="id_price" class="maintenance-label" style="display:block;margin-bottom:6px;"><span>السعر:</span></label>
+                {{ form.price }}
+            </div>
+            <div style="background:#f5f7fa;border-radius:7px;border:1px solid #e0e0e0;padding:10px 12px 8px 12px;margin-bottom:10px;">
+                <label for="id_maintenance_date" class="maintenance-label" style="display:block;margin-bottom:6px;"><span>تاريخ الصيانة:</span></label>
+                {{ form.maintenance_date }}
+            </div>
+            <div>
+                <label for="id_notes" class="maintenance-label"><span>ملاحظات:</span></label>
+                {{ form.notes }}
+            </div>
+        </div>
+        </div>
+        <div class="maintenance-actions">
+            <button type="submit" class="maintenance-btn">حفظ السجل</button>
+            <a href="{% url 'cars:maintenance_list' %}" class="maintenance-cancel">إلغاء</a>
+        </div>
+    </form>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var serviceSelect = document.getElementById('id_service');
+    var priceInput = document.getElementById('id_price');
+    if(serviceSelect && priceInput) {
+        serviceSelect.addEventListener('change', function() {
+            var selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+            var serviceId = selectedOption.value;
+            fetch('/get-service-price/?service_id=' + serviceId)
+                .then(response => response.json())
+                .then(data => {
+                    if(data.price !== undefined) {
+                        priceInput.value = parseFloat(data.price).toFixed(2);
+                    }
+                });
+        });
+    }
+
+    // جلب بيانات السيارة عند إدخال رقم اللوحة
+    var plateInput = document.getElementById('id_plate_number');
+    var infoBox = document.getElementById('car-info-box');
+    var lastValue = '';
+    function fetchCarInfo() {
+        var plate = plateInput.value.trim();
+        if(plate.length === 0 || plate === lastValue) return;
+        lastValue = plate;
+        fetch('/get-car-info/?plate_number=' + encodeURIComponent(plate))
+            .then(r => r.json())
+            .then(data => {
+                if(data.found) {
+                    infoBox.style.display = 'block';
+                    infoBox.innerHTML = `
+                        <div style="margin-bottom:8px;font-weight:bold;color:#1976d2;">صاحب المركبة</div>
+                        <div>الاسم: <b>${data.client.name}</b></div>
+                        <div>الرقم الشخصي: <b>${data.client.personal_id || '-'}</b></div>
+                        <div>رقم الهاتف: <b>${data.client.phone || '-'}</b></div>
+                        <div>البريد الإلكتروني: <b>${data.client.email || '-'}</b></div>
+                        <div>العنوان: <b>${data.client.address || '-'}</b></div>
+                        <div style="margin:10px 0 6px 0;font-weight:bold;color:#1976d2;">بيانات المركبة</div>
+                        <div>الحالة: <b>${data.car.status}</b></div>
+                        <div>الموديل: <b>${data.car.model}</b></div>
+                        <div>الصنع: <b>${data.car.brand}</b></div>
+                        <div>سنة الصنع: <b>${data.car.year}</b></div>
+                        <div>تاريخ الإضافة: <b>${data.car.created_at}</b></div>
+                    `;
+                } else {
+                    infoBox.style.display = 'block';
+                    infoBox.innerHTML = '<span style="color:#c00;font-weight:bold;">رقم السيارة غير موجود في قاعدة البيانات.</span>';
+                }
+            });
+    }
+    plateInput.addEventListener('blur', fetchCarInfo);
+    plateInput.addEventListener('change', fetchCarInfo);
+    plateInput.addEventListener('keyup', function(e) {
+        if(e.key === 'Enter') fetchCarInfo();
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>تفاصيل العميل</h2>
+<div style="background:#fff;padding:18px 24px;border-radius:8px;margin-bottom:24px;">
+    <p><b>الاسم:</b> {{ client.first_name }}{% if client.last_name %} {{ client.last_name }}{% endif %}</p>
+    <p><b>الرقم الشخصي:</b> {{ client.customer_id }}</p>
+    <p><b>رقم الهاتف:</b> {{ client.phone_number }}</p>
+    <p><b>البريد الإلكتروني:</b> {{ client.email|default:'-' }}</p>
+    <p><b>العنوان:</b> {{ client.address|default:'-' }}</p>
+    <p><b>الحالة:</b> {{ client.get_status_display }}</p>
+    <p><b>تاريخ الإضافة:</b> {{ client.created_at|date:'Y-m-d' }}</p>
+    <a href="{% url 'edit_client' client.id %}" style="background:#28a745;color:#fff;padding:7px 18px;border-radius:5px;text-decoration:none;font-weight:bold;">تعديل</a>
+    <a href="{% url 'clients_list' %}" style="background:#007bff;color:#fff;padding:7px 18px;border-radius:5px;text-decoration:none;font-weight:bold;">العودة للقائمة</a>
+</div>
+
+<h3>مركبات العميل</h3>
+<a href="{% url 'add_car_for_client' client.id %}" style="background:#007bff;color:#fff;padding:7px 18px;border-radius:5px;text-decoration:none;font-weight:bold;margin-bottom:10px;display:inline-block;">إضافة مركبة</a>
+<table style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;margin-bottom:30px;">
+    <thead>
+        <tr style="background:#e9ecef;color:#444;font-weight:bold;">
+            <th>رقم السيارة</th>
+            <th>الموديل</th>
+            <th>الصنع</th>
+            <th>سنة الصنع</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for car_data in cars_data %}
+        <tr>
+            <td>{{ car_data.car.plate_number }}</td>
+            <td>{{ car_data.car.model }}</td>
+            <td>{{ car_data.car.brand }}</td>
+            <td>{{ car_data.car.year }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% for car_data in cars_data %}
+    <h4>سجل الخدمات والفواتير للمركبة: {{ car_data.car.plate_number }}</h4>
+    <style>
+    @media (max-width: 900px) {
+        .service-invoice-table th:nth-child(2),
+        .service-invoice-table th:nth-child(3),
+        .service-invoice-table th:nth-child(7) {
+            display: none;
+        }
+        .service-invoice-table td:nth-child(2),
+        .service-invoice-table td:nth-child(3),
+        .service-invoice-table td:nth-child(7) {
+            display: none;
+        }
+    }
+    </style>
+    <table class="service-invoice-table" style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;margin-bottom:30px;">
+        <thead>
+            <tr style="background:#f8f9fa;color:#444;font-weight:bold;">
+                <th>رقم الفاتورة</th>
+                <th>رقم السيارة</th>
+                <th>اسم صاحب المركبة</th>
+                <th>نوع الخدمة</th>
+                <th>السعر</th>
+                <th>تاريخ الصيانة</th>
+                <th>تاريخ تسليم المركبة</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in car_data.maintenance_records %}
+            <tr>
+                <td>{% if item.record.invoice %}{{ item.record.invoice.invoice_number }}{% else %}-{% endif %}</td>
+                <td>{{ car_data.car.plate_number }}</td>
+                <td>{{ client.first_name }}{% if client.last_name %} {{ client.last_name }}{% endif %}</td>
+                <td>{{ item.record.service }}</td>
+                <td>{{ item.record.price }}</td>
+                <td>{{ item.record.created_at|date:'Y-m-d' }}</td>
+                <td>{% if item.record.delivery_date %}{{ item.record.delivery_date|date:'Y-m-d H:i' }}{% else %}-{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;">لا يوجد سجلات صيانة لهذه المركبة.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endfor %}
+
+{% endblock %}

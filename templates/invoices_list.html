@@ -1,0 +1,157 @@
+<style>
+@media (max-width: 600px) {
+    .invoices-mobile-center {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin: 24px 0 0 7vw;
+        width: 88vw;
+        max-width: 400px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px #e0e0e0;
+        padding: 24px 10px 18px 10px;
+    }
+    .invoices-mobile-center form {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .invoices-mobile-center label,
+    .invoices-mobile-center input,
+    .invoices-mobile-center button {
+        width: 90%;
+        max-width: 260px;
+        margin: 0 auto;
+        text-align: center;
+    }
+    .invoices-mobile-total {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #1976d2;
+        margin-top: 10px;
+        text-align: center;
+    }
+}
+</style>
+<style>
+@media (max-width: 600px) {
+    .invoices-hide-mobile { display: none !important; }
+    table, thead, tbody, tr, th, td { text-align: center !important; }
+    .invoices-name-col { text-align: right !important; }
+}
+.invoices-name-col { text-align: right !important; }
+</style>
+<style>
+@media (max-width: 600px) {
+    .invoices-hide-mobile { display: none !important; }
+    table, thead, tbody, tr, th, td { text-align: center !important; }
+}
+</style>
+{% extends 'base.html' %}
+{% block content %}
+<div class="invoices-mobile-center">
+    <h2 style="margin-bottom:18px;">قائمة الفواتير</h2>
+    <form method="get" id="invoices-search-form" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;">
+        <label style="font-weight:bold;">من تاريخ:</label>
+        <input type="date" name="start_date" id="start_date" value="{{ start_date|default:'' }}" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;margin-top:6px;max-width:180px;">
+        <label style="font-weight:bold;">إلى تاريخ:</label>
+        <input type="date" name="end_date" id="end_date" value="{{ end_date|default:'' }}" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;margin-top:6px;max-width:180px;">
+        <button type="submit" style="background:#1976d2;color:#fff;padding:8px 32px;border:none;border-radius:8px;font-weight:bold;font-size:1.1em;display:block;margin:10px 0 0 0;text-align:center;min-width:90px;">
+            بحث
+        </button>
+        {% if start_date or end_date %}
+        <span class="invoices-total-inline" style="font-size:1.08em;font-weight:bold;color:#1976d2;margin-right:18px;white-space:nowrap;">
+            مجموع الفواتير للفترة: {{ total_amount|floatformat:2 }}
+        </span>
+        {% endif %}
+    </form>
+    <script>
+    document.getElementById('invoices-search-form').addEventListener('submit', function(e) {
+        var start = document.getElementById('start_date').value;
+        var end = document.getElementById('end_date').value;
+        if ((start && !end) || (!start && end)) {
+            alert('يرجى إدخال تاريخ البداية وتاريخ النهاية معًا.');
+            e.preventDefault();
+        }
+    });
+    </script>
+    <style>
+    @media (max-width: 600px) {
+        #invoices-search-form {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 10px !important;
+        }
+        .invoices-total-inline {
+            display: none !important;
+        }
+    }
+    </style>
+    {% if start_date or end_date %}
+    <div class="invoices-mobile-total">
+        مجموع الفواتير للفترة: {{ total_amount|floatformat:2 }}
+    </div>
+    {% endif %}
+</div>
+{% if start_date or end_date %}
+<table style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;">
+    <thead>
+        <tr style="background:#e9ecef;color:#444;font-weight:bold;">
+            <th class="invoices-number-col">رقم الفاتورة</th>
+            <th class="invoices-name-col">اسم العميل</th>
+            <th class="invoices-hide-mobile">رقم السيارة</th>
+            <th class="invoices-amount-col">المبلغ</th>
+            <th class="invoices-hide-mobile">الحالة</th>
+            <th class="invoices-hide-mobile">تاريخ الإنشاء</th>
+            <th class="invoices-hide-mobile">تعديل</th>
+            <th class="invoices-hide-mobile">تعديل سجلات الصيانة</th>
+            <th class="invoices-hide-mobile">حذف</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for invoice in invoices %}
+        <tr>
+            <td class="invoices-number-col">{{ invoice.invoice_number }}</td>
+            <style>
+            @media (max-width: 600px) {
+                .invoices-hide-mobile { display: none !important; }
+                table, thead, tbody, tr, th, td { text-align: center !important; }
+                .invoices-name-col { text-align: right !important; }
+                .invoices-amount-col { text-align: right !important; }
+                .invoices-number-col { text-align: right !important; }
+            }
+            .invoices-name-col { text-align: right !important; }
+            .invoices-amount-col { text-align: right !important; }
+            .invoices-number-col { text-align: right !important; }
+            </style>
+            <td class="invoices-name-col">{{ invoice.client.first_name }}{% if invoice.client.last_name %} {{ invoice.client.last_name }}{% endif %}</td>
+            <td class="invoices-hide-mobile">{{ invoice.car.plate_number }}</td>
+            <td class="invoices-amount-col">{{ invoice.amount }}</td>
+            <style>
+            @media (max-width: 600px) {
+                .invoices-hide-mobile { display: none !important; }
+                table, thead, tbody, tr, th, td { text-align: center !important; }
+                .invoices-name-col { text-align: right !important; }
+                .invoices-amount-col { text-align: right !important; }
+            }
+            .invoices-name-col { text-align: right !important; }
+            .invoices-amount-col { text-align: right !important; }
+            </style>
+            <td class="invoices-hide-mobile">{% if invoice.paid %}<span style="color:green;font-weight:bold;">مدفوعة</span>{% else %}<span style="color:#e53935;font-weight:bold;">غير مدفوعة</span>{% endif %}</td>
+            <td class="invoices-hide-mobile">{{ invoice.created_at|date:'Y-m-d' }}</td>
+            <td class="invoices-hide-mobile"><a href="{% url 'edit_invoice' invoice.id %}" style="background:#ffc107;color:#222;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:0.95em;">تعديل</a></td>
+            <td class="invoices-hide-mobile"><a href="{% url 'edit_invoice_records' invoice.id %}" style="background:#1976d2;color:#fff;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:0.95em;">تعديل سجلات الصيانة</a></td>
+            <td class="invoices-hide-mobile"><a href="{% url 'delete_invoice' invoice.id %}" style="background:#e53935;color:#fff;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:0.95em;" onclick="return confirm('هل أنت متأكد من حذف الفاتورة؟');">حذف</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="text-align:center;">لا توجد فواتير.</td></tr>
+        {% endfor %}
+    </tbody>
+    </table>
+{% endif %}
+{% endblock %}

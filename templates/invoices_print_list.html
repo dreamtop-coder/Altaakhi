@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="print-invoices-main-container" style="max-width:900px;margin:auto;background:#fff;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:ltr;">
+    <h2 style="text-align:center;color:#1976d2;margin-bottom:18px;">طباعة الفواتير حسب رقم السيارة</h2>
+    <form method="get" class="search-form-print-invoices" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:center;">
+        <input type="text" name="car_number" placeholder="رقم السيارة" value="{{ request.GET.car_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
+        <input type="text" name="invoice_number" placeholder="رقم الفاتورة" value="{{ request.GET.invoice_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
+        <button type="submit" style="background:#1976d2;color:#fff;padding:8px 22px;border-radius:6px;font-weight:bold;border:none;">بحث</button>
+    </form>
+        <style>
+            @media print {
+                html, body {
+                    height: 100%;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #fff !important;
+                }
+                .print-invoices-main-container {
+                    width: 210mm !important;
+                    min-height: 297mm !important;
+                    max-width: 210mm !important;
+                    margin: 0 auto !important;
+                    box-shadow: none !important;
+                    border-radius: 0 !important;
+                    padding: 18mm 12mm 12mm 12mm !important;
+                    background: #fff !important;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .table-print-invoices-wrapper,
+                .table-print-invoices-outer-wrapper {
+                    width: 100% !important;
+                    margin: 0 !important;
+                    box-shadow: none !important;
+                    background: none !important;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                }
+                .table-print-invoices-wrapper table {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    min-width: 0 !important;
+                    margin: 0 auto !important;
+                    font-size: 1.05em !important;
+                }
+            }
+    @media (max-width: 700px) {
+        .print-invoices-main-container {
+            max-width: 96vw !important;
+            width: 96vw !important;
+            padding: 10px 0.5vw 10px 0vw !important;
+            border-radius: 10px !important;
+            margin: 8px auto !important;
+            box-shadow: 0 1px 4px #eee !important;
+        }
+    }
+    @media (max-width: 700px) {
+        .search-form-print-invoices {
+            flex-direction: column !important;
+            gap: 10px !important;
+            align-items: center !important;
+        }
+        .search-form-print-invoices input,
+        .search-form-print-invoices button {
+            min-width: 180px !important;
+            width: 90vw !important;
+            max-width: 350px !important;
+            text-align: center;
+        }
+    }
+    </style>
+    {% if request.GET.car_number or request.GET.invoice_number %}
+    <div class="table-print-invoices-wrapper" style="display:flex;justify-content:center;width:100%;">
+        <div class="table-print-invoices-outer-wrapper" style="display: flex; justify-content: center; width: 100%;">
+            <div class="table-print-invoices-wrapper" style="margin-top: 20px; width: fit-content; margin-left: auto; margin-right: auto;">
+                <table class="table table-bordered table-striped" id="print-invoices-table">
+                    <thead>
+                        <tr style="background:#e3eafc;color:#1a237e;">
+                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">رقم الفاتورة</th>
+                            <th style="padding:8px 10px;">رقم السيارة</th>
+                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">اسم العميل</th>
+                            <th class="hide-mobile-print" style="padding:8px 10px;">تاريخ الفاتورة</th>
+                            <th style="padding:8px 10px;">المبلغ</th>
+                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">الحالة</th>
+                            <th style="padding:8px 10px;">طباعة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in invoices %}
+                        <tr>
+                            <td class="hide-mobile-print-mobile" style="padding:8px 10px;">{{ invoice.invoice_number }}</td>
+                            <td style="padding:8px 10px;">{{ invoice.car.plate_number }}</td>
+                            <td class="hide-mobile-print-mobile" style="padding:8px 10px;">{{ invoice.client.first_name }} {% if invoice.client.last_name %}{{ invoice.client.last_name }}{% endif %}</td>
+                            <td class="hide-mobile-print" style="padding:8px 10px;">{{ invoice.created_at|date:'d-m-Y' }}</td>
+                            <td style="padding:8px 10px;">{{ invoice.amount }}</td>
+                            <td class="hide-mobile-print-mobile" style="padding:8px 10px;">{% if invoice.paid %}<span style="color:#28a745;font-weight:bold;">مدفوعة</span>{% else %}<span style="color:#c00;font-weight:bold;">غير مدفوعة</span>{% endif %}</td>
+                            <td style="padding:8px 10px;">
+                                <button type="button" class="print-invoice-btn" data-invoice-id="{{ invoice.id }}" style="background:#1976d2;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;text-decoration:none;">طباعة</button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" style="text-align:center;color:#c00;">لا توجد فواتير لهذا البحث.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- نافذة الفاتورة المنبثقة (واحدة فقط) -->
+    <div id="invoice-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);align-items:center;justify-content:center;">
+        <div id="invoice-modal-content" style="background:#fff;max-width:900px;width:98vw;max-height:96vh;overflow:auto;padding:0;border-radius:10px;box-shadow:0 2px 16px #888;position:relative;">
+            <button onclick="closeInvoiceModal()" style="position:absolute;top:8px;left:8px;background:#c00;color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:1.1em;z-index:2;">إغلاق</button>
+            <div id="invoice-modal-html"></div>
+            <div id="modal-actions" style="text-align:center;margin:18px 0 12px 0;">
+                <button id="modal-share-btn" class="modal-action-btn" style="background:#43a047;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;margin:0 8px;">مشاركة</button>
+                <button id="modal-print-btn" class="modal-action-btn" style="background:#1976d2;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;margin:0 8px;">طباعة</button>
+                <button onclick="closeInvoiceModal()" class="modal-action-btn" style="background:#e53935;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;margin:0 8px;">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+    function isMobile() { return window.innerWidth <= 700; }
+    function closeInvoiceModal() {
+        document.getElementById('invoice-modal').style.display = 'none';
+        document.getElementById('invoice-modal-html').innerHTML = '';
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.print-invoice-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                var invoiceId = btn.getAttribute('data-invoice-id');
+                var url = '/invoices/print/' + invoiceId + '/';
+                if (isMobile()) {
+                    e.preventDefault();
+                    fetch(url)
+                        .then(resp => resp.text())
+                        .then(html => {
+                            var temp = document.createElement('div');
+                            temp.innerHTML = html;
+                            var receipt = temp.querySelector('#receipt-print');
+                            if (receipt) {
+                                document.getElementById('invoice-modal-html').innerHTML = receipt.outerHTML;
+                                document.getElementById('invoice-modal').style.display = 'flex';
+                                var shareBtn = document.getElementById('modal-share-btn');
+                                if (navigator.share) {
+                                    shareBtn.style.display = 'inline-block';
+                                    shareBtn.onclick = function() {
+                                        var receipt = document.getElementById('invoice-modal-html').innerText;
+                                        var invoiceText = 'فاتورة العميل:\n' + receipt;
+                                        navigator.share({
+                                            title: 'فاتورة العميل',
+                                            text: invoiceText
+                                        });
+                                    };
+                                } else {
+                                    shareBtn.style.display = 'none';
+                                }
+                                var printBtn = document.getElementById('modal-print-btn');
+                                if (printBtn) {
+                                    printBtn.onclick = function() {
+                                        var element = document.getElementById('invoice-modal-html').firstElementChild;
+                                        if (typeof html2pdf === 'undefined') {
+                                            alert('خطأ: مكتبة PDF غير متوفرة! تأكد من الاتصال بالإنترنت أو أعد تحميل الصفحة.');
+                                            return;
+                                        }
+                                        if (!element) {
+                                            alert('خطأ: لم يتم العثور على الفاتورة للطباعة!');
+                                            return;
+                                        }
+                                        printBtn.disabled = true;
+                                        // استخراج رقم السيارة من الفاتورة
+                                        var carNumber = '';
+                                        var carNumberElem = document.querySelector('#invoice-modal-html [data-car-number]');
+                                        if (carNumberElem) {
+                                            carNumber = carNumberElem.getAttribute('data-car-number');
+                                        } else {
+                                            // محاولة استخراج رقم السيارة من النص
+                                            var match = document.getElementById('invoice-modal-html').innerText.match(/Car Number:?\s*(\d+)/);
+                                            if (match) carNumber = match[1];
+                                        }
+                                        if (!carNumber) carNumber = 'invoice';
+                                        html2pdf().set({
+                                            margin: 0.5,
+                                            filename: carNumber + '.pdf',
+                                            html2canvas: { scale: 2 },
+                                            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                                        }).from(element).save().finally(function() {
+                                            printBtn.disabled = false;
+                                        });
+                                    };
+                                }
+                            }
+                        });
+                } else {
+                    window.open(url, '_blank');
+                }
+            });
+        });
+    });
+    </script>
+    <style>
+      @media (max-width: 700px) {
+          .responsive-print-invoices-table .hide-mobile-print {
+              display: none !important;
+          }
+          .hide-mobile-print-mobile {
+              display: none !important;
+          }
+          .search-form-print-invoices {
+              margin-left: auto !important;
+              margin-right: auto !important;
+          }
+          .table-print-invoices-outer-wrapper {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              width: 100%;
+          }
+          .table-print-invoices-wrapper {
+              width: fit-content !important;
+              min-width: 0 !important;
+              max-width: 100%;
+              margin-left: auto !important;
+              margin-right: auto !important;
+              overflow-x: auto !important;
+              padding: 0;
+              display: flex;
+              justify-content: center;
+          }
+          .table-print-invoices-wrapper table {
+              width: auto !important;
+              min-width: 320px !important;
+              max-width: 96vw !important;
+              font-size: 0.95em !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+              display: block;
+              overflow-x: auto;
+              direction: rtl;
+              text-align: right;
+          }
+          .table-print-invoices-wrapper th, .table-print-invoices-wrapper td {
+              text-align: right !important;
+          }
+          .table-print-invoices-wrapper th:first-child,
+          .table-print-invoices-wrapper td:first-child {
+              text-align: right !important;
+          }
+      }
+    </style>
+</div>
+{% endblock %}

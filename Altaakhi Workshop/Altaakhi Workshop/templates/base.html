@@ -1,0 +1,362 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة تحكم الورشة</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Tahoma, Arial, sans-serif; background: #f4f6fa; margin: 0; padding: 0; }
+        .dashboard-container { display: flex; min-height: 100vh; direction: rtl; }
+        .sidebar { width: 230px; background: #222e3c; color: #fff; padding: 0; display: flex; flex-direction: column; transition: right 0.3s; z-index: 1001; }
+        .sidebar h2 { text-align: center; margin: 30px 0 20px 0; font-size: 1.5em; letter-spacing: 1px; }
+        .sidebar ul { list-style: none; padding: 0; margin: 0; }
+        .sidebar ul li { padding: 15px 30px; border-bottom: 1px solid #2d3a4a; cursor: pointer; display: flex; align-items: center; font-size: 1.1em; transition: background 0.2s; }
+        .sidebar ul li:hover { background: #1a2330; }
+        .sidebar ul li i { margin-left: 12px; font-size: 1.2em; }
+        .main-content { flex: 1; padding: 0 40px 40px 40px; }
+        .mobile-sidebar-toggle {
+            display: none;
+            position: absolute;
+            right: 20px;
+            top: 18px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #f6c23e;
+            z-index: 1100;
+            cursor: pointer;
+        }
+        .sidebar.mobile-hidden, .sidebar.mobile-visible { width: 230px; transition: right 0.3s; }
+        @media (min-width: 901px) {
+            .sidebar { position: static !important; right: 0 !important; height: 100vh; box-shadow: none !important; }
+            .main-content { margin-right: 0; }
+            .mobile-sidebar-toggle { display: none !important; }
+        }
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 230px;
+                position: fixed;
+                right: -260px;
+                top: 0;
+                height: 100vh;
+                flex-direction: column;
+                overflow-y: auto;
+                z-index: 1001;
+                display: block;
+                transition: right 0.3s;
+            }
+            .sidebar.mobile-hidden {
+                right: -260px !important;
+                display: block !important;
+            }
+            .sidebar.mobile-visible {
+                right: 0 !important;
+                display: block !important;
+            }
+        }
+        @media (max-width: 700px) {
+            .sidebar {
+                width: 230px;
+                position: fixed;
+                right: -260px;
+                top: 0;
+                height: 100vh;
+                flex-direction: column;
+                overflow-y: auto;
+                z-index: 1001;
+                display: block;
+                transition: right 0.3s;
+            }
+            .sidebar.mobile-hidden {
+                right: -260px !important;
+                display: block !important;
+            }
+            .sidebar.mobile-visible {
+                right: 0 !important;
+                display: block !important;
+            }
+            .main-content {
+                padding: 12px 4px 24px 4px !important;
+            }
+            .topbar {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 0;
+            }
+            .mobile-sidebar-toggle {
+                display: block;
+                position: static;
+                margin-right: 0;
+                margin-left: 0;
+            }
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 0 10px 0;
+            background: #32405a;
+            border-bottom: 1px solid #2d3a4a;
+            min-height: 60px;
+            width: 100%;
+            margin-right: 0;
+            margin-left: 0;
+            direction: rtl;
+            gap: 16px;
+        }
+        .topbar .workshop-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #f6c23e;
+            letter-spacing: 1px;
+        }
+        .topbar .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .mobile-sidebar-toggle {
+            display: none;
+            position: absolute;
+            right: 20px;
+            top: 18px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #f6c23e;
+            z-index: 1100;
+            cursor: pointer;
+        }
+        @media (max-width: 900px) {
+            .topbar {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 0;
+            }
+            .mobile-sidebar-toggle {
+                display: block;
+                position: static;
+                margin-right: 0;
+                margin-left: 0;
+            }
+        }
+        .topbar .user-info {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 1.1em;
+        }
+        .topbar .user-info .icon-btn {
+            background: #22304a;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: #f6c23e;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .topbar .user-info .icon-btn:hover { background: #1a2330; }
+        .topbar .user-info .admin-name {
+            font-weight: bold;
+            color: #fff;
+            margin-left: 8px;
+            letter-spacing: 1px;
+        }
+            .topbar {
+                width: 100%;
+                margin-right: 0;
+                margin-left: 0;
+                direction: rtl;
+            }
+        @media (max-width: 700px) {
+            .main-logo-title {
+                font-size: 15px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
+</head>
+<body>
+    {% if not request.path == '/users/login/' %}
+    <div class="dashboard-container">
+        <div class="sidebar mobile-hidden" id="sidebarMenu">
+            <h2>Al-Takhi Auto Repair</h2>
+            <ul style="position:relative;">
+                <li onclick="location.href='{% url 'dashboard' %}'"><i class="fa fa-tachometer"></i>لوحة التحكم</li>
+                <li><i class="fa fa-users"></i>إدارة المستخدمين</li>
+                <li><i class="fa fa-cogs"></i>الإعدادات العامة</li>
+                <li><i class="fa fa-archive"></i>المخازن وقطع الغيار</li>
+                <li id="services-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-wrench"></i>الأقسام والخدمات
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-right:7px;"></i>
+                    <ul id="brands-submenu" style="display:none;list-style:none;padding-right:30px;margin:0;background:#263142;border-radius:7px 0 0 7px;position:absolute;top:100%;right:0;min-width:170px;z-index:10;">
+                        <li><a href="/brands/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;"> شركة صنع السيارات</a></li>
+                    </ul>
+                </li>
+                <li><i class="fa fa-user"></i>العملاء والموردين</li>
+                <li id="cars-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-car"></i>السيارات وسجل الصيانة
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-right:7px;"></i>
+                    <ul id="cars-submenu" style="display:none;list-style:none;padding-right:30px;margin:0;background:#263142;border-radius:7px 0 0 7px;position:absolute;top:100%;right:0;min-width:170px;z-index:10;">
+                        <li><a href="/cars/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">السيارات</a></li>
+                        <li><a href="/maintenance/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">سجل الصيانة</a></li>
+                        <li><a href="/bookings/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">الحجوزات</a></li>
+                        <li><a href="/services/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">الخدمات</a></li>
+                    </ul>
+                </li>
+                <li id="invoices-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-file-invoice-dollar"></i>الفواتير والمدفوعات
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-right:7px;"></i>
+                    <ul id="invoices-submenu" style="display:none;list-style:none;padding-right:30px;margin:0;background:#263142;border-radius:7px 0 0 7px;position:absolute;top:100%;right:0;min-width:170px;z-index:10;">
+                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">المدفوعات</a></li>
+                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">الفواتير</a></li>
+                    </ul>
+                </li>
+                <li><i class="fa fa-chart-bar"></i>الإدارة المالية</li>
+                <li><i class="fa fa-file-alt"></i>التقارير</li>
+            </ul>
+        </div>
+        <div class="main-content">
+            <div class="topbar" style="position:relative;">
+                <button class="mobile-sidebar-toggle" id="sidebarToggle" aria-label="القائمة الجانبية"><i id="sidebarToggleIcon" class="fa fa-bars"></i></button>
+                <div class="workshop-logo">
+                    <img src="{% static 'altaakhi_logo.png' %}" alt="شعار Al-Takhi Auto Repair" style="height:38px;width:38px;"/>
+                    <span class="main-logo-title">Al-Takhi Auto Repair</span>
+                </div>
+                <div class="user-info">
+                    <button class="icon-btn" title="الإعدادات"><i class="fa fa-cog"></i></button>
+                    <button class="icon-btn" title="الإشعارات"><i class="fa fa-bell"></i></button>
+                    <span class="admin-name">
+                        {% if request.user.is_authenticated %}
+                            <a href="{% url 'logout' %}" class="icon-btn" title="تسجيل الخروج" style="margin-right:8px;">
+                                <i class="fa fa-sign-out-alt"></i>
+                            </a>
+                        {% else %}
+                            زائر
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            {# تم نقل القائمة المنسدلة إلى الشريط الجانبي الرئيسي #}
+    {% endif %}
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var sidebar = document.getElementById('sidebarMenu');
+                var toggle = document.getElementById('sidebarToggle');
+                var toggleIcon = document.getElementById('sidebarToggleIcon');
+                var submenus = [
+                    {section: 'services-section', submenu: 'brands-submenu'},
+                    {section: 'cars-section', submenu: 'cars-submenu'},
+                    {section: 'invoices-section', submenu: 'invoices-submenu'}
+                ];
+                function openSidebar() {
+                    sidebar.classList.remove('mobile-hidden');
+                    sidebar.classList.add('mobile-visible');
+                    document.body.classList.add('sidebar-open');
+                    if(toggleIcon) {
+                        toggleIcon.classList.remove('fa-bars');
+                        toggleIcon.classList.add('fa-times');
+                    }
+                }
+                function closeSidebar() {
+                    sidebar.classList.remove('mobile-visible');
+                    sidebar.classList.add('mobile-hidden');
+                    document.body.classList.remove('sidebar-open');
+                    closeAllSubmenus();
+                    if(toggleIcon) {
+                        toggleIcon.classList.remove('fa-times');
+                        toggleIcon.classList.add('fa-bars');
+                    }
+                }
+                function closeAllSubmenus() {
+                    submenus.forEach(function(item){
+                        var submenu = document.getElementById(item.submenu);
+                        if(submenu) submenu.style.display = 'none';
+                    });
+                }
+                if(toggle && sidebar) {
+                    toggle.onclick = function(e) {
+                        e.stopPropagation();
+                        if(sidebar.classList.contains('mobile-visible')) {
+                            closeSidebar();
+                        } else {
+                            openSidebar();
+                        }
+                    };
+                }
+                sidebar.onclick = function(e) { e.stopPropagation(); };
+                submenus.forEach(function(item){
+                    var section = document.getElementById(item.section);
+                    var submenu = document.getElementById(item.submenu);
+                    if(section && submenu) {
+                        section.onclick = function(e) {
+                            e.stopPropagation();
+                            closeAllSubmenus();
+                            submenu.style.display = (submenu.style.display === 'block') ? 'none' : 'block';
+                        };
+                        submenu.onclick = function(e) { e.stopPropagation(); };
+                    }
+                });
+                document.body.onclick = function() {
+                    if(window.innerWidth <= 900) {
+                        closeSidebar();
+                    } else {
+                        closeAllSubmenus();
+                    }
+                };
+            });
+            </script>
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+<script>
+document.addEventListener('click', function (e) {
+    const form = e.target.closest('.booking-maintenance-form');
+    if (!form) return;
+
+    // لو ضغط على رابط (الهاتف) لا نرسل الفورم
+    if (e.target.tagName.toLowerCase() === 'a') {
+        return;
+    }
+
+    e.preventDefault();
+
+    // جلب CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    let csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (!csrfInput) {
+        csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        form.appendChild(csrfInput);
+    }
+    csrfInput.value = getCookie('csrftoken');
+
+    form.submit();
+});
+</script>
+</body>
+</html>

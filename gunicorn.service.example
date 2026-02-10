@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve Altaakhi Workshop
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/Altaakhi_Workshop_Project
+Environment="PATH=/var/www/Altaakhi_Workshop_Project/venv/bin"
+ExecStart=/var/www/Altaakhi_Workshop_Project/venv/bin/python /var/www/Altaakhi_Workshop_Project/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 workshop.wsgi:application
+
+[Install]
+WantedBy=multi-user.target

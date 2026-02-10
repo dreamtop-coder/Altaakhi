@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:500px;margin-right:0;margin-left:auto;background:#f9f9f9;padding:24px 28px 18px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;">
+    <div style="text-align:center;margin-bottom:18px;">
+        <span style="font-size:20px;font-weight:bold;color:#333;">إضافة مركبة للعميل</span>
+        <div style="margin-top:8px;font-size:17px;color:#555;background:#f1f1f1;padding:7px 0;border-radius:6px;">{{ client.first_name }}{% if client.last_name %} {{ client.last_name }}{% endif %}</div>
+    </div>
+    <form method="post" id="add-car-form">
+        {% csrf_token %}
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+                <label for="id_brand" style="font-weight:bold;display:block;margin-bottom:4px;">شركة الصنع:</label>
+                    <div style="width:100%;">{{ form.brand }}</div>
+            </div>
+            <div>
+                <label for="id_model" style="font-weight:bold;display:block;margin-bottom:4px;">الموديل:</label>
+                    <div style="width:100%;">{{ form.model }}</div>
+            </div>
+            <div>
+                <label for="id_plate_number" style="font-weight:bold;display:block;margin-bottom:4px;">رقم اللوحة:</label>
+                    <div style="width:100%;">{{ form.plate_number }}</div>
+            </div>
+            <div>
+                <label for="id_year" style="font-weight:bold;display:block;margin-bottom:4px;">سنة الصنع:</label>
+                    <div style="width:100%;">{{ form.year }}</div>
+            </div>
+            <div>
+                <label for="id_color" style="font-weight:bold;display:block;margin-bottom:4px;">اللون:</label>
+                    <div style="width:100%;">{{ form.color }}</div>
+            </div>
+            <div>
+                <label for="id_fuel_type" style="font-weight:bold;display:block;margin-bottom:4px;">نوع الوقود:</label>
+                    <div style="width:100%;">{{ form.fuel_type }}</div>
+            </div>
+            <div>
+                <label for="id_vin_number" style="font-weight:bold;display:block;margin-bottom:4px;">رقم الهيكل (VIN):</label>
+                    <div style="width:100%;">{{ form.vin_number }}</div>
+            </div>
+            <div>
+                <label for="id_status" style="font-weight:bold;display:block;margin-bottom:4px;">الحالة:</label>
+                    <div style="width:100%;">{{ form.status }}</div>
+            </div>
+            <div>
+                <label for="id_notes" style="font-weight:bold;display:block;margin-bottom:4px;">ملاحظات:</label>
+                    <div style="width:100%;">{{ form.notes }}</div>
+            </div>
+        </div>
+        <div style="margin-top:18px;text-align:center;">
+            <button type="submit" style="background:#007bff;color:#fff;padding:14px 0;width:100%;border:none;border-radius:8px;font-weight:bold;font-size:1.1em;">حفظ المركبة</button>
+            <a href="{% url 'client_detail' client.id %}" style="margin-right:15px;">إلغاء</a>
+        </div>
+    </form>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var brandSelect = document.getElementById('id_brand');
+        var modelSelect = document.getElementById('id_model');
+        brandSelect.addEventListener('change', function() {
+            var brandId = this.value;
+            fetch('/get-models-for-brand/?brand_id=' + brandId)
+                .then(response => response.json())
+                .then(data => {
+                    modelSelect.innerHTML = '';
+                    data.models.forEach(function(model) {
+                        var option = document.createElement('option');
+                        option.value = model.id;
+                        option.text = model.name;
+                        modelSelect.appendChild(option);
+                    });
+                });
+        });
+    });
+</script>
+{% endblock %}

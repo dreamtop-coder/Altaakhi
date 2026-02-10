@@ -1,0 +1,13 @@
+Altaakhi Workshop - Release Notes
+
+Release date: 2026-02-10
+
+Release includes:
+- Fixed import-related issues (E402, F811, F841) across the project.
+- Hoisted standard and 3rd-party imports, moved Django-dependent imports inside main().
+- Added if __name__ == "__main__": main() guards for executable scripts.
+- Removed duplicate/unused imports and redundant migration blocks.
+- Verified all cleaned files with flake8 (0 E402/F811/F841 remaining).
+- Includes two ZIP archives:
+  * Altaakhi_Workshop_cleaned.zip
+  * Altaakhi_Workshop_cleaned_ps.zip (created via PowerShell script)

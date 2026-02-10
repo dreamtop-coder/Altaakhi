@@ -1,0 +1,168 @@
+</style>
+<style>
+@media (max-width: 700px) {
+    #statement-print table th:nth-child(2),
+    #statement-print table td:nth-child(2) {
+        min-width: 150px !important;
+        width: 45vw !important;
+        max-width: 240px !important;
+        text-align: center;
+    }
+}
+</style>
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+@media print {
+    .print-hide {
+        display: none !important;
+    }
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        @media print {
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 210mm;
+                /* height: 297mm; */
+                background: #fff !important;
+                display: block !important;
+            }
+            body * {
+                visibility: hidden !important;
+            }
+            #statement-print,
+            #statement-print * {
+                visibility: visible !important;
+            }
+            #statement-print {
+                width: 190mm !important;
+                margin-left: auto !important;
+                margin-right: 0 !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                padding: 10mm !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                transform: scale(1) !important;
+                zoom: 100% !important;
+                background: #fff !important;
+                display: block !important;
+                text-align: right !important;
+            }
+            #statement-print table {
+                width: 100% !important;
+                max-width: 95% !important;
+                border-collapse: collapse;
+                font-size: 1.05em !important;
+                margin-left: auto !important;
+                margin-right: 0.5cm !important;
+            }
+            #statement-print th, #statement-print td {
+                padding: 8px 10px !important;
+                border: 1px solid #ddd !important;
+            }
+            .print-hide {
+                display: none !important;
+            }
+        }
+    #statement-print table td {
+        font-size: 1em !important;
+        white-space: nowrap !important;
+    }
+    #statement-print table th:nth-child(2),
+    #statement-print table td:nth-child(2) {
+        min-width: 100px;
+        max-width: none;
+        width: auto;
+        text-align: center;
+    }
+}
+</style>
+
+<div id="statement-print" class="account-statement-main-container" 
+    data-client-name="{{ client.first_name }}{% if client.last_name %}_{{ client.last_name }}{% endif %}" 
+    style="max-width:900px;margin:auto;background:#fff;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:ltr;">
+
+    <!-- ترويسة -->
+    <div class="header-flex" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;">
+        <div style="flex:1;">
+            <h1 style="color:#bcbcbc;font-size:2.2em;margin:0 0 8px 0;letter-spacing:2px;">Al-Takhi Auto Repair</h1>
+            <img src="/static/altaakhi_logo.png" alt="Al-Takhi Logo" style="width:110px;height:80px;object-fit:contain;border:1px solid #ccc;border-radius:7px;">
+        </div>
+        <div style="flex:2;display:flex;justify-content:space-between;">
+            <div style="min-width:220px;max-width:260px;">
+                <b>FROM :</b><br>
+                Al-Takhi Auto Repair<br>
+                Malkiya of Bahrain<br>
+                Phone: 39471479<br>
+                Email: Dreamtop@gmail.com<br>
+                P.O.Bax: 40213<br>
+                Hamed Town of Bahrain
+            </div>
+            <div style="min-width:220px;max-width:260px;">
+                <div style="text-align:left;">
+                    {% if client %}
+                    <div style="font-weight:bold;">Name: <span style="font-weight:normal;">{{ client.first_name }} {% if client.last_name %}{{ client.last_name }}{% endif %}</span></div>
+                    <div style="font-weight:bold;">Phone: <span style="font-weight:normal;">{{ client.phone_number }}</span></div>
+                    <div style="font-weight:bold;">Client No: <span style="font-weight:normal;">{{ client.customer_id }}</span></div>
+                    <div style="font-weight:bold;">Address: <span style="font-weight:normal;">{{ client.address|default:'-' }}</span></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3 style="color:#1976d2;margin-bottom:8px;text-align:center;">كشف حساب الفواتير</h3>
+
+
+    {% if invoices %}
+    <table style="width:100%;background:#fff;border-radius:6px;border:1px solid #e0e0e0;font-size:0.97em;margin-bottom:20px;">
+        <thead>
+            <tr style="background:#e3eafc;color:#1a237e;">
+                <th>رقم الفاتورة</th>
+                <th>تاريخ الفاتورة</th>
+                <th>Car Number</th>
+                <th>Model</th>
+                <th>Brand</th>
+                <th>Year</th>
+                <th>Amount</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for invoice in invoices %}
+            <tr>
+                <td>{{ invoice.invoice_number }}</td>
+                <td>{{ invoice.created_at|date:'d-m-Y' }}</td>
+                <td>{{ invoice.car.plate_number }}</td>
+                <td>{{ invoice.car.model|default:'-'|cut:invoice.car.brand.name|cut:' - ' }}</td>
+                <td>{{ invoice.car.brand|default:'-' }}</td>
+                <td>{{ invoice.car.year|default:'-' }}</td>
+                <td>{{ invoice.amount }}</td>
+                <td>{% if invoice.paid %}مدفوعة{% else %}غير مدفوعة{% endif %}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="8" style="text-align:center;color:#c00;">لا توجد فواتير</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="color:#c00;text-align:center;">لا توجد فواتير</div>
+    {% endif %}
+
+    <!-- زر الطباعة خارج منطقة الطباعة -->
+    <div class="print-hide" style="text-align:center;margin-top:24px;">
+        <button id="print-statement-btn" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;">طباعة كشف الحساب</button>
+    </div>
+
+<script>
+document.getElementById('print-statement-btn').addEventListener('click', function() {
+    var element = document.getElementById('statement-print');
+    if (!element) return alert('لا يوجد كشف حساب للطباعة!');
+    window.print();
+});
+</script>
+{% endblock %}

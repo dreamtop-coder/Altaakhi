@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-cards" style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;">
+    <!-- بطاقة السيارات قيد الانتظار -->
+    <div class="card card-waiting" style="min-width:200px; background:#fff3cd; border-left:5px solid #dc3545;">
+        <div class="card-body">
+            <h5 class="card-title">🚗 السيارات قيد الانتظار</h5>
+            <h2 style="color:#dc3545;">{{ cars_waiting }}</h2>
+        </div>
+    </div>
+    <!-- بطاقة السيارات المنجزة والمدفوعة -->
+    <div class="card card-paid" style="min-width:200px; background:#d4edda; border-left:5px solid #28a745;">
+        <div class="card-body">
+            <h5 class="card-title">✅ السيارات المنجزة والمدفوعة</h5>
+            <h2 style="color:#28a745;">{{ cars_paid }}</h2>
+        </div>
+    </div>
+    <!-- بطاقة السيارات في الصيانة وغير مدفوعة -->
+    <div class="card card-inprogress" style="min-width:200px; background:#f8d7da; border-left:5px solid #ffc107;">
+        <div class="card-body">
+            <h5 class="card-title">🔧 السيارات في الصيانة/غير مدفوعة</h5>
+            <h2 style="color:#ffc107;">{{ cars_in_progress }}</h2>
+        </div>
+    </div>
+    <!-- بطاقة عدد العملاء -->
+    <div class="card card-clients" style="min-width:200px; background:#e2e3e5; border-left:5px solid #007bff;">
+        <div class="card-body">
+            <h5 class="card-title">👤 عدد العملاء</h5>
+            <h2 style="color:#007bff;">{{ clients_count }}</h2>
+        </div>
+    </div>
+    <!-- بطاقة إجمالي الإيرادات -->
+    <div class="card card-revenue" style="min-width:200px; background:#d1ecf1; border-left:5px solid #17a2b8;">
+        <div class="card-body">
+            <h5 class="card-title">💰 إجمالي الإيرادات</h5>
+            <h2 style="color:#17a2b8;">{{ total_revenue|floatformat:2 }} ريال</h2>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:900px;margin:auto;background:#fff;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:ltr;">
+    <h2 style="text-align:center;color:#1976d2;margin-bottom:18px;">كشف حساب عميل</h2>
+    <form method="get" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;">
+        <input type="text" name="q" placeholder="بحث بالاسم أو رقم الهاتف أو رقم العميل" value="{{ query }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
+        <input type="date" name="from_date" value="{{ from_date|default:'' }}" style="padding:7px 10px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
+        <input type="date" name="to_date" value="{{ to_date|default:'' }}" style="padding:7px 10px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
+        <button type="submit" style="background:#1976d2;color:#fff;padding:8px 22px;border-radius:6px;font-weight:bold;border:none;">بحث</button>
+    </form>
+    {% if client and from_date and to_date %}
+    <div style="margin-bottom:18px;text-align:right;direction:rtl;">
+        <b>العميل:</b> {{ client.first_name }} {% if client.last_name %}{{ client.last_name }}{% endif %} <br>
+        <b>رقم الهاتف:</b> {{ client.phone_number }}<br>
+        <b>رقم العميل:</b> {{ client.customer_id }}<br>
+        <b>العنوان:</b> {{ client.address|default:'-' }}
+    </div>
+    <h3 style="color:#1976d2;margin-bottom:8px;text-align:center;">الفواتير</h3>
+    <div style="display:flex;justify-content:center;">
+    <table style="width:80%;background:#fff;border-radius:6px;border:1px solid #e0e0e0;margin-bottom:18px;">
+        <thead>
+            <tr style="background:#e3eafc;color:#1a237e;">
+                <th style="padding:8px 10px;">رقم الفاتورة</th>
+                <th style="padding:8px 10px; min-width:120px; width:22%; text-align:center;">تاريخ الفاتورة</th>
+                <th style="padding:8px 10px;">المبلغ</th>
+                <th style="padding:8px 10px;">الحالة</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for invoice in invoices %}
+            <tr>
+                <td style="padding:8px 10px;">{{ invoice.invoice_number }}</td>
+                <td style="padding:8px 10px; min-width:120px; width:22%; text-align:center;">{{ invoice.created_at|date:'d-m-Y' }}</td>
+                <td style="padding:8px 10px;">{{ invoice.amount }}</td>
+                <td style="padding:8px 10px;">{% if invoice.paid %}<span style="color:#28a745;font-weight:bold;">مدفوعة</span>{% else %}<span style="color:#c00;font-weight:bold;">غير مدفوعة</span>{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="color:#c00;text-align:center;">لا توجد فواتير.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+        <div style="text-align:center;margin-top:24px;">
+            <a id="print-statement-btn" href="{% url 'account_statement_print' %}?q={{ query }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}" target="_blank" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;text-decoration:none;">كشف حساب للطباعة</a>
+        </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var btn = document.getElementById('print-statement-btn');
+            if (!btn) return;
+            btn.addEventListener('click', function(e) {
+                var isMobile = window.innerWidth <= 700 || /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
+                if (isMobile) {
+                    e.preventDefault();
+                    var win = window.open(btn.href, '_blank');
+                    if (win) {
+                        win.onload = function() {
+                            win.print();
+                        };
+                    }
+                }
+                // الكمبيوتر: السلوك الافتراضي (فتح صفحة الطباعة المنسقة فقط)
+            });
+        });
+        </script>
+    {% else %}
+        {% if query %}
+            {% if not from_date or not to_date %}
+                <div style="color:#c00;text-align:center;">يرجى إدخال تاريخ البداية وتاريخ النهاية.</div>
+            {% else %}
+                <div style="color:#c00;text-align:center;">لا يوجد عميل مطابق.</div>
+            {% endif %}
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,493 @@
+
+
+
+
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.cards {
+    display: grid;
+    gap: 20px;
+    margin-top: 30px;
+    grid-template-columns: repeat(6, 1fr); /* 6 بطاقات في السطر على الكمبيوتر */
+}
+
+@media (max-width: 1024px) { /* الآيباد */
+    .cards {
+        grid-template-columns: repeat(3, 1fr); /* 3 بطاقات في السطر */
+    }
+}
+
+@media (max-width: 600px) { /* الجوال */
+    .cards {
+        grid-template-columns: repeat(2, 1fr); /* 2 بطاقة في السطر */
+    }
+}
+.card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px #0001;
+    padding: 36px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: box-shadow 0.2s;
+    text-decoration: none;
+}
+.card:hover {
+    box-shadow: 0 4px 16px #0002;
+}
+/* توسيط الأيقونة داخل البطاقة دائماً */
+.card .icon {
+    font-size: 1.2em;
+    color: #fff;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px #0002;
+    position: relative; /* مهم على الجوال */
+}
+.card.clients { background: linear-gradient(135deg,#4e73df,#224abe); }
+.card.cars { background: linear-gradient(135deg,#1cc88a,#17a673); }
+.card.brands { background: linear-gradient(135deg,#7b4397,#dc2430); }
+.card.services { background: linear-gradient(135deg,#36b9cc,#258fa6); }
+.card.invoices { background: linear-gradient(135deg,#f6c23e,#dda20a); }
+.card.revenue { background: linear-gradient(135deg,#e74a3b,#be2617); }
+.card .value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 8px;
+}
+.card .label {
+    color: #fff;
+    font-size: 1.1em;
+    letter-spacing: 1px;
+}
+</style>
+
+<!-- البطاقات الإحصائية -->
+<div class="cards">
+    <a href="/clients/" class="card clients" style="text-decoration:none;cursor:pointer;">
+        <div class="icon"><i class="fa fa-users"></i></div>
+        <div class="value">{{ clients_count }}</div>
+        <div class="label">العملاء</div>
+    </a>
+    <a href="/cars/" class="card cars" style="text-decoration:none;cursor:pointer;">
+        <div class="icon"><i class="fa fa-car"></i></div>
+        <div class="value">{{ cars_count }}</div>
+        <div class="label">السيارات</div>
+    </a>
+    <a href="/brands/" class="card brands" style="text-decoration:none;cursor:pointer;">
+        <div class="icon"><i class="fa fa-car-side"></i></div>
+        <div class="value">{{ brands_count }}</div>
+        <div class="label">شركات التصنيع</div>
+    </a>
+    {% if bookings_count > 0 %}
+    <a href="/bookings/" class="card bookings" id="dashboard-bookings-card" style="text-decoration:none;cursor:pointer;background:linear-gradient(135deg,#007bff,#00c6ff);">
+        <div class="icon"></div>
+        <div class="value">{{ bookings_count }}</div>
+        <div class="label">الحجوزات</div>
+    </a>
+    {% endif %}
+    <a href="/services/" class="card services" style="text-decoration:none;cursor:pointer;">
+        <div class="icon"><i class="fa fa-wrench"></i></div>
+        <div class="value">{{ services_count }}</div>
+        <div class="label">الخدمات</div>
+    </a>
+    <a href="/invoices/" class="card invoices" style="text-decoration:none;cursor:pointer;">
+        <div class="icon"><i class="fa fa-file-invoice-dollar"></i></div>
+        <div class="value">{{ invoices_count }}</div>
+        <div class="label">الفواتير</div>
+    </a>
+    <a href="/invoices/payments/" class="card revenue" style="text-decoration:none;cursor:pointer;">
+        <div class="icon"><i class="fa fa-dollar-sign"></i></div>
+        <div class="value">{{ total_revenue }}</div>
+        <div class="label">الإيرادات</div>
+    </a>
+</div>
+<!-- مسافة فاصلة بين البطاقات والفلاتر -->
+<div style="height: 28px;"></div>
+
+<!-- فلاتر البحث (مباشرة بعد البطاقات) -->
+<div class="filters-header-bar" style="margin-bottom:0; width:auto; border-radius:8px; background:#232946; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0.7rem 0.7rem 0.7rem 0.7rem; font-size:1.13rem; font-weight:bold; box-shadow:0 2px 8px #0001;">
+    <span class="filters-title">فلاتر البحث</span>
+    <button id="filters-header-toggle" class="filters-toggle-btn" title="إظهار/إخفاء الفلاتر">&gt;</button>
+</div>
+<div id="cars-filters-container" style="margin-top:10px;">
+    <div class="cars-filters" id="cars-filters-bar">
+        {% if filters %}
+            {% for status,label,count in filters %}
+            <div class="filter-tab" data-status="{{ status }}" data-url="/cars/ajax/filter/?status={{ status }}" role="button" aria-label="{{ label }}">{{ label }} <span class="count">({{ count }})</span></div>
+            {% endfor %}
+        {% else %}
+            <div class="filter-tab" data-status="waiting" data-url="/cars/ajax/filter/?status=waiting" role="button" aria-label="قيد الانتظار">قيد الانتظار <span class="count">({{ cars_waiting_count }})</span></div>
+            <div class="filter-tab" data-status="in_progress" data-url="/cars/ajax/filter/?status=in_progress" role="button" aria-label="جاري التنفيذ">جاري التنفيذ <span class="count">({{ cars_in_progress_count }})</span></div>
+            <div class="filter-tab" data-status="done" data-url="/cars/ajax/filter/?status=done" role="button" aria-label="منتهية">منتهية <span class="count">({{ cars_done_count }})</span></div>
+            <div class="filter-tab" data-status="follow" data-url="/cars/ajax/filter/?status=follow" role="button" aria-label="متابعة">متابعة <span class="count">({{ cars_follow_count }})</span></div>
+            <div class="filter-tab" data-status="pending_payment" data-url="/cars/ajax/filter/?status=pending_payment" role="button" aria-label="معلق للدفع">معلق للدفع <span class="count">({{ cars_pending_payment_count }})</span></div>
+            <!-- تم حذف فلتر حجز -->
+            <div class="filter-tab" data-status="bookings" style="color:#007bff;cursor:pointer;" title="كل الحجوزات">
+                الحجوزات <span class="count">({{ bookings_count }})</span>
+            </div>
+        {% endif %}
+    </div>
+<div id="cars-list-container">
+    <!-- سيتم تعبئة السيارات هنا عبر AJAX -->
+</div>
+
+
+<!-- فلاتر البحث (تظهر مرة واحدة فقط) -->
+<!-- تمت إزالة تكرار فلاتر البحث من أسفل الصفحة -->
+
+<!-- هيدر إظهار/إخفاء الإيرادات الشهرية -->
+<div class="revenue-monthly-section">
+    <div class="filters-header-bar revenue-monthly-header" style="margin-bottom:0; width:auto; border-radius:8px; background:#232946; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0.7rem 0.7rem 0.7rem 0.7rem; font-size:1.13rem; font-weight:bold; box-shadow:0 2px 8px #0001; margin-top: 64px; gap: 10px; flex-wrap: wrap;">
+            <span class="filters-title">الإيرادات الشهرية (آخر 12 شهرًا)</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                    <label style="font-size:0.98em; margin-left:4px;">من</label>
+                    <input type="month" id="revenue-from" style="border-radius:5px; border:none; padding:2px 6px; font-size:1em; margin-left:8px;">
+                    <label style="font-size:0.98em; margin-left:4px;">إلى</label>
+                    <input type="month" id="revenue-to" style="border-radius:5px; border:none; padding:2px 6px; font-size:1em; margin-left:8px;">
+                    <button id="revenue-range-update" style="background:#1cc88a; color:#fff; border:none; border-radius:5px; padding:4px 14px; font-size:1em; font-weight:bold; cursor:pointer; margin-left:8px;">تحديث</button>
+            </div>
+            <button id="revenue-header-toggle" class="filters-toggle-btn" title="إظهار/إخفاء الإيرادات الشهرية">&gt;</button>
+    </div>
+    <div id="revenue-section" style="background:#fff; border-radius:12px; box-shadow:0 2px 8px #0001; padding:30px 20px; margin:0 0 30px 0; display:none;">
+            <canvas id="revenueChart" height="80"></canvas>
+    </div>
+</div>
+<style>
+    @media (max-width: 600px) {
+        .revenue-monthly-section {
+            display: none !important;
+        }
+    }
+</style>
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+        function loadDashboardFilter(status) {
+            if (status === 'bookings') {
+                fetch('/cars/ajax/bookings_clients/')
+                    .then(response => response.text())
+                    .then(html => {
+                        document.getElementById('cars-list-container').innerHTML = html;
+                    })
+                    .catch(err => console.error(err));
+                return;
+            }
+            fetch(`/cars/ajax/filter/?status=${status}`)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('cars-list-container').innerHTML = html;
+                });
+        }
+        // تم إعادة الرابط لبطاقة الحجوزات العلوية، لا حاجة لتعطيل التحويل بعد الآن
+    const canvas = document.getElementById('revenueChart');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        const revenueChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ monthly_revenue_labels|safe }},
+                datasets: [{
+                    label: 'الإيرادات (ريال)',
+                    data: {{ monthly_revenue_data|safe }},
+                    backgroundColor: 'rgba(30, 200, 138, 0.7)',
+                    borderColor: 'rgba(30, 200, 138, 1)',
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    maxBarThickness: 32,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: false }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, grid: { color: '#eee' } }
+                }
+            }
+        });
+    }
+
+    // منطق اختيار الفترة (واجهة فقط، بدون جلب بيانات بعد)
+    // تعيين القيم الافتراضية (آخر 12 شهرًا)
+    function setDefaultRevenueRange() {
+        const to = new Date();
+        const from = new Date();
+        from.setMonth(from.getMonth() - 11);
+        document.getElementById('revenue-from').value = from.toISOString().slice(0,7);
+        document.getElementById('revenue-to').value = to.toISOString().slice(0,7);
+    }
+    setDefaultRevenueRange();
+
+    document.getElementById('revenue-range-update').onclick = function() {
+        const fromVal = document.getElementById('revenue-from').value;
+        const toVal = document.getElementById('revenue-to').value;
+        if (!fromVal || !toVal) {
+            alert('يرجى اختيار الفترة كاملة');
+            return;
+        }
+        fetch(`/dashboard/revenue_monthly_ajax/?from=${fromVal}&to=${toVal}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                // تحديث بيانات الرسم البياني
+                revenueChart.data.labels = data.labels;
+                revenueChart.data.datasets[0].data = data.data;
+                revenueChart.update();
+            })
+            .catch(() => alert('حدث خطأ أثناء جلب البيانات'));
+    };
+
+    // منطق إظهار/إخفاء الإيرادات الشهرية
+    const revenueHeaderToggle = document.getElementById('revenue-header-toggle');
+    const revenueSection = document.getElementById('revenue-section');
+    let revenueVisible = false;
+    revenueHeaderToggle.innerHTML = '&gt;';
+    revenueHeaderToggle.onclick = function() {
+        revenueVisible = !revenueVisible;
+        if (revenueVisible) {
+            revenueSection.style.display = 'block';
+            revenueHeaderToggle.innerHTML = '&lt;';
+        } else {
+            revenueSection.style.display = 'none';
+            revenueHeaderToggle.innerHTML = '&gt;';
+        }
+    };
+</script>
+<!-- شريط Tabs للفلاتر -->
+<style>
+    .cars-filters {
+        display: flex;
+        gap: 0;
+        background: #fff;
+        border-radius: 10px 10px 0 0;
+        border: 1px solid #e0e0e0;
+        border-bottom: none;
+        overflow: hidden;
+        margin-bottom: 0;
+    }
+    .filter-tab {
+            flex: 1;
+            text-align: center;
+            padding: 12px 0 10px 0;
+            font-weight: bold;
+            font-size: 1.08em;
+            border-left: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            user-select: none;
+            box-sizing: border-box;
+            height: 48px;
+    }
+        .filter-tab:first-child { border-right: 1px solid #e0e0e0; }
+        .filter-tab.active,
+        .filter-tab:hover {
+            background: #f7fafd;
+            box-shadow: inset 0 -3px 0 #36b9cc;
+        }
+    .filter-tab[data-status="waiting"] { color: #007bff; }
+    .filter-tab[data-status="in_progress"] { color: #007bff; }
+    .filter-tab[data-status="done"] { color: #28a745; }
+    .filter-tab[data-status="follow"] { color: #ffc107; }
+    .filter-tab[data-status="pending_payment"] { color: #dc3545; }
+    .filter-tab[data-status="reservation"] { color: #007bff; }
+    .filter-tab .count { font-weight: normal; font-size: 0.98em; }
+    #cars-list-container {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-top: none;
+        border-radius: 0 0 10px 10px;
+        min-height: 120px;
+        padding: 25px 18px 18px 18px;
+        margin-bottom: 30px;
+    }
+</style>
+<style>
+@media (max-width: 600px) {
+    .filter-tab {
+        font-size: 12px;
+        padding: 6px 4px;
+        height: 40px;
+        box-shadow: none !important;
+    }
+    .filter-tab.active {
+        background: #eef6ff;
+        box-shadow: inset 0 -2px 0 #36b9cc !important;
+    }
+}
+</style>
+<style>
+/* إصلاح تضخم الأيقونات داخل نتائج الفلاتر */
+/* إجبار كل عنصر سيارة ليكون flex-row صغير ومرتب حتى لو لم يكن هناك car-item */
+#cars-list-container > div,
+#cars-list-container > a,
+#cars-list-container > form {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 36px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 6px 0 !important;
+}
+#cars-list-container > div i.fa,
+#cars-list-container > a i.fa,
+#cars-list-container > form i.fa,
+#cars-list-container > div i.fas,
+#cars-list-container > a i.fas,
+#cars-list-container > form i.fas,
+#cars-list-container > div i.far,
+#cars-list-container > a i.far,
+#cars-list-container > form i.far {
+    font-size: 18px !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
+    max-width: 28px !important;
+    max-height: 28px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    box-sizing: content-box !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
+}
+#cars-list-container > div i.fa svg,
+#cars-list-container > a i.fa svg,
+#cars-list-container > form i.fa svg,
+#cars-list-container > div i.fas svg,
+#cars-list-container > a i.fas svg,
+#cars-list-container > form i.fas svg,
+#cars-list-container > div i.far svg,
+#cars-list-container > a i.far svg,
+#cars-list-container > form i.far svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+}
+#cars-list-container {
+    font-size: 15px !important;
+}
+#cars-list-container > * {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+@media (max-width: 600px) {
+    #cars-list-container > div i.fa,
+    #cars-list-container > a i.fa,
+    #cars-list-container > form i.fa,
+    #cars-list-container > div i.fas,
+    #cars-list-container > a i.fas,
+    #cars-list-container > form i.fas,
+    #cars-list-container > div i.far,
+    #cars-list-container > a i.far,
+    #cars-list-container > form i.far {
+        font-size: 15px !important;
+        width: 22px !important;
+        height: 22px !important;
+        min-width: 12px !important;
+        min-height: 12px !important;
+        max-width: 22px !important;
+        max-height: 22px !important;
+    }
+    #cars-list-container {
+        font-size: 13px !important;
+    }
+}
+</style>
+<script>
+    function loadCarsByStatus(url) {
+        document.getElementById('cars-list-container').innerHTML = '<div class="loader-spinner" aria-label="جاري التحميل" style="display:flex;justify-content:center;align-items:center;height:60px;"><div style="border:4px solid #eee;border-top:4px solid #36b9cc;border-radius:50%;width:32px;height:32px;animation:spin 1s linear infinite;margin:auto;"></div></div>';
+        fetch(url)
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('cars-list-container').innerHTML = html;
+            });
+    }
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const status = this.getAttribute('data-status');
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            if (status === 'bookings') {
+                // جلب الحجوزات عبر AJAX وعرضها في المستطيل
+                document.getElementById('cars-list-container').innerHTML = '<div class="loader-spinner" aria-label="جاري التحميل" style="display:flex;justify-content:center;align-items:center;height:60px;"><div style="border:4px solid #eee;border-top:4px solid #36b9cc;border-radius:50%;width:32px;height:32px;animation:spin 1s linear infinite;margin:auto;"></div></div>';
+                fetch('/cars/ajax/bookings_clients/')
+                    .then(response => response.text())
+                    .then(html => {
+                        document.getElementById('cars-list-container').innerHTML = html;
+                    })
+                    .catch(err => console.error(err));
+            } else {
+                loadCarsByStatus(this.dataset.url);
+            }
+        });
+    });
+    // تفعيل الفلتر تلقائيًا حسب ترتيب الأولوية المطلوب
+    window.addEventListener('DOMContentLoaded', function() {
+        var waitingCount = parseInt('{{ cars_waiting_count|default:0 }}', 10);
+        var inProgressCount = parseInt('{{ cars_in_progress_count|default:0 }}', 10);
+        var pendingPaymentCount = parseInt('{{ cars_pending_payment_count|default:0 }}', 10);
+        var bookingsCount = parseInt('{{ bookings_count|default:0 }}', 10);
+        var doneCount = parseInt('{{ cars_done_count|default:0 }}', 10);
+        var waitingTab = document.querySelector('.filter-tab[data-status="waiting"]');
+        var inProgressTab = document.querySelector('.filter-tab[data-status="in_progress"]');
+        var pendingPaymentTab = document.querySelector('.filter-tab[data-status="pending_payment"]');
+        var bookingsTab = document.querySelector('.filter-tab[data-status="bookings"]');
+        var doneTab = document.querySelector('.filter-tab[data-status="done"]');
+        if (waitingTab && waitingCount > 0) {
+            waitingTab.click();
+        } else if (inProgressTab && inProgressCount > 0) {
+            inProgressTab.click();
+        } else if (pendingPaymentTab && pendingPaymentCount > 0) {
+            pendingPaymentTab.click();
+        } else if (bookingsTab && bookingsCount > 0) {
+            bookingsTab.click();
+        } else if (doneTab && doneCount > 0) {
+            doneTab.click();
+        } else {
+            let firstTab = document.querySelector('.filter-tab');
+            if(firstTab) firstTab.click();
+        }
+    });
+    // منطق إظهار/إخفاء شريط الفلاتر
+    const filtersHeaderToggle = document.getElementById('filters-header-toggle');
+    const carsFiltersBar = document.getElementById('cars-filters-bar');
+    let filtersBarVisible = true;
+    filtersHeaderToggle.onclick = function() {
+        filtersBarVisible = !filtersBarVisible;
+        if (filtersBarVisible) {
+            carsFiltersBar.style.display = 'flex';
+            filtersHeaderToggle.innerHTML = '&lt;';
+        } else {
+            carsFiltersBar.style.display = 'none';
+            filtersHeaderToggle.innerHTML = '&gt;';
+        }
+    };
+</script>
+{% endblock %}

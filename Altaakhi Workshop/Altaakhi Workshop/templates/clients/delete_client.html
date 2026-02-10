@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>تأكيد حذف العميل</h2>
+  <p>هل أنت متأكد أنك تريد حذف العميل: {{ client.first_name }} {{ client.last_name }}؟</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">حذف</button>
+    <a href="{% url 'clients_list' %}" class="btn btn-secondary">إلغاء</a>
+  </form>
+{% endblock %}

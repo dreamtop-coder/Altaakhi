@@ -1,0 +1,38 @@
+Fix import-related issues (E402/F811/F841) across project
+
+Changelog:
+- Hoisted standard and third-party imports to top of modules.
+- Moved Django-dependent imports and django.setup() into main()
+	for scripts.
+- Added if __name__ == '__main__': main() guards for executable
+	scripts.
+- Removed duplicate/unused imports (F811/F841) and redundant
+	migration blocks.
+- Files touched:
+- settings.py, create_demo_data.py, list_demo_data.py,
+	reset_all_ids.py, check_car_status.py, fix_maintenance_finished.py,
+	clear_clients_maintenance_payments.py, clear_maintenance_and_invoices.py,
+	debug_car_client.py, debug_data_overview.py, make_mahdi_superuser.py,
+	cars/forms_add_maintenance.py, cars/admin.py, bookings/views.py,
+	bookings/migrations/0003_add_client_field.py, users/views.py
+- Verified no remaining E402/F811/F841 via flake8.
+
+Release Notes:
+Altaakhi Workshop - Release Notes
+
+Release date: 2026-02-10
+
+Release includes:
+- Fixed import-related issues (E402, F811, F841) across the
+	project.
+- Hoisted standard and third-party imports, moved Django-dependent
+	imports inside main().
+- Added if __name__ == "__main__": main() guards for executable
+	scripts.
+- Removed duplicate/unused imports and redundant migration blocks.
+- Verified all cleaned files with flake8 (0 E402/F811/F841
+	remaining).
+- Includes two ZIP archives:
+	* Altaakhi_Workshop_cleaned.zip
+	* Altaakhi_Workshop_cleaned_ps.zip
+		(created via PowerShell script)

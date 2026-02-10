@@ -1,0 +1,56 @@
+</style>
+<div class="quick-admin-menu">
+    <div class="parent" onclick="document.getElementById('submenu-invoices').classList.toggle('show')">
+        <i class="fa fa-file-invoice"></i> الفواتير والمدفوعات
+        <i class="fa fa-chevron-down" style="font-size:0.9em;margin-right:7px;"></i>
+    </div>
+    <ul class="submenu" id="submenu-invoices">
+        <li><a href="/invoices/">الفواتير</a></li>
+        <li><a href="/invoices/print/">طباعة الفاتورة</a></li>
+        <li><a href="/invoices/payments/">المدفوعات</a></li>
+    </ul>
+</div>
+<style>
+.quick-admin-menu {
+    margin-top: 18px;
+    margin-bottom: 18px;
+    padding: 0;
+}
+.quick-admin-menu .parent {
+    font-weight: bold;
+    color: #32405a;
+    cursor: pointer;
+    padding: 10px 0 10px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 1.08em;
+}
+.quick-admin-menu .submenu {
+    display: block;
+    list-style: none;
+    padding-right: 18px;
+    margin: 0;
+}
+.quick-admin-menu .submenu.show {
+    display: block;
+}
+.quick-admin-menu .submenu li a {
+    color: #007bff;
+    font-weight: normal;
+    text-decoration: none;
+    display: block;
+    padding: 7px 0;
+}
+.quick-admin-menu .submenu li a:hover {
+    text-decoration: underline;
+}
+</style>
+<div class="quick-admin-menu">
+    <div class="parent" onclick="document.getElementById('submenu-brands').classList.toggle('show')">
+        <i class="fa fa-wrench"></i> الأقسام والخدمات
+        <i class="fa fa-chevron-down" style="font-size:0.9em;margin-right:7px;"></i>
+    </div>
+    <ul class="submenu" id="submenu-brands">
+        <li><a href="/brands/">شركات السيارات</a></li>
+        <li><a href="/models/">موديلات السيارات</a></li>
+    </ul>
+</div>

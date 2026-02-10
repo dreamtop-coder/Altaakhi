@@ -1,0 +1,203 @@
+<style>
+/* تخصيص الهيدر لهذه الصفحة فقط */
+.topbar {
+    width: 100% !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    direction: rtl !important;
+    border-radius: 0 0 18px 18px !important;
+    box-shadow: 0 2px 8px #e0e0e0 !important;
+}
+.topbar .workshop-logo {
+    font-size: 1.1em !important;
+    gap: 6px !important;
+}
+.topbar .workshop-logo img {
+    height: 30px !important;
+    width: 30px !important;
+}
+.topbar .user-info {
+    gap: 10px !important;
+    font-size: 0.98em !important;
+}
+.topbar .user-info .icon-btn {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 1em !important;
+}
+.topbar .user-info .admin-name {
+    font-size: 0.98em !important;
+    margin-left: 4px !important;
+}
+</style>
+{% extends 'base.html' %}
+{% block content %}
+<style>
+@media (max-width: 900px) {
+    .custom-table, .custom-table thead, .custom-table tbody, .custom-table tr, .custom-table th, .custom-table td {
+        display: none !important;
+    }
+    .actions-cell {
+        display: none !important;
+    }
+    .maintenance-add-btn-mobile {
+        display: block !important;
+        margin: 0 auto 24px auto;
+        text-align: center;
+    }
+    .maintenance-add-btn-desktop,
+    .search-filters-mobile {
+        display: none !important;
+    }
+    .search-filters-desktop {
+        display: none !important;
+    }
+
+    /* توسيط العنوان والزر في الأعلى على الجوال */
+    .maintenance-header-mobile-center {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 16px !important;
+        width: 100vw !important;
+        margin-bottom: 20px !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+    }
+    .maintenance-header-mobile-center span,
+    .maintenance-header-mobile-center a {
+        text-align: center !important;
+        width: 90vw !important;
+        margin: 0 auto !important;
+    }
+}
+@media (max-width: 600px) {
+    .custom-table {
+        font-size: 11px;
+        min-width: 500px;
+        width: 500px;
+    }
+    .custom-table th, .custom-table td {
+        padding: 4px 2px;
+        font-size: 11px;
+    }
+}
+    .custom-table {
+        width: 98%;
+        margin-top: 18px;
+        margin-right: 0;
+        margin-left: 0;
+        border-collapse: collapse;
+        font-size: 15px;
+        background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px #e0e0e0;
+        direction: rtl;
+    }
+    .custom-table th {
+        background: #e3eafc;
+        color: #1a237e;
+        padding: 12px 10px;
+        border: 1px solid #ddd;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    .custom-table th.col-car { min-width: 240px; width: 32%; white-space: nowrap; }
+    .custom-table th.col-owner { min-width: 200px; width: 30%; white-space: nowrap; }
+    .custom-table th.col-actions { min-width: 180px; width: 26%; white-space: nowrap; }
+    .custom-table th.col-service { min-width: 140px; white-space: nowrap; }
+    .custom-table th.col-date { min-width: 120px; white-space: nowrap; }
+    .custom-table td {
+        padding: 12px 10px;
+        border: 1px solid #eee;
+        background: #fff;
+        word-break: break-word;
+        text-align: center;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .custom-table tr:nth-child(even) td {
+        background: #f5f7fa;
+    }
+    .custom-table tr:hover td {
+        background: #e3eafc;
+    }
+    .actions-cell {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+    }
+    .action-btn {
+        padding: 8px 32px;
+        border-radius: 6px;
+        font-size: 16px;
+        text-decoration: none;
+        box-shadow: 0 1px 4px #eee;
+        font-weight: bold;
+        transition: background 0.2s, color 0.2s;
+    }
+    .action-btn.edit { background: #ffc107; color: #333; }
+    .action-btn.delete { background: #e53935; color: #fff; min-width: 60px; }
+ </style>
+</style>
+<div style="width:100%;display:flex;justify-content:flex-end;margin:40px 0 0 0;">
+    <div style="background:#fff;padding:28px 0 22px 0;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;display:flex;flex-direction:column;align-items:center;width:auto;min-width:0;">
+    <div class="maintenance-header-mobile-center" style="display:flex;justify-content:center;align-items:center;gap:24px;margin-bottom:20px;width:100%;">
+        <span style="font-size:22px;font-weight:bold;color:#333;">سجل الصيانة</span>
+        <a href="{% url 'cars:add_maintenance_record' %}" class="maintenance-add-btn-desktop" style="background:#1976d2;color:#fff;padding:10px 24px;border:none;border-radius:8px;font-weight:bold;font-size:15px;text-decoration:none;">+ إضافة سجل صيانة</a>
+    </div>
+    <div class="maintenance-add-btn-mobile" style="display:none;">
+        <a href="{% url 'cars:add_maintenance_record' %}" style="background:#1976d2;color:#fff;padding:14px 32px;border:none;border-radius:10px;font-weight:bold;font-size:18px;text-decoration:none;">+ إضافة سجل صيانة</a>
+    </div>
+    <!-- فلاتر البحث -->
+    <form class="search-filters-desktop" method="get" style="width:95%;max-width:500px;margin:0 auto 18px auto;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;">
+        <input type="text" name="plate_number" placeholder="بحث برقم السيارة" value="{{ plate_number|default:'' }}" style="padding:6px 12px;border-radius:6px;border:1px solid #ccc;min-width:120px;">
+        <button type="submit" style="padding:6px 24px;background:#1976d2;color:#fff;border:none;border-radius:6px;font-weight:bold;">بحث</button>
+        <span style="margin-right:auto;display:flex;align-items:center;gap:8px;">
+            <img src="/static/car-repair.png" alt="سيارة" style="width:28px;height:28px;vertical-align:middle;">
+        </span>
+    </form>
+    <table class="custom-table" style="margin:0;">
+        <thead>
+            <tr>
+                <th>رقم الفاتورة</th>
+                <th class="col-car">رقم السيارة</th>
+                <th class="col-owner">اسم صاحب المركبة</th>
+                <th class="col-service">نوع الخدمة</th>
+                <th>السعر</th>
+                <th class="col-date">تاريخ الصيانة</th>
+                <th>تاريخ تسليم المركبة</th>
+                <th>الحالة</th>
+                <th>ملاحظات</th>
+                <th class="col-actions">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for record in records %}
+            <tr>
+                                <td style="font-weight:bold;">{% if record.invoice %}{{ record.invoice.invoice_number }}{% else %}-{% endif %}</td>
+                                <td style="font-weight:bold;">{{ record.car.plate_number }}</td>
+                                <td style="color:#1976d2;font-weight:bold;">
+                                    {{ record.car.client.first_name }}{% if record.car.client.last_name %} {{ record.car.client.last_name }}{% endif %}
+                                </td>
+                <td>{{ record.service.name }}</td>
+                <td>{{ record.price }}</td>
+                <td>{{ record.created_at|date:'Y-m-d' }}</td>
+                <td>{% if record.delivery_date %}{{ record.delivery_date|date:'Y-m-d H:i' }}{% else %}-{% endif %}</td>
+                <td>{{ record.get_status }}</td>
+                <td>{{ record.notes }}</td>
+                <td>
+                    <div class="actions-cell">
+                        <a href="{% url 'cars:edit_maintenance_record_fields' record.id %}" class="action-btn edit">تعديل</a>
+                        <a href="/maintenance/delete/{{ record.id }}/" class="action-btn delete" onclick="return confirm('هل أنت متأكد من حذف السجل؟');">حذف</a>
+                    </div>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7" style="text-align:center;padding:16px;color:#888;">لا توجد سجلات صيانة بعد.</td></tr>
+        {% endfor %}
+    	</tbody>
+    {% endblock %}

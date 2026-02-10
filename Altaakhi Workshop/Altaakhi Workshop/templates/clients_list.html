@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+<div style="margin-bottom:10px;color:#007bff;font-weight:bold;">عدد النتائج: {{ clients|length }}</div>
+{% block content %}
+<style>
+@media (max-width: 900px) {
+    .responsive-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .responsive-table td, .responsive-table th {
+        font-size: 1.08em;
+        padding: 13px 6px;
+        min-width: 90px;
+    }
+    .responsive-table .action-btn {
+        font-size: 1.1em;
+        padding: 10px 0;
+        width: 100%;
+        margin: 4px 0;
+        display: block;
+    }
+    .responsive-table th, .responsive-table td {
+        text-align: center;
+    }
+}
+</style>
+<div style="height:28px;"></div>
+<div class="clients-header-bar-mobile-center" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+    <h2 class="clients-title-mobile-center" style="margin:0;">قائمة العملاء</h2>
+    <form method="get" style="display:flex;align-items:center;gap:7px;">
+        <input type="text" name="search" value="{{ search|default:'' }}" placeholder="بحث بالاسم أو الهاتف أو الرقم الشخصي أو رقم السيارة" style="padding:7px 14px;border-radius:5px;border:1.2px solid #c2c7d0;width:220px;">
+        <button type="submit" style="background:#007bff;color:#fff;padding:7px 18px;border-radius:5px;border:none;font-weight:bold;">بحث</button>
+    </form>
+    <a href="{% url 'add_client' %}" style="background:#007bff;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">إضافة عميل جديد</a>
+</div>
+<style>
+@media (max-width: 600px) {
+    .clients-header-bar-mobile-center {
+        flex-direction: column;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 12px !important;
+    }
+    .clients-title-mobile-center {
+        text-align: center !important;
+        width: 100%;
+        font-size: 1.45em;
+    }
+}
+</style>
+{% if messages %}
+    <ul style="list-style:none;padding:0;">
+        {% for message in messages %}
+            <li style="background:#ffeeba;color:#856404;padding:10px 15px;margin-bottom:10px;border-radius:6px;">{{ message }}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
+<div class="responsive-table-wrapper clients-table-mobile-conditional">
+    {% if request.GET.search and clients|length > 1 %}
+        <div style="background:#ffeeba;color:#856404;padding:10px 15px;margin-bottom:10px;border-radius:6px;">
+            يوجد أكثر من عميل مرتبط بنفس رقم الهاتف أو بيانات البحث.
+        </div>
+    {% endif %}
+    {% if clients.object_list or clients %}
+    <table class="responsive-table" style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;box-shadow:0 2px 8px #f2f2f2;">
+        <thead>
+            <tr style="background:#e9ecef;color:#444;font-weight:bold;">
+                <th style="padding:12px 0;border-left:1.5px solid #c2c7d0;">الاسم</th>
+                <th style="padding:12px 0;border-left:1.5px solid #c2c7d0;">رقم السيارة</th>
+                <th style="padding:12px 0;border-left:1.5px solid #c2c7d0;">تاريخ الإضافة</th>
+                <th style="padding:12px 0;">العمليات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for client in clients.object_list|default:clients %}
+            <tr style="border-top:1px solid #e0e0e0;">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">{{ client.first_name }}{% if client.last_name %} {{ client.last_name }}{% endif %}</td>
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">
+                    {% if client.cars.all %}
+                        {% for car in client.cars.all %}
+                            <a href="{% url 'cars:add_maintenance_record' %}?car_id={{ car.id }}" style="color:#007bff;font-weight:bold;text-decoration:underline; margin-left:4px;">{{ car.plate_number }}</a>{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    {% else %}-{% endif %}
+                </td>
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">{{ client.created_at|date:'Y-m-d' }}</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">
+                    <a href="{% url 'client_detail' client.id %}" class="action-btn" style="background:#e9f0fb;color:#007bff;padding:10px 0;border-radius:5px;text-decoration:none;font-weight:bold;margin-bottom:5px;">عرض</a>
+                    <a href="{% url 'edit_client' client.id %}" class="action-btn" style="background:#28a745;color:#fff;padding:10px 0;border-radius:5px;text-decoration:none;font-weight:bold;margin-bottom:5px;">تعديل</a>
+                    <a href="{% url 'delete_client' client.id %}" onclick="return confirm('تأكيد الحذف؟');" class="action-btn" style="background:#dc3545;color:#fff;padding:10px 0;border-radius:5px;text-decoration:none;font-weight:bold;display:inline-block;">حذف</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    {% if search %}
+    <div class="alert alert-warning" style="background:#ffeeba;color:#856404;padding:10px 15px;margin-bottom:10px;border-radius:6px;">
+        لا يوجد أي عميل مرتبط بهذا الرقم. إذا كنت تبحث برقم السيارة وتأكدت من وجودها، قد يكون العميل غير نشط أو هناك اختلاف في البيانات.
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+<style>
+@media (max-width: 600px) {
+    /* لا تخفي جدول النتائج على الجوال، فقط حسن التنسيق */
+    .clients-table-mobile-conditional {
+        display: block !important;
+    }
+    .responsive-table td, .responsive-table th {
+        font-size: 1em;
+        padding: 10px 4px;
+        min-width: 80px;
+    }
+}
+</style>
+<div style="margin-top: 22px; display: flex; justify-content: center;">
+    {% if clients.has_other_pages %}
+    <ul style="display: flex; list-style: none; padding: 0; margin: 0; gap: 6px;">
+        {% if clients.has_previous %}
+            <li><a href="?page={{ clients.previous_page_number }}{% if search %}&search={{ search }}{% endif %}" style="background:#e9ecef;color:#007bff;padding:7px 15px;border-radius:5px;text-decoration:none;font-weight:bold;">السابق</a></li>
+        {% else %}
+            <li><span style="background:#f1f1f1;color:#aaa;padding:7px 15px;border-radius:5px;">السابق</span></li>
+        {% endif %}
+        {% for num in clients.paginator.page_range %}
+            {% if clients.number == num %}
+                <li><span style="background:#007bff;color:#fff;padding:7px 15px;border-radius:5px;font-weight:bold;">{{ num }}</span></li>
+            {% else %}
+                <li><a href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}" style="background:#e9ecef;color:#007bff;padding:7px 15px;border-radius:5px;text-decoration:none;font-weight:bold;">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if clients.has_next %}
+            <li><a href="?page={{ clients.next_page_number }}{% if search %}&search={{ search }}{% endif %}" style="background:#e9ecef;color:#007bff;padding:7px 15px;border-radius:5px;text-decoration:none;font-weight:bold;">التالي</a></li>
+        {% else %}
+            <li><span style="background:#f1f1f1;color:#aaa;padding:7px 15px;border-radius:5px;">التالي</span></li>
+        {% endif %}
+    </ul>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container" style="max-width:400px;margin:auto;padding:24px 0;">
+    <h2 style="text-align:center;color:#c00;">تأكيد حذف الحجز</h2>
+    <div style="background:#fff;padding:24px 18px;border-radius:10px;box-shadow:0 2px 8px #eee;text-align:center;">
+        <p>هل أنت متأكد أنك تريد حذف هذا الحجز؟</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" style="background:#c00;color:#fff;padding:8px 24px;border-radius:6px;">حذف</button>
+            <a href="{% url 'bookings_list' %}" class="btn btn-secondary" style="margin-right:10px;">إلغاء</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
