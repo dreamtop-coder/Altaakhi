@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
     dependencies = [
         ("clients", "__first__"),
         ("invoices", "__first__"),
-        ("services", "__first__"),
     ]
 
     operations = [

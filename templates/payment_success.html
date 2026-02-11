@@ -80,8 +80,8 @@ body {
                     <div style="font-weight:bold;">Name: <span style="font-weight:normal;">{{ invoice.client.first_name }} {% if invoice.client.last_name %}{{ invoice.client.last_name }}{% endif %}</span></div>
                     <div style="font-weight:bold;">Car Number: <span style="font-weight:normal;">{{ invoice.car.plate_number }}</span></div>
                     <div style="font-weight:bold;">Phone: <span style="font-weight:normal;">{{ invoice.client.phone_number }}</span></div>
-                    <div style="font-weight:bold;">Model: <span style="font-weight:normal;">{{ invoice.car.model|default:'-' }}</span></div>
-                    <div style="font-weight:bold;">Brand: <span style="font-weight:normal;">{{ invoice.car.brand|default:'-' }}</span></div>
+                    <div style="font-weight:bold;">Model: <span style="font-weight:normal;">{% if invoice.car.brand and invoice.car.model %}{{ invoice.car.brand.name }} - {{ invoice.car.model.name }}{% elif invoice.car.model %}{{ invoice.car.model }}{% else %}-{% endif %}</span></div>
+                    <div style="font-weight:bold;">Brand: <span style="font-weight:normal;">{% if invoice.car.brand %}{{ invoice.car.brand.name }}{% else %}-{% endif %}</span></div>
                     <div style="font-weight:bold;">Year: <span style="font-weight:normal;">{{ invoice.car.year|default:'-' }}</span></div>
                     <div style="font-weight:bold;">Color: <span style="font-weight:normal;">{{ invoice.car.color|default:'-' }}</span></div>
                 </div>
@@ -100,33 +100,46 @@ body {
                 </tr>
             </thead>
             <tbody>
-                {% for service in invoice.services.all %}
-                <tr>
-                    <td style="padding:8px 6px;text-align:center;">{{ service.name }}</td>
-                    <td style="padding:8px 6px;text-align:center;">1</td>
-                    <td style="padding:8px 6px;text-align:center;">{{ service.sale_price|default:service.default_price }}</td>
-                    <td style="padding:8px 6px;text-align:center;">0</td>
-                    <td style="padding:8px 6px;text-align:center;">{{ service.sale_price|default:service.default_price }}</td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" style="color:#c00;text-align:center;">No services for this invoice.</td></tr>
-                {% endfor %}
+                {% if service_records or invoice_parts %}
+                    {% for record in service_records %}
+                    <tr>
+                        <td style="padding:8px 6px;text-align:center;">{{ record.service.name }}</td>
+                        <td style="padding:8px 6px;text-align:center;">1</td>
+                        <td style="padding:8px 6px;text-align:center;">{{ record.price }}</td>
+                        <td style="padding:8px 6px;text-align:center;">0</td>
+                        <td style="padding:8px 6px;text-align:center;">{{ record.price }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if invoice_parts %}
+                        {% for part in invoice_parts %}
+                        <tr>
+                            <td style="padding:8px 6px;text-align:center;">{{ part.part_name }}</td>
+                            <td style="padding:8px 6px;text-align:center;">{{ part.quantity }}</td>
+                            <td style="padding:8px 6px;text-align:center;">{{ part.unit_price|floatformat:2 }}</td>
+                            <td style="padding:8px 6px;text-align:center;">0</td>
+                            <td style="padding:8px 6px;text-align:center;">{{ part.total_price|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% endif %}
+                {% else %}
+                    <tr><td colspan="5" style="color:#c00;text-align:center;">No services or parts for this invoice.</td></tr>
+                {% endif %}
             </tbody>
         </table>
-        <div style="width:320px;float:left;margin-top:10px;">
+                <div style="width:320px;float:left;margin-top:10px;">
             <table style="width:100%;border:1px solid #e0e0e0;background:#fafafa;">
-                <tr><td>SUBTOTAL</td><td style="text-align:right;">{{ invoice.amount }}</td></tr>
-                <tr><td>TAX 10%</td><td style="text-align:right;">0</td></tr>
-                <tr><td>DISCOUNT</td><td style="text-align:right;">0</td></tr>
-                <tr><td style="font-weight:bold;background:#eee;">TOTAL</td><td style="font-weight:bold;text-align:right;background:#eee;">{% if paid_amount %}{{ paid_amount }}{% else %}0{% endif %}</td></tr>
+                <tr><td>SUBTOTAL</td><td style="text-align:right;">{{ invoice.amount|floatformat:2 }}</td></tr>
+                <tr><td>TAX 10%</td><td style="text-align:right;">0.00</td></tr>
+                <tr><td>DISCOUNT</td><td style="text-align:right;">0.00</td></tr>
+                <tr><td style="font-weight:bold;background:#eee;">TOTAL</td><td style="font-weight:bold;text-align:right;background:#eee;">{% if paid_amount %}{{ paid_amount|floatformat:2 }}{% else %}0.00{% endif %}</td></tr>
             </table>
         </div>
         <div style="clear:both;"></div>
         <div style="margin-top:40px;font-style:italic;color:#888;">THANK YOU FOR YOUR BUSINESS!</div>
         <div class="invoice-totals">
-            <div style="margin-bottom:7px;"><b>Original Total:</b> <span style="color:#1976d2;font-weight:bold;">{{ invoice.amount }}</span></div>
-            <div style="margin-bottom:7px;"><b>Paid Amount:</b> <span style="color:#28a745;font-weight:bold;">{% if paid_amount %}{{ paid_amount }}{% else %}0{% endif %}</span></div>
-            <div><b>Remaining Balance:</b> <span style="color:#c00;font-weight:bold;">{% if remaining_balance %}{{ remaining_balance }}{% else %}0{% endif %}</span></div>
+            <div style="margin-bottom:7px;"><b>Original Total:</b> <span style="color:#1976d2;font-weight:bold;">{{ invoice.amount|floatformat:2 }}</span></div>
+            <div style="margin-bottom:7px;"><b>Paid Amount:</b> <span style="color:#28a745;font-weight:bold;">{% if paid_amount %}{{ paid_amount|floatformat:2 }}{% else %}0.00{% endif %}</span></div>
+            <div><b>Remaining Balance:</b> <span style="color:#c00;font-weight:bold;">{% if remaining_balance %}{{ remaining_balance|floatformat:2 }}{% else %}0.00{% endif %}</span></div>
         </div>
     </div>
         <div style="text-align:center;margin-top:24px;">

@@ -57,6 +57,23 @@
             مجموع المدفوعات: {{ total_amount|floatformat:2 }}
         {% endif %}
     </div>
+    <div style="margin-left:18px;flex:1;">
+        {% if filter_client_name or filter_invoice_number %}
+            <div style="background:#fffbe6;border:1px solid #ffecb3;padding:8px 12px;border-radius:6px;color:#6a4b00;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <div>
+                    {% if filter_client_name %}
+                        <strong>🔎 عرض دفعات العميل:</strong> {{ filter_client_name }}
+                    {% endif %}
+                    {% if filter_invoice_number %}
+                        <span style="margin-left:12px;"><strong>🔎 عرض دفعات الفاتورة رقم:</strong> {{ filter_invoice_number }}</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <a href="{% url 'payments_list' %}" style="background:#1976d2;color:#fff;padding:6px 12px;border-radius:6px;text-decoration:none;">🔄 عرض جميع الدفعات</a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
     <form method="get" style="display:flex;align-items:center;gap:10px;margin-bottom:0;">
         <label style="font-weight:bold;">من تاريخ:</label>
         <input type="date" name="start_date" value="{{ start_date|default:'' }}" style="padding:3px 8px;border-radius:4px;border:1px solid #ccc;">
@@ -95,12 +112,24 @@
                 <td style="padding:8px 6px;text-align:center; min-width:120px;">
                     <div style="display:inline-flex;gap:8px;align-items:center;justify-content:center;white-space:nowrap;">
                         <a href="{% url 'edit_payment' payment.id %}" style="background:#ffc107;color:#222;padding:5px 12px;border-radius:5px;text-decoration:none;font-size:0.95em;display:inline-block;">تعديل</a>
-                        <a href="{% url 'delete_invoice' payment.invoice.id %}" style="background:#e53935;color:#fff;padding:5px 12px;border-radius:5px;text-decoration:none;font-size:0.95em;display:inline-block;" onclick="return confirm('هل أنت متأكد من حذف الفاتورة؟');">حذف</a>
+                        <a href="{% url 'delete_payment' payment.id %}" style="background:#e53935;color:#fff;padding:5px 12px;border-radius:5px;text-decoration:none;font-size:0.95em;display:inline-block;">حذف</a>
                     </div>
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="8" style="text-align:center;padding:18px;color:#888;">لا توجد مدفوعات في هذه الفترة.</td></tr>
+            <tr>
+                <td colspan="8" style="text-align:center;padding:18px;color:#888;">
+                    {% if filter_client_name %}
+                        لا توجد دفعات خاصة بالعميل: {{ filter_client_name }}.
+                    {% elif filter_invoice_number %}
+                        لا توجد دفعات خاصة بالفاتورة رقم: {{ filter_invoice_number }}.
+                    {% elif start_date or end_date %}
+                        لا توجد مدفوعات في هذه الفترة.
+                    {% else %}
+                        لا توجد دفعات لعرضها.
+                    {% endif %}
+                </td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>

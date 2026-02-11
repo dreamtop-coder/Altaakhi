@@ -23,50 +23,20 @@
 {% load custom_filters %}
 {% if cars and cars|length > 0 %}
   <div class="cars-mobile-wrapper">
-    {% load static %}
     {% for car in cars %}
-      {# أيقونة وعدد الحجوزات وتواريخها حسب رقم الهاتف فقط #}
-      {% with phone=car.client.phone_number %}
-        {% with bookings=bookings_per_phone|get_item:phone %}
-          {% if bookings %}
-            {% with car_bookings=bookings|dictsort:'-service_date' %}
-              {% with filtered=car_bookings|dictfilterbycar:car.id %}
-                {% if filtered and filtered|length > 0 %}
-                  <div style="width:100%;display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-bottom:6px;">
-                    <a href="/bookings/?phone={{ phone }}"
-                       title="استعراض الحجوزات"
-                       style="color:#007bff;font-size:1.3em;display:flex;align-items:center;gap:4px;">
-                      <i class="fa fa-calendar-plus"></i>
-                      <span style="background:#dc3545;color:#fff;font-size:0.75em;padding:2px 6px;border-radius:12px;font-weight:bold;">{{ filtered|length }}</span>
-                    </a>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-                      {% for booking in filtered %}
-                        <a href="/bookings/?phone={{ phone }}"
-                           title="{{ booking.service_type }}"
-                           style="color:#007bff;font-size:0.95em;padding:2px 6px;border:1px solid #e0e0e0;border-radius:6px;background:#f6faff;">
-                          {{ booking.service_date|date:"d/m/Y" }}
-                        </a>
-                      {% endfor %}
-                    </div>
-                  </div>
-                {% endif %}
-              {% endwith %}
-            {% endwith %}
-          {% endif %}
-        {% endwith %}
+      {# bookings summary (simple count + link) #}
+      {% with bookings=bookings_per_phone|get_item:car.client.phone_number %}
+        {% if bookings %}
+          <div style="width:100%;display:flex;justify-content:flex-end;margin-bottom:6px;">
+            <a href="/bookings/?phone={{ car.client.phone_number }}" title="استعراض الحجوزات" style="color:#007bff;font-size:1.05em;display:flex;align-items:center;gap:6px;">
+              <i class="fa fa-calendar-plus"></i>
+              <span style="background:#dc3545;color:#fff;font-size:0.75em;padding:2px 6px;border-radius:12px;font-weight:bold;">{{ bookings|length }}</span>
+            </a>
+          </div>
+        {% endif %}
       {% endwith %}
-      {# شرط: إذا كنا في فلتر جاري التنفيذ (in_progress)، لا تعرض البطاقة إلا إذا كان هناك سجل صيانة نشط فعلاً #}
-      {% if request.GET.status != 'in_progress' %}
-        {# باقي منطق البطاقة كما هو لجميع الفلاتر الأخرى #}
-        
-      {% else %}
-        {% with active_maintenance=car.maintenance_records.all|dictsortreversed:"created_at"|first %}
-          {% if active_maintenance and not active_maintenance.is_finished %}
-            {# فقط إذا كان هناك سجل صيانة نشط، اعرض البطاقة #}
-                
-          {% endif %}
-        {% endwith %}
-      {% endif %}
+
+      {# Ready: show deliver button #}
       {% if car.status == 'ready' %}
         <form method="post" action="/cars/deliver/{{ car.id }}/" style="width:100%;">
           {% csrf_token %}
@@ -74,67 +44,30 @@
             <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
             <a href="/cars/?plate_number={{ car.plate_number }}" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;text-decoration:underline;color:#222;">{{ car.plate_number }}</a>
             <div style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
-            {% if car.work_days %}
-              <div style="color:#007bff;font-size:0.95em;">
-                مدة العمل: 
-                {% if car.work_days == 1 %}يوم واحد
-                {% elif car.work_days == 2 %}يومين
-                {% else %}{{ car.work_days }} أيام
-                {% endif %}
-              </div>
-            {% else %}
-              <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
-            {% endif %}
             <button type="submit" style="margin-top:14px;padding:8px 18px;background:#28a745;color:#fff;border:none;border-radius:6px;font-weight:bold;font-size:1.05em;cursor:pointer;box-shadow:0 2px 8px #28a74533;">تسليم السيارة</button>
             <div style="margin-top:8px;color:#28a745;font-weight:bold;">جاهزة للتسليم</div>
           </div>
         </form>
-      {% elif car.status == 'pending_payment' and car.unpaid_invoice_id %}
-        <a href="/invoices/pay/invoice/{{ car.unpaid_invoice_id }}/" style="text-decoration:none;">
-          <div style="border:1.5px solid #e67e22;padding:18px 24px;border-radius:12px;min-width:180px;max-width:250px;width:220px;display:flex;flex-direction:column;align-items:center;background:#fffbe6;transition:box-shadow 0.2s;cursor:pointer;">
-            <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
-            <div style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
-            <div style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
-            {% if car.work_days %}
-              <div style="color:#007bff;font-size:0.95em;">
-                مدة العمل: 
-                {% if car.work_days == 1 %}يوم واحد
-                {% elif car.work_days == 2 %}يومين
-                {% else %}{{ car.work_days }} أيام
-                {% endif %}
-              </div>
-            {% else %}
-              <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
-            {% endif %}
-            <div style="margin-top:10px;color:#e67e22;font-weight:bold;">معلق للدفع</div>
-          </div>
-        </a>
-      {% elif car.status == 'pending_payment' and not car.unpaid_invoice_id %}
-        <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;opacity:0.5;cursor:not-allowed;">
+
+      {# Pending payment: show a simple card (no pay UI here) #}
+      {% elif car.status == 'pending_payment' %}
+        <div style="border:1px solid #f0ad4e;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fffdea;transition:box-shadow 0.2s;">
           <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
-          <div style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
-          <div style="color:#c00;font-size:1em;margin-bottom:2px;">لا توجد فاتورة غير مدفوعة</div>
+          <a href="/cars/?plate_number={{ car.plate_number }}" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;text-decoration:underline;color:#222;">{{ car.plate_number }}</a>
+          <div style="margin-top:8px;color:#f0ad4e;font-weight:bold;">معلق للدفع</div>
         </div>
+
+      {# Delivered: link to client #}
       {% elif car.status == 'delivered' %}
-          <a href="/clients/{{ car.client.id }}/" style="text-decoration:none;">
-            <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;transition:box-shadow 0.2s;cursor:pointer;">
-              <!-- تم حذف أيقونة وعدد الحجوزات وجميع الروابط المرتبطة بالحجوزات هنا -->
+        <a href="/clients/{{ car.client.id }}/" style="text-decoration:none;">
+          <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;transition:box-shadow 0.2s;cursor:pointer;">
             <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
             <div style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
             <div style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
-            {% if car.work_days %}
-              <div style="color:#007bff;font-size:0.95em;">
-                مدة العمل: 
-                {% if car.work_days == 1 %}يوم واحد
-                {% elif car.work_days == 2 %}يومين
-                {% else %}{{ car.work_days }} أيام
-                {% endif %}
-              </div>
-            {% else %}
-              <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
-            {% endif %}
           </div>
         </a>
+
+      {# Default card: show plate and add maintenance when active #}
       {% else %}
         <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;transition:box-shadow 0.2s;cursor:pointer;">
           <a href="/cars/?plate_number={{ car.plate_number }}" style="text-decoration:none;">
@@ -142,25 +75,18 @@
             <div style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
           </a>
           <div style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
-          {% if car.work_days %}
-            <div style="color:#007bff;font-size:0.95em;">
-              مدة العمل: 
-              {% if car.work_days == 1 %}يوم واحد
-              {% elif car.work_days == 2 %}يومين
-              {% else %}{{ car.work_days }} أيام
-              {% endif %}
-            </div>
-          {% else %}
-            <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
+
+          {% if car.status == 'active' %}
+            <a href="/maintenance/add/?car_id={{ car.id }}" class="btn btn-primary btn-sm" style="margin-top:10px;">إضافة سجل صيانة</a>
           {% endif %}
-            {% if car.status == 'active' %}
-              {% with active_maintenance=car.maintenance_records.all|dictsortreversed:"created_at"|first %}
-                {% if not active_maintenance or active_maintenance.is_finished %}
-                  <a href="/maintenance/add/?car_id={{ car.id }}" class="btn btn-primary btn-sm" style="margin-top:10px;">إضافة سجل صيانة</a>
-                {% endif %}
-              {% endwith %}
-            {% endif %}
-            {# لا تعرض زر تسليم السيارة إلا إذا كانت الحالة ready فقط (تم إنهاء الصيانة) #}
+
+          {# If this car has no maintenance records (waiting) and user filtered by plate, allow deleting the car only (not the client) #}
+          {% if not car.has_maintenance and plate_number %}
+            <form method="post" action="{% url 'cars:delete_car' car.id %}" style="margin-top:8px;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger btn-sm">حذف المركبة</button>
+            </form>
+          {% endif %}
         </div>
       {% endif %}
     {% endfor %}

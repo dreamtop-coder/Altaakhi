@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+import traceback
 from .models import Client
 from cars.models import Car
 from .forms import ClientForm
@@ -88,9 +90,22 @@ def add_client(request):
 
 def delete_client(request, client_id):
     client = get_object_or_404(Client, id=client_id)
+    # Prevent deleting a client who has paid invoices.
+    paid_invoices = client.invoices.filter(paid=True).select_related("car")
+    if paid_invoices.exists():
+        # If POST was attempted, do not perform deletion; show instructions instead
+        return render(
+            request,
+            "clients/delete_client.html",
+            {"client": client, "block_delete": True, "paid_invoices": paid_invoices},
+        )
+
     if request.method == "POST":
-        client.delete()
-        return redirect("clients_list")
+        try:
+            client.delete()
+            return redirect("clients_list")
+        except Exception:
+            return HttpResponse('<pre>' + traceback.format_exc() + '</pre>')
     return render(request, "clients/delete_client.html", {"client": client})
 
 

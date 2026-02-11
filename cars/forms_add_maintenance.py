@@ -4,8 +4,19 @@ from services.models import Service
 
 class AddMaintenanceForm(forms.Form):
     plate_number = forms.CharField(label="رقم السيارة", max_length=20)
-    service = forms.ModelChoiceField(queryset=Service.objects.all(), label="نوع الخدمة")
-    price = forms.DecimalField(max_digits=10, decimal_places=2, label="السعر")
+    service = forms.ModelChoiceField(
+        queryset=Service.objects.all(),
+        label="نوع الخدمة",
+        required=False,
+        widget=forms.Select(),
+    )
+    price = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        label="السعر",
+        required=False,
+        widget=forms.NumberInput(),
+    )
     notes = forms.CharField(widget=forms.Textarea, required=False, label="ملاحظات")
     maintenance_date = forms.DateField(
         label="تاريخ الصيانة", widget=forms.DateInput(attrs={"type": "date"})

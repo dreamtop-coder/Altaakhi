@@ -74,5 +74,15 @@ class Car(models.Model):
 
     @property
     def unpaid_invoice_id(self):
+        # Allow views to override this at runtime by setting
+        # a private attribute `_unpaid_invoice_id` on the instance.
+        if hasattr(self, "_unpaid_invoice_id"):
+            return getattr(self, "_unpaid_invoice_id")
         unpaid_invoice = self.invoices.filter(paid=False).first()
         return unpaid_invoice.id if unpaid_invoice else None
+
+    @unpaid_invoice_id.setter
+    def unpaid_invoice_id(self, value):
+        # Store override value on the instance so views/templates
+        # can set it without modifying DB-backed behavior.
+        setattr(self, "_unpaid_invoice_id", value)

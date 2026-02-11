@@ -1,10 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
   <h2>تأكيد حذف العميل</h2>
-  <p>هل أنت متأكد أنك تريد حذف العميل: {{ client.first_name }} {{ client.last_name }}؟</p>
-  <form method="post">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-danger">حذف</button>
-    <a href="{% url 'clients_list' %}" class="btn btn-secondary">إلغاء</a>
-  </form>
+  {% if block_delete %}
+    <p style="color:#c00;">لا يمكن حذف العميل لأن له فاتورة/فواتير مدفوعة.</p>
+    <p>الإجراء الصحيح:
+      <ol>
+        <li>حذف دفعات الدفع المرتبطة (عرض الدفعات أدناه).</li>
+        <li>حذف الفاتورة/الفواتير المرتبطة.</li>
+        <li>ثم إعادة محاولة حذف العميل.</li>
+      </ol>
+    </p>
+    <h4>الفواتير المدفوعة لهذا العميل</h4>
+    <ul>
+        {% for inv in paid_invoices %}
+          <li>
+            فاتورة رقم {{ inv.invoice_number }} - سيارة: {{ inv.car.plate_number }}
+            &nbsp;•&nbsp;<a href="{% url 'print_invoice' inv.id %}">عرض الفاتورة</a>
+            &nbsp;•&nbsp;<a href="{% url 'delete_invoice' inv.id %}">حذف الفاتورة</a>
+          </li>
+        {% endfor %}
+    </ul>
+    <p>
+      <a href="{% url 'payments_list' %}">اذهب إلى الدفعات</a> لعرض/حذف دفعات محددة، أو
+        انتقل إلى صفحة الفاتورة الواردة أعلاه لحذفها بعد حذف دفعاتها.
+      </p>
+      <p>
+        <a href="{% url 'payments_list' %}?client={{ client.id }}">اذهب إلى الدفعات</a> لعرض/حذف دفعات محددة، أو
+        انتقل إلى صفحة الفاتورة الواردة أعلاه لحذفها بعد حذف دفعاتها.
+    </p>
+    <a href="{% url 'clients_list' %}" class="btn btn-secondary">رجوع</a>
+  {% else %}
+    <p>هل أنت متأكد أنك تريد حذف العميل: {{ client.first_name }} {{ client.last_name }}؟</p>
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">حذف</button>
+      <a href="{% url 'clients_list' %}" class="btn btn-secondary">إلغاء</a>
+    </form>
+  {% endif %}
 {% endblock %}

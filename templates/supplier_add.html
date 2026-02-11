@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="padding:18px;">
+    <h2>إضافة مورد جديد</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" style="padding:8px;background:#32405a;color:#fff;border:none;">حفظ</button>
+        <a href="{% url 'inventory:suppliers_list' %}" style="margin-left:10px;">إلغاء</a>
+    </form>
+</div>
+{% endblock %}

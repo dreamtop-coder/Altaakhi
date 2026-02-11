@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="padding:18px;">
+    <h2>المشتريات</h2>
+    <p>اختر القسم الذي تريد الذهاب إليه:</p>
+    <ul style="list-style:none;padding:0;">
+        <li style="padding:8px 0;"><a href="/suppliers/">الموردين</a></li>
+        <li style="padding:8px 0;"><a href="{% url 'inventory:purchases_list' %}">الفواتير</a></li>
+        <li style="padding:8px 0;"><a href="/inventory/">المخزون</a></li>
+        <li style="padding:8px 0;"><a href="/items/">الأصناف</a></li>
+    </ul>
+</div>
+{% endblock %}

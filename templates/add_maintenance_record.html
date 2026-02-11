@@ -3,13 +3,13 @@
 {% block content %}
 <style>
     .maintenance-card {
-        max-width: 480px;
-        margin-left: auto;
-        margin-right: auto;
+        max-width: 960px;
+        /* center the card to match dashboard header layout */
+        margin: 18px auto;
         background: #fff;
-        padding: 32px 36px 26px 36px;
-        border-radius: 16px;
-        box-shadow: 0 4px 16px #e0e0e0;
+        padding: 24px 28px;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.06);
         direction: rtl;
         font-family: 'Cairo', Tahoma, Arial, sans-serif;
         width: 100%;
@@ -60,7 +60,12 @@
     }
     .maintenance-actions {
         margin-top: 24px;
-        text-align: center;
+        text-align: right;
+        display: flex;
+        /* align action buttons to the right in the header (RTL layout) */
+        justify-content: flex-end;
+        gap: 12px;
+        align-items: center;
     }
     .maintenance-btn {
         background: linear-gradient(90deg,#1976d2 60%,#2196f3 100%);
@@ -72,7 +77,7 @@
         font-size: 16px;
         box-shadow: 0 2px 8px #e3e3e3;
         cursor: pointer;
-        margin-left: 8px;
+        margin: 0;
         transition: background 0.2s;
     }
     .maintenance-btn:hover {
@@ -87,7 +92,7 @@
         font-weight: bold;
         font-size: 15px;
         cursor: pointer;
-        margin-right: 8px;
+        margin: 0;
         transition: background 0.2s, color 0.2s;
     }
     .maintenance-cancel:hover {
@@ -97,11 +102,12 @@
     @media (max-width: 700px) {
         .maintenance-card {
             max-width: 98vw;
-            padding: 18px 6vw 18px 6vw;
+            padding: 18px 4vw;
         }
         .maintenance-title {
             font-size: 20px;
         }
+        .maintenance-actions { text-align: center; justify-content: center; }
         .maintenance-form > div, .maintenance-form label, .maintenance-form input, .maintenance-form textarea, .maintenance-form select {
             font-size: 15px !important;
         }
@@ -109,7 +115,7 @@
     @media (max-width: 480px) {
         .maintenance-card {
             max-width: 100vw;
-            padding: 10px 1vw 10px 20vw;
+            padding: 10px 4vw;
         }
         .maintenance-title {
             font-size: 17px;
@@ -118,10 +124,22 @@
             font-size: 13px !important;
         }
     }
+    /* Invoice table and inputs - unified right alignment */
+    #invoice-items-table, #invoice-items-table th, #invoice-items-table td { text-align: right; }
+    #invoice-items-table input { text-align: right; }
+    .inv-name { text-align: right !important; }
+    .inv-qty, .inv-unit { text-align: center !important; }
 </style>
 <div class="maintenance-card">
     <div class="maintenance-title">
         سجل الصيانة للسيارة
+    </div>
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;">
+            <div style="flex:1;text-align:left;font-weight:bold;">
+                رقم الفاتورة: <span id="next-invoice-number">{{ next_invoice_number }}</span>
+                <div style="margin-top:6px;font-weight:normal;">تاريخ: <span id="header-date">{{ form.maintenance_date }}</span></div>
+            </div>
+        </div>
     </div>
     <form method="post" id="maintenance-form">
         {% csrf_token %}
@@ -140,15 +158,34 @@
             </ul>
         </div>
         {% endif %}
+        {% if error %}
+        <div style="background:#fff3cd;color:#856404;padding:12px 18px;border-radius:8px;margin-bottom:18px;font-size:15px;">
+            <strong>ملاحظة:</strong>
+            <div style="margin-top:6px;white-space:pre-line;">{{ error }}</div>
+        </div>
+        {% endif %}
         <div class="maintenance-form">
             {% if car_instance %}
-                <div style="padding:12px 16px;background:#f5f7fa;border-radius:8px;border:1px solid #e0e0e0;font-size:15px;margin-bottom:18px;">
-                    <div style="margin-bottom:8px;"><b>رقم السيارة:</b> <input type="text" name="plate_number" id="id_plate_number" value="{{ car_instance.plate_number }}" class="maintenance-input" style="width:140px;display:inline-block;text-align:center;font-weight:bold;" readonly /></div>
-                    <div><b>الاسم:</b> {{ car_instance.client.first_name }}{% if car_instance.client.last_name %} {{ car_instance.client.last_name }}{% endif %}</div>
-                    <div><b>الموديل:</b> {% if car_instance.model %}{{ car_instance.model.name }}{% else %}-{% endif %}</div>
-                    <div><b>الصنع:</b> {% if car_instance.brand %}{{ car_instance.brand.name }}{% else %}-{% endif %}</div>
-                    <div><b>سنة الصنع:</b> {% if car_instance.year %}{{ car_instance.year }}{% else %}-{% endif %}</div>
-                    <div><b>اللون:</b> {% if car_instance.color %}{{ car_instance.color }}{% else %}-{% endif %}</div>
+                <div style="padding:12px;background:#f5f7fa;border-radius:8px;border:1px solid #e0e0e0;font-size:15px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div style="padding:6px;">
+                        <div style="font-weight:bold;margin-bottom:6px;">صاحب المركبة</div>
+                        <div>الاسم: <b>{{ car_instance.client.first_name }}{% if car_instance.client.last_name %} {{ car_instance.client.last_name }}{% endif %}</b></div>
+                        <div>الرقم الشخصي: <b>{{ car_instance.client.personal_id|default:'-' }}</b></div>
+                        <div>رقم الهاتف: <b>{{ car_instance.client.phone|default:'-' }}</b></div>
+                        <div>البريد الإلكتروني: <b>{{ car_instance.client.email|default:'-' }}</b></div>
+                        <div>العنوان: <b>{{ car_instance.client.address|default:'-' }}</b></div>
+                    </div>
+                    <div style="padding:6px;">
+                        <div style="font-weight:bold;margin-bottom:6px;">بيانات المركبة</div>
+                        <div style="display:flex;justify-content:flex-start;align-items:center;gap:12px;">
+                            <div>رقم السيارة: <b>{{ car_instance.plate_number }}</b></div>
+                        </div>
+                        <div>الحالة: <b>{{ car_instance.get_status_display|default:car_instance.status }}</b></div>
+                        <div>الموديل: <b>{% if car_instance.model %}{{ car_instance.model.name }}{% else %}-{% endif %}</b></div>
+                        <div>الصنع: <b>{% if car_instance.brand %}{{ car_instance.brand.name }}{% else %}-{% endif %}</b></div>
+                        <div>سنة الصنع: <b>{% if car_instance.year %}{{ car_instance.year }}{% else %}-{% endif %}</b></div>
+                        <div>تاريخ الإضافة: <b>{{ car_instance.created_at|date:'Y-m-d' }}</b></div>
+                    </div>
                 </div>
             {% else %}
                 <div>
@@ -157,31 +194,56 @@
                     <div id="car-info-box" style="display:none;margin-top:10px;"></div>
                 </div>
             {% endif %}
-            <div>
-                <label for="id_service" class="maintenance-label" style="display:block;margin-bottom:6px;"><span>نوع الخدمة:</span></label>
+            <div style="display:none;">
                 {{ form.service }}
             </div>
-            <div style="background:#f5f7fa;border-radius:7px;border:1px solid #e0e0e0;padding:10px 12px 8px 12px;margin-bottom:10px;">
-                <label for="id_price" class="maintenance-label" style="display:block;margin-bottom:6px;"><span>السعر:</span></label>
-                {{ form.price }}
+            <div id="service-parts-box" style="margin-top:8px;display:none;background:#fff;border-radius:8px;border:1px solid #e0e0e0;padding:10px;">
+                <div style="font-weight:bold;color:#1976d2;margin-bottom:8px;">أجزاء مرتبطة بالخدمة (من المخزون)</div>
+                <div id="service-parts-list" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;padding-right:4px;"></div>
             </div>
-            <div style="background:#f5f7fa;border-radius:7px;border:1px solid #e0e0e0;padding:10px 12px 8px 12px;margin-bottom:10px;">
-                <label for="id_maintenance_date" class="maintenance-label" style="display:block;margin-bottom:6px;"><span>تاريخ الصيانة:</span></label>
-                {{ form.maintenance_date }}
+
+            <!-- maintenance date moved to car info block above -->
+
+            <div id="invoice-items-box" style="margin-top:10px;background:#fff;border-radius:8px;border:1px solid #e0e0e0;padding:10px;">
+                <div style="font-weight:bold;color:#1976d2;margin-bottom:8px;">عناصر الفاتورة</div>
+                <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;">
+                    <button type="button" id="add-invoice-row" style="background:#1976d2;color:#fff;padding:6px 12px;border-radius:6px;border:none;">إضافة سطر</button>
+                    <div style="color:#666;font-size:0.95em;">أضف اسم الصنف أو الخدمة، ثم الكمية والسعر.</div>
+                </div>
+                <table id="invoice-items-table" style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <thead>
+                        <tr style="background:#32405a;color:#fff;text-align:right;">
+                            <th style="padding:8px;border:1px solid #2b3b4a;color:#fff;">اسم القطعة</th>
+                            <th style="padding:8px;border:1px solid #2b3b4a;width:90px;color:#fff;">الكمية</th>
+                            <th style="padding:8px;border:1px solid #2b3b4a;width:130px;color:#fff;">سعر الوحدة</th>
+                            <th style="padding:8px;border:1px solid #2b3b4a;width:130px;color:#fff;">السعر الإجمالي</th>
+                            <th style="padding:8px;border:1px solid #2b3b4a;width:80px;color:#fff;">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" style="padding:8px;text-align:left;border:1px solid #eee;font-weight:bold;">المجموع</td>
+                            <td style="padding:8px;border:1px solid #eee;text-align:right;font-weight:bold;" id="invoice-items-total">0.00</td>
+                            <td style="border:1px solid #eee;"></td>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
+            <div style="display:none;">{{ form.price }}</div>
             <div>
                 <label for="id_notes" class="maintenance-label"><span>ملاحظات:</span></label>
                 {{ form.notes }}
             </div>
+            <div class="maintenance-actions">
+                <button type="submit" class="maintenance-btn">حفظ السجل</button>
+                {% if car_instance %}
+                    <a href="/dashboard/" class="maintenance-cancel">إلغاء</a>
+                {% else %}
+                    <a href="{% url 'cars:maintenance_list' %}" class="maintenance-cancel">إلغاء</a>
+                {% endif %}
+            </div>
         </div>
-        </div>
-        <div class="maintenance-actions">
-            <button type="submit" class="maintenance-btn">حفظ السجل</button>
-            {% if car_instance %}
-                <a href="/dashboard/" class="maintenance-cancel">إلغاء</a>
-            {% else %}
-                <a href="{% url 'cars:maintenance_list' %}" class="maintenance-cancel">إلغاء</a>
-            {% endif %}
         </div>
     </form>
 </div>
@@ -198,10 +260,234 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if(data.price !== undefined) {
                         priceInput.value = parseFloat(data.price).toFixed(2);
+                        // update readonly service row in invoice table
+                        addOrUpdateServiceRow(serviceId, selectedOption.text, parseFloat(data.price||0));
+                    } else {
+                        // remove service row if no price
+                        addOrUpdateServiceRow('', '', 0);
                     }
                 });
+
+            // Load related parts for the selected service
+            var partsBox = document.getElementById('service-parts-box');
+            var partsList = document.getElementById('service-parts-list');
+            partsList.innerHTML = '';
+            if(!serviceId) { partsBox.style.display = 'none'; return; }
+            fetch('/services/' + serviceId + '/parts/')
+                .then(r => r.json())
+                .then(function(data){
+                    function renderParts(arr){
+                        partsList.innerHTML = '';
+                        if(Array.isArray(arr) && arr.length>0){
+                            partsBox.style.display = 'block';
+                            arr.forEach(function(p){
+                                var row = document.createElement('div');
+                                row.style.display = 'flex';
+                                row.style.justifyContent = 'space-between';
+                                row.style.alignItems = 'center';
+                                row.style.gap = '8px';
+                                var salePrice = (p.sale_price||0);
+                                row.innerHTML = `
+                                    <label style="flex:1;">\n                                    <input type=\"checkbox\" name=\"service_part_checkbox\" class=\"service-part-checkbox\" value=\"${p.id}\" data-name=\"${p.name}\" data-price=\"${salePrice}\"> ${p.name} <span style=\"color:#666;font-size:0.95em;\">(الكمية: ${p.quantity})</span>
+                                    </label>
+                                    <div style=\"min-width:180px;text-align:right;color:#666;display:flex;gap:8px;align-items:center;justify-content:flex-end;\">سعر الوحدة: ${parseFloat(salePrice).toFixed(2)} <input type=\"number\" min=\"1\" value=\"1\" class=\"service-part-qty\" data-part-id=\"${p.id}\" style=\"width:56px;padding:4px;border-radius:6px;border:1px solid #ddd;\" title=\"كمية\"/></div>
+                                `;
+                                partsList.appendChild(row);
+                            });
+                        } else {
+                            partsBox.style.display = 'none';
+                        }
+                    }
+
+                    // If service has linked parts, render them; otherwise fetch all parts as a fallback
+                    if(Array.isArray(data) && data.length>0){
+                        renderParts(data);
+                    } else {
+                        // fallback to all parts
+                        fetch('/suppliers/parts-list/')
+                            .then(r2 => r2.json())
+                            .then(function(all){ renderParts(all); })
+                            .catch(function(){ partsBox.style.display = 'none'; });
+                    }
+                }).catch(function(){ partsBox.style.display = 'none'; });
         });
     }
+
+    // Invoice items table behavior
+    function formatMoney(v){ return parseFloat(v||0).toFixed(2); }
+    function addInvoiceRow(data){
+        var tbody = document.querySelector('#invoice-items-table tbody');
+        var tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="padding:6px;border:1px solid #eee;text-align:right;"><input type="text" class="inv-name" value="${(data && data.name)?data.name:''}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
+            <td style="padding:6px;border:1px solid #eee;text-align:center;"><input type="number" min="1" class="inv-qty" value="${(data && data.qty)?data.qty:1}" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
+            <td style="padding:6px;border:1px solid #eee;text-align:right;"><input type="number" step="0.01" min="0" class="inv-unit" value="${(data && data.unit)?data.unit:0}" style="width:110px;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
+            <td style="padding:6px;border:1px solid #eee;text-align:right;" class="inv-line-total">${formatMoney((data && data.qty && data.unit)?(data.qty*data.unit):0)}</td>
+            <td style="padding:6px;border:1px solid #eee;text-align:center;"><button type="button" class="remove-inv-row" style="background:#e53935;color:#fff;padding:6px 8px;border:none;border-radius:6px;">حذف</button></td>
+        `;
+        tbody.appendChild(tr);
+        // set dataset.partId if provided
+        if(data && data.id){
+            var nameInput = tr.querySelector('.inv-name');
+            if(nameInput) nameInput.dataset.partId = data.id;
+        }
+        attachRowEvents(tr);
+        // focus name input for quick entry
+        var nameInput = tr.querySelector('.inv-name');
+        if(nameInput){ setTimeout(function(){ nameInput.focus(); }, 50); }
+        updateInvoiceTotal();
+    }
+
+    // Add or update a readonly invoice row representing the selected service
+    function addOrUpdateServiceRow(serviceId, name, price){
+        var tbody = document.querySelector('#invoice-items-table tbody');
+        var existing = tbody.querySelector('tr.service-inv-row');
+        if(!serviceId){ if(existing){ existing.parentNode.removeChild(existing); updateInvoiceTotal(); } return; }
+        var total = (parseFloat(price)||0) * 1;
+        if(existing){
+            existing.dataset.serviceId = serviceId;
+            existing.querySelector('.service-name').textContent = name;
+            existing.querySelector('.service-unit').textContent = formatMoney(price);
+            existing.querySelector('.inv-line-total').textContent = formatMoney(total);
+        } else {
+            var tr = document.createElement('tr');
+            tr.className = 'service-inv-row';
+            tr.dataset.serviceId = serviceId;
+            tr.innerHTML = `
+                <td class="service-name" style="padding:6px;border:1px solid #eee;text-align:right;font-weight:bold;">
+                    ${name}
+                </td>
+                <td style="padding:6px;border:1px solid #eee;text-align:center;">1</td>
+                <td class="service-unit" style="padding:6px;border:1px solid #eee;text-align:right;">${formatMoney(price)}</td>
+                <td class="inv-line-total" style="padding:6px;border:1px solid #eee;text-align:right;">${formatMoney(total)}</td>
+                <td style="padding:6px;border:1px solid #eee;text-align:center;"></td>
+            `;
+            if(tbody.firstChild) tbody.insertBefore(tr, tbody.firstChild); else tbody.appendChild(tr);
+        }
+        updateInvoiceTotal();
+    }
+    // Simple debounce helper
+    function debounce(fn, wait){
+        var t;
+        return function(){
+            var args = arguments;
+            clearTimeout(t);
+            t = setTimeout(function(){ fn.apply(null, args); }, wait||250);
+        };
+    }
+    // Attach autocomplete to name input within an invoice row
+    function attachAutocompleteToName(input){
+        var container;
+        function closeContainer(){ if(container){ container.parentNode.removeChild(container); container = null; } }
+        function showSuggestions(list){
+            closeContainer();
+            container = document.createElement('div');
+            container.style.position = 'absolute';
+            container.style.zIndex = 9999;
+            container.style.background = '#fff';
+            container.style.border = '1px solid #ddd';
+            container.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)';
+            container.style.maxHeight = '200px';
+            container.style.overflow = 'auto';
+            container.style.width = (input.offsetWidth) + 'px';
+            list.forEach(function(it){
+                var row = document.createElement('div');
+                row.style.padding = '8px';
+                row.style.cursor = 'pointer';
+                // show only the name for cleaner suggestions
+                row.textContent = it.name;
+                row.addEventListener('click', function(){
+                    input.value = it.name;
+                    // mark dataset based on type
+                    if(it._type === 'service'){
+                        delete input.dataset.partId;
+                        input.dataset.serviceId = it.id;
+                        var tr = input.closest('tr');
+                        if(tr){
+                            var unit = tr.querySelector('.inv-unit'); if(unit){ unit.value = parseFloat(it.default_price||0).toFixed(2); unit.dispatchEvent(new Event('change')); }
+                            var qty = tr.querySelector('.inv-qty'); if(qty) qty.value = 1;
+                        }
+                    } else {
+                        input.dataset.partId = it.id;
+                        delete input.dataset.serviceId;
+                        var tr = input.closest('tr');
+                        if(tr){ var unit = tr.querySelector('.inv-unit'); if(unit){ unit.value = parseFloat(it.sale_price||0).toFixed(2); unit.dispatchEvent(new Event('change')); } var qty = tr.querySelector('.inv-qty'); if(qty && (!qty.value || parseInt(qty.value)<=0)) qty.value = 1; }
+                    }
+                    closeContainer();
+                });
+                container.appendChild(row);
+            });
+            document.body.appendChild(container);
+            var rect = input.getBoundingClientRect();
+            container.style.left = (rect.left + window.pageXOffset) + 'px';
+            container.style.top = (rect.bottom + window.pageYOffset) + 'px';
+        }
+        var handler = debounce(function(){
+            var q = input.value.trim();
+            if(!q){ closeContainer(); return; }
+            var partsUrl = '/items-autocomplete/?q=' + encodeURIComponent(q);
+            var servicesUrl = '/services-autocomplete/?q=' + encodeURIComponent(q);
+            Promise.all([fetch(partsUrl).then(r=>r.json()), fetch(servicesUrl).then(r=>r.json())])
+                .then(function(results){
+                    var parts = Array.isArray(results[0]) ? results[0].map(function(p){ p._type='part'; return p; }) : [];
+                    var svcs = Array.isArray(results[1]) ? results[1].map(function(s){ s._type='service'; return s; }) : [];
+                    var combined = svcs.concat(parts);
+                    if(combined.length>0) showSuggestions(combined); else closeContainer();
+                }).catch(function(){ closeContainer(); });
+        }, 200);
+        input.addEventListener('input', handler);
+        input.addEventListener('blur', function(){ setTimeout(closeContainer, 200); });
+    }
+    function attachRowEvents(tr){
+        var qty = tr.querySelector('.inv-qty');
+        var unit = tr.querySelector('.inv-unit');
+        var remove = tr.querySelector('.remove-inv-row');
+        function updateLine(){
+            var q = parseFloat(qty.value||0);
+            var u = parseFloat(unit.value||0);
+            var total = (q*u)||0;
+            tr.querySelector('.inv-line-total').textContent = formatMoney(total);
+            updateInvoiceTotal();
+        }
+        qty.addEventListener('change', updateLine);
+        qty.addEventListener('keyup', updateLine);
+        unit.addEventListener('change', updateLine);
+        unit.addEventListener('keyup', updateLine);
+        remove.addEventListener('click', function(){ tr.parentNode.removeChild(tr); updateInvoiceTotal(); });
+        // attach autocomplete to name input
+        var nameInput = tr.querySelector('.inv-name');
+        if(nameInput){ attachAutocompleteToName(nameInput); }
+    }
+    function updateInvoiceTotal(){
+        var rows = document.querySelectorAll('#invoice-items-table tbody tr');
+        var sum = 0;
+        rows.forEach(function(r){ sum += parseFloat((r.querySelector('.inv-line-total').textContent||0)); });
+        document.getElementById('invoice-items-total').textContent = formatMoney(sum);
+    }
+    document.getElementById('add-invoice-row').addEventListener('click', function(){ addInvoiceRow(); });
+
+    // when service part checkboxes change, add/remove invoice rows
+    document.addEventListener('change', function(e){
+        var cb = e.target;
+        if(cb && cb.classList && cb.classList.contains('service-part-checkbox')){
+            var partId = cb.value;
+            var name = cb.dataset.name || '';
+            var price = parseFloat(cb.dataset.price || 0);
+            var qtyInput = document.querySelector('.service-part-qty[data-part-id="'+partId+'"]');
+            var qty = qtyInput ? parseInt(qtyInput.value||1) : 1;
+            if(cb.checked){
+                // avoid duplicates: check if a row with this partId already exists
+                var exists = Array.from(document.querySelectorAll('#invoice-items-table tbody .inv-name')).some(function(inp){ return inp.dataset.partId && parseInt(inp.dataset.partId)==parseInt(partId); });
+                if(!exists){ addInvoiceRow({id: partId, name: name, qty: qty, unit: price}); }
+            } else {
+                // remove matching invoice rows
+                var rows = Array.from(document.querySelectorAll('#invoice-items-table tbody tr'));
+                rows.forEach(function(r){ var inp = r.querySelector('.inv-name'); if(inp && inp.dataset.partId && parseInt(inp.dataset.partId)==parseInt(partId)){ r.parentNode.removeChild(r); } });
+                updateInvoiceTotal();
+            }
+        }
+    });
+
 
     // جلب بيانات السيارة عند إدخال رقم اللوحة
     var plateInput = document.getElementById('id_plate_number');
@@ -215,21 +501,37 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(r => r.json())
             .then(data => {
                 if(data.found) {
+                    // render horizontally as a two-column grid
                     infoBox.style.display = 'block';
                     infoBox.innerHTML = `
-                        <div style="margin-bottom:8px;font-weight:bold;color:#1976d2;">صاحب المركبة</div>
-                        <div>الاسم: <b>${data.client.name}</b></div>
-                        <div>الرقم الشخصي: <b>${data.client.personal_id || '-'}</b></div>
-                        <div>رقم الهاتف: <b>${data.client.phone || '-'}</b></div>
-                        <div>البريد الإلكتروني: <b>${data.client.email || '-'}</b></div>
-                        <div>العنوان: <b>${data.client.address || '-'}</b></div>
-                        <div style="margin:10px 0 6px 0;font-weight:bold;color:#1976d2;">بيانات المركبة</div>
-                        <div>الحالة: <b>${data.car.status}</b></div>
-                        <div>الموديل: <b>${data.car.model}</b></div>
-                        <div>الصنع: <b>${data.car.brand}</b></div>
-                        <div>سنة الصنع: <b>${data.car.year}</b></div>
-                        <div>تاريخ الإضافة: <b>${data.car.created_at}</b></div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:6px;background:#f5f7fa;border-radius:8px;border:1px solid #e0e0e0;">
+                            <div>
+                                <div style="font-weight:bold;margin-bottom:6px;">صاحب المركبة</div>
+                                <div>الاسم: <b>${data.client.name}</b></div>
+                                <div>الرقم الشخصي: <b>${data.client.personal_id || '-'}</b></div>
+                                <div>رقم الهاتف: <b>${data.client.phone || '-'}</b></div>
+                                <div>البريد الإلكتروني: <b>${data.client.email || '-'}</b></div>
+                                <div>العنوان: <b>${data.client.address || '-'}</b></div>
+                            </div>
+                            <div>
+                                <div style="font-weight:bold;margin-bottom:6px;">بيانات المركبة</div>
+                                <div style="display:flex;justify-content:flex-start;align-items:center;gap:12px;">
+                                    <div>رقم السيارة: <b>${plate}</b></div>
+                                </div>
+                                <div>الحالة: <b>${data.car.status}</b></div>
+                                <div>الموديل: <b>${data.car.model}</b></div>
+                                <div>الصنع: <b>${data.car.brand}</b></div>
+                                <div>سنة الصنع: <b>${data.car.year}</b></div>
+                                <div>تاريخ الإضافة: <b>${data.car.created_at}</b></div>
+                            </div>
+                        </div>
                     `;
+                    // set header invoice number display and header date input and ajax maintenance date
+                    var nextInv = document.getElementById('next-invoice-number');
+                    if(nextInv && typeof nextInv.textContent !== 'undefined') nextInv.textContent = '{{ next_invoice_number }}';
+                    var headerDate = document.getElementById('header-date');
+                    if(headerDate){ headerDate.innerHTML = document.getElementById('id_maintenance_date').value || '' }
+                    // no secondary maintenance date here; header date is the single source of truth
                 } else {
                     infoBox.style.display = 'block';
                     infoBox.innerHTML = '<span style="color:#c00;font-weight:bold;">رقم السيارة غير موجود في قاعدة البيانات.</span>';
@@ -241,6 +543,79 @@ document.addEventListener('DOMContentLoaded', function() {
     plateInput.addEventListener('keyup', function(e) {
         if(e.key === 'Enter') fetchCarInfo();
     });
+    // ensure initial empty invoice row for convenience
+    addInvoiceRow();
+});
+// جمع أجزاء الخدمة المختارة قبل إرسال الفورم
+document.addEventListener('DOMContentLoaded', function(){
+    var form = document.getElementById('maintenance-form');
+    if(!form) return;
+    form.addEventListener('submit', function(e){
+        console.log('[maintenance] submit handler running');
+        var checked = Array.from(document.querySelectorAll('.service-part-checkbox:checked'));
+        var parts = [];
+        checked.forEach(function(cb){
+            var id = cb.value;
+            var name = cb.dataset.name || '';
+            var unit = parseFloat(cb.dataset.price || 0);
+            var qtyInput = document.querySelector('.service-part-qty[data-part-id="'+id+'"]');
+            var qty = qtyInput ? parseInt(qtyInput.value || 1) : 1;
+            parts.push({id: id, name: name, qty: qty, unit: unit});
+        });
+        // include invoice table rows (free items or selected parts)
+        var invRows = Array.from(document.querySelectorAll('#invoice-items-table tbody tr'));
+        invRows.forEach(function(r){
+            var nameEl = r.querySelector('.inv-name');
+            var qtyEl = r.querySelector('.inv-qty');
+            var unitEl = r.querySelector('.inv-unit');
+            if(!nameEl) return;
+            var name = (nameEl.value||'').trim();
+            if(!name) return;
+            var pid = nameEl.dataset.partId ? parseInt(nameEl.dataset.partId) : null;
+            var qty = qtyEl ? parseInt(qtyEl.value || 1) : 1;
+            var unit = unitEl ? parseFloat(unitEl.value || 0) : 0;
+            var item = { id: pid, name: name, qty: qty, unit: unit };
+            // mark rows that were selected as a Service (autocomplete sets dataset.serviceId)
+            if(nameEl && nameEl.dataset && nameEl.dataset.serviceId){
+                item.is_service = true;
+                item.service_id = parseInt(nameEl.dataset.serviceId);
+            }
+            parts.push(item);
+        });
+        // remove existing hidden if any
+        var existing = document.querySelector('input[name="service_parts"]');
+        if(existing) existing.parentNode.removeChild(existing);
+        var hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'service_parts';
+        hidden.value = JSON.stringify(parts);
+        form.appendChild(hidden);
+        console.log('[maintenance] appended hidden service_parts, total parts=', parts.length);
+    });
 });
 </script>
 {% endblock %}
+
+<script>
+// Ensure Save button triggers the form submit flow (uses requestSubmit so submit handlers run)
+document.addEventListener('DOMContentLoaded', function(){
+    try{
+        var form = document.getElementById('maintenance-form');
+        if(!form) return;
+        var btn = form.querySelector('.maintenance-btn');
+        if(!btn) return;
+        btn.addEventListener('click', function(ev){
+            console.log('[maintenance] save button clicked');
+            try{
+                // prefer requestSubmit so the browser runs constraint validation and submit handlers
+                if(typeof form.requestSubmit === 'function'){
+                    form.requestSubmit();
+                    console.log('[maintenance] form.requestSubmit() called');
+                } else {
+                    form.submit();
+                }
+            }catch(err){ console.error('submit trigger error', err); }
+        });
+    }catch(e){ console.error('attach save handler error', e); }
+});
+</script>

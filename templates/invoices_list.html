@@ -72,7 +72,12 @@
                 <td class="invoices-hide-mobile" style="padding:6px 8px;text-align:right;min-width:120px;">
                     <a href="{% url 'edit_invoice_full' invoice.id %}" style="background:#ffc107;color:#222;padding:6px 12px;border-radius:5px;text-decoration:none;display:inline-block;">تعديل</a>
                 </td>
-                <td class="invoices-hide-mobile" style="padding:6px 8px;text-align:right;min-width:120px;"><a href="{% url 'delete_invoice' invoice.id %}" style="background:#e53935;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:0.95em;" onclick="return confirm('هل أنت متأكد من حذف الفاتورة؟');">حذف</a></td>
+                <td class="invoices-hide-mobile" style="padding:6px 8px;text-align:right;min-width:120px;">
+                    <form method="post" action="{% url 'delete_invoice' invoice.id %}" style="display:inline;" onsubmit="return confirm('هل أنت متأكد من حذف الفاتورة؟');">
+                        {% csrf_token %}
+                        <button type="submit" style="background:#e53935;color:#fff;padding:4px 10px;border-radius:4px;border:none;font-size:0.95em;cursor:pointer;">حذف</button>
+                    </form>
+                </td>
             </tr>
             {% empty %}
             <tr><td colspan="8" style="text-align:center;padding:12px;color:#666;">لا توجد فواتير.</td></tr>
