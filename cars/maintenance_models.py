@@ -21,7 +21,7 @@ class MaintenanceRecord(models.Model):
     car = models.ForeignKey(
         Car, on_delete=models.CASCADE, related_name="maintenance_records"
     )
-    service = models.ForeignKey(Service, on_delete=models.CASCADE)
+    service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField()
@@ -41,4 +41,21 @@ class MaintenanceRecord(models.Model):
             return "قيد الإصلاح"
 
     def __str__(self):
-        return f"{self.car.plate_number} - {self.service.name} ({self.price} ريال)"
+        svc_name = self.service.name if self.service else "قطع/بدون خدمة"
+        return f"{self.car.plate_number} - {svc_name} ({self.price} ريال)"
+
+
+class MaintenancePart(models.Model):
+    maintenance = models.ForeignKey(
+        MaintenanceRecord, on_delete=models.CASCADE, related_name='parts'
+    )
+    part = models.ForeignKey(
+        'inventory.Part', on_delete=models.SET_NULL, null=True, blank=True
+    )
+    part_name = models.CharField(max_length=200)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.part_name} x{self.quantity} - {self.total_price}"

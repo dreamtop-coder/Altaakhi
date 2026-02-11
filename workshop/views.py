@@ -15,6 +15,12 @@ from cars.maintenance_models import MaintenanceRecord
 from bookings.models import Booking
 
 
+@login_required
+def purchases(request):
+    """صفحة المشتريات — تعرض روابط فرعية: الموردين، الفواتير، المخزون، الأصناف"""
+    return render(request, "purchases.html", {})
+
+
 @require_GET
 def revenue_monthly_ajax(request):
     """

@@ -1,10 +1,15 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+import traceback
 from .models import Client
+from audit.models import AuditLog
 from cars.models import Car
 from .forms import ClientForm
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
 
 
 def clients_list(request):
@@ -86,11 +91,50 @@ def add_client(request):
     return render(request, "clients/add_client.html", {"form": form})
 
 
+@login_required
 def delete_client(request, client_id):
+    # Log and forbid unauthorized delete attempts
+    if not request.user.has_perm('clients.delete_client'):
+        try:
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action="DELETE_ATTEMPT_DENIED",
+                object_type="Client",
+                object_id=str(client_id),
+                description=f"User {request.user} attempted to delete client id={client_id} without permission",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        except Exception:
+            pass
+        return HttpResponseForbidden()
     client = get_object_or_404(Client, id=client_id)
+    # Prevent deleting a client who has paid invoices.
+    paid_invoices = client.invoices.filter(paid=True).select_related("car")
+    if paid_invoices.exists():
+        # If POST was attempted, do not perform deletion; show instructions instead
+        return render(
+            request,
+            "clients/delete_client.html",
+            {"client": client, "block_delete": True, "paid_invoices": paid_invoices},
+        )
+
     if request.method == "POST":
-        client.delete()
-        return redirect("clients_list")
+        try:
+            client.delete()
+            try:
+                AuditLog.objects.create(
+                    user=request.user if request.user.is_authenticated else None,
+                    action="DELETE_CLIENT",
+                    object_type="Client",
+                    object_id=str(client_id),
+                    description=f"Deleted client {client.first_name} {client.last_name or ''} (id={client_id})",
+                    ip_address=request.META.get("REMOTE_ADDR"),
+                )
+            except Exception:
+                pass
+            return redirect("clients_list")
+        except Exception:
+            return HttpResponse('<pre>' + traceback.format_exc() + '</pre>')
     return render(request, "clients/delete_client.html", {"client": client})
 
 

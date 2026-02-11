@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="padding:18px;max-width:780px;margin:0 auto;">
+    <h2>تعديل فاتورة شراء</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div style="margin-bottom:8px;">
+            <label>رقم الفاتورة</label>
+            <input type="text" name="invoice_number" value="{{ purchase.invoice_number }}" style="padding:6px;width:100%;" />
+        </div>
+        <div style="margin-bottom:8px;">
+            <label>التاريخ</label>
+            <input type="date" name="date" value="{{ purchase.date }}" style="padding:6px;" />
+        </div>
+        <div style="margin-bottom:8px;">
+            <label>ملاحظات</label>
+            <textarea name="notes" style="width:100%;padding:6px;">{{ purchase.notes }}</textarea>
+        </div>
+        <div style="margin-bottom:8px;">
+            <label><input type="checkbox" name="is_return" {% if purchase.is_return %}checked{% endif %} /> مرتجع</label>
+        </div>
+        <div style="margin-bottom:12px;">
+            <strong>عناصر الفاتورة:</strong>
+            <ul>
+                {% for it in purchase.items.all %}
+                <li>{{ it.part_name }} — الكمية: {{ it.quantity }} — السعر: {{ it.unit_price|floatformat:2 }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <button type="submit" style="padding:8px;background:#1976d2;color:#fff;border:none;border-radius:6px;">حفظ</button>
+        <a href="{% url 'inventory:purchases_list' %}" style="margin-left:8px;color:#666;">إلغاء</a>
+    </form>
+</div>
+{% endblock %}

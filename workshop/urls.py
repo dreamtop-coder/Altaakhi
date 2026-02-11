@@ -2,7 +2,8 @@ from django.contrib import admin
 
 from django.urls import path, include
 
-from .views import dashboard_summary, revenue_monthly_ajax
+from .views import dashboard_summary, revenue_monthly_ajax, purchases
+from inventory.views import inventory_index, suppliers_list, items_list, add_item, edit_item, delete_item, parts_autocomplete
 from .views_welcome import welcome_page
 from clients.views import clients_list
 from clients.views import add_client, delete_client, client_detail, edit_client
@@ -52,11 +53,20 @@ urlpatterns = [
     path("brands/", brands_list, name="brands_list"),
     path("brands/add/", add_brand, name="add_brand"),
     path("brands/<int:brand_id>/edit/", edit_brand, name="edit_brand"),
+    
     path("brands/<int:brand_id>/delete/", delete_brand, name="delete_brand"),
     # إدارة الموديلات
     path("", include(("cars.urls", "cars"), namespace="cars")),
     path("", include("services.urls")),
     path("invoices/", include("invoices.urls")),
+    path("purchases/", purchases, name="purchases"),
+    path("suppliers/", include(("inventory.urls", "inventory"), namespace="inventory")),
+    path("inventory/", inventory_index, name="inventory_index"),
+    path("items/", items_list, name="items_list"),
+    path("items/add/", add_item, name="add_item"),
+    path("items/<int:item_id>/edit/", edit_item, name="edit_item"),
+    path("items/<int:item_id>/delete/", delete_item, name="delete_item"),
+    path("items-autocomplete/", parts_autocomplete, name="items_autocomplete"),
     path("models/", models_list, name="models_list"),
     path("models/add/", add_model, name="add_model"),
     path("models/<int:model_id>/edit/", edit_model, name="edit_model"),

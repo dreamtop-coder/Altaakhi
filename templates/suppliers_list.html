@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="padding:18px;">
+    <h2>الموردين</h2>
+    <form method="get" style="margin-bottom:12px;display:flex;gap:8px;align-items:center;">
+        <input type="text" name="q" placeholder="ابحث باسم المورد" value="{{ q }}" style="padding:8px;border:1px solid #ddd;" />
+        <button type="submit" style="padding:8px;background:#32405a;color:#fff;border:none;">بحث</button>
+        <a href="{% url 'inventory:add_supplier' %}" style="margin-left:12px;padding:8px;background:#f6c23e;color:#222;text-decoration:none;">إضافة مورد</a>
+    </form>
+    <ul style="list-style:none;padding:0;">
+        {% for s in suppliers %}
+            <li style="padding:10px;border-bottom:1px solid #eee;">
+                <a href="{% url 'inventory:supplier_detail' s.id %}" style="color:#32405a;text-decoration:none;font-weight:bold;">{{ s.name }}</a>
+                <div style="color:#666;font-size:0.95em;">{{ s.phone }} {% if s.email %}| {{ s.email }}{% endif %}</div>
+            </li>
+        {% empty %}
+            <li>لا يوجد موردين مسجلين.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

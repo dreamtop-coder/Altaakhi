@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.db import models
@@ -7,12 +8,18 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.contrib import messages
 from datetime import datetime, time
+from django.forms import modelformset_factory
+from django.db import transaction
+from cars.forms_edit_maintenance import EditMaintenanceRecordForm
+from decimal import Decimal
 
 from .models import Invoice, Payment
+from audit.models import AuditLog
 from .forms import EditInvoiceForm, PaymentForm
 from cars.models import Car
 from cars.maintenance_models import MaintenanceRecord
 from clients.models import Client
+
 
 
 # كشف حساب عميل (للطباعة)
@@ -145,15 +152,67 @@ def invoices_list(request):
     )
 
 
+@login_required
+def edit_invoice_full(request, invoice_id):
+    invoice = get_object_or_404(Invoice, id=invoice_id)
+    MaintenanceFormSet = modelformset_factory(
+        MaintenanceRecord, form=EditMaintenanceRecordForm, extra=0, can_delete=True
+    )
+    if request.method == "POST":
+        form = EditInvoiceForm(request.POST, instance=invoice)
+        formset = MaintenanceFormSet(
+            request.POST, queryset=MaintenanceRecord.objects.filter(invoice=invoice)
+        )
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                form.save()
+                instances = formset.save(commit=False)
+                for inst in instances:
+                    inst.invoice = invoice
+                    inst.save()
+                for obj in formset.deleted_objects:
+                    obj.delete()
+            messages.success(request, "تم حفظ التعديلات على الفاتورة وسجلات الصيانة.")
+            return redirect("invoices_list")
+    else:
+        form = EditInvoiceForm(instance=invoice)
+        formset = MaintenanceFormSet(queryset=MaintenanceRecord.objects.filter(invoice=invoice))
+    return render(request, "edit_invoice_full.html", {"form": form, "formset": formset, "invoice": invoice})
+
+
 # حذف الفاتورة إذا لم يكن لها سجلات صيانة مرتبطة
 @login_required
 def delete_invoice(request, invoice_id):
+    if not request.user.has_perm('invoices.delete_invoice'):
+        try:
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action="DELETE_ATTEMPT_DENIED",
+                object_type="Invoice",
+                object_id=str(invoice_id),
+                description=f"User {request.user} attempted to delete invoice id={invoice_id} without permission",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        except Exception:
+            pass
+        return HttpResponseForbidden()
     invoice = get_object_or_404(Invoice, id=invoice_id)
     if MaintenanceRecord.objects.filter(invoice=invoice).exists():
         messages.error(request, "لا يمكن حذف الفاتورة لوجود سجلات صيانة مرتبطة بها.")
         return redirect("cars:maintenance_list")
     if request.method == "POST":
         invoice.delete()
+        try:
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action="DELETE_INVOICE",
+                object_type="Invoice",
+                object_id=str(invoice_id),
+                description=f"Deleted invoice {invoice.invoice_number}",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        except Exception:
+            pass
         messages.success(request, "تم حذف الفاتورة بنجاح.")
         return redirect("cars:maintenance_list")
     return render(request, "delete_invoice.html", {"invoice": invoice})
@@ -219,6 +278,17 @@ def pay_invoice_by_id(request, invoice_id):
                 or 0
             )
             remaining_balance = invoice.amount - paid_amount
+            # collect parts for display
+            invoice_parts = []
+            parts_total = Decimal('0.00')
+            for r in invoice.maintenance_records.all():
+                for p in r.parts.all():
+                    invoice_parts.append(p)
+                    try:
+                        parts_total += Decimal(str(p.total_price or 0))
+                    except Exception:
+                        parts_total += p.total_price or 0
+
             return render(
                 request,
                 "payment_success.html",
@@ -227,6 +297,9 @@ def pay_invoice_by_id(request, invoice_id):
                     "invoice": invoice,
                     "paid_amount": paid_amount,
                     "remaining_balance": remaining_balance,
+                    "invoice_parts": invoice_parts,
+                    "parts_total": parts_total,
+                    "service_records": invoice.maintenance_records.filter(service__isnull=False),
                 },
             )
     else:
@@ -241,10 +314,45 @@ def pay_invoice_by_id(request, invoice_id):
                 next_ref = "0000001"
             initial["reference"] = next_ref
         form = PaymentForm(initial=initial)
+    # collect parts across maintenance records for display and recompute invoice.amount
+    invoice_parts = []
+    parts_total = Decimal('0.00')
+    for r in invoice.maintenance_records.all():
+        for p in r.parts.all():
+            invoice_parts.append(p)
+            try:
+                parts_total += Decimal(str(p.total_price or 0))
+            except Exception:
+                parts_total += Decimal(p.total_price or 0)
+
+    # sum service prices only for records that have a linked service
+    services_total = Decimal('0.00')
+    for r in invoice.maintenance_records.filter(service__isnull=False):
+        try:
+            services_total += Decimal(str(r.price or 0))
+        except Exception:
+            services_total += Decimal(r.price or 0)
+
+    # Normalize invoice amount to avoid double-counting
+    invoice.amount = services_total + parts_total
+    try:
+        invoice.save()
+    except Exception:
+        # ignore save errors during display
+        pass
+
     return render(
         request,
         "pay_invoice.html",
-        {"form": form, "car": car, "invoice": invoice, "maintenance_date": maintenance_date},
+        {
+            "form": form,
+            "car": car,
+            "invoice": invoice,
+            "maintenance_date": maintenance_date,
+            "invoice_parts": invoice_parts,
+            "parts_total": parts_total,
+            "service_records": invoice.maintenance_records.filter(service__isnull=False),
+        },
     )
 
 
@@ -305,6 +413,17 @@ def pay_invoice(request, car_id):
                 or 0
             )
             remaining_balance = invoice.amount - paid_amount
+            # use module-level Decimal import
+            invoice_parts = []
+            parts_total = Decimal('0.00')
+            for r in invoice.maintenance_records.all():
+                for p in r.parts.all():
+                    invoice_parts.append(p)
+                    try:
+                        parts_total += Decimal(str(p.total_price or 0))
+                    except Exception:
+                        parts_total += p.total_price or 0
+
             return render(
                 request,
                 "payment_success.html",
@@ -313,6 +432,10 @@ def pay_invoice(request, car_id):
                     "invoice": invoice,
                     "paid_amount": paid_amount,
                     "remaining_balance": remaining_balance,
+                    "invoice_parts": invoice_parts,
+                    "parts_total": parts_total,
+                    "service_records": invoice.maintenance_records.filter(service__isnull=False),
+                    "service_records": invoice.maintenance_records.filter(service__isnull=False),
                 },
             )
     else:
@@ -327,16 +450,43 @@ def pay_invoice(request, car_id):
                 next_ref = "0000001"
             initial["reference"] = next_ref
         form = PaymentForm(initial=initial)
+    # collect parts and service records for display on the payment page
+    invoice_parts = []
+    parts_total = Decimal('0.00')
+    for r in invoice.maintenance_records.all():
+        for p in r.parts.all():
+            invoice_parts.append(p)
+            try:
+                parts_total += Decimal(str(p.total_price or 0))
+            except Exception:
+                parts_total += Decimal(p.total_price or 0)
+
+    service_records = invoice.maintenance_records.filter(service__isnull=False)
+
     return render(
         request,
         "pay_invoice.html",
-        {"form": form, "car": car, "invoice": invoice, "maintenance_date": maintenance_date},
+        {
+            "form": form,
+            "car": car,
+            "invoice": invoice,
+            "maintenance_date": maintenance_date,
+            "invoice_parts": invoice_parts,
+            "parts_total": parts_total,
+            "service_records": service_records,
+        },
     )
 
 
 @login_required
 def payments_list(request):
     payments = Payment.objects.filter(status="paid").select_related("client", "car", "invoice")
+    client_id = request.GET.get("client")
+    invoice_id = request.GET.get("invoice")
+    if client_id:
+        payments = payments.filter(client__id=client_id)
+    if invoice_id:
+        payments = payments.filter(invoice__id=invoice_id)
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
     if start_date:
@@ -345,10 +495,35 @@ def payments_list(request):
         payments = payments.filter(payment_date__date__lte=parse_date(end_date))
     payments = payments.order_by("invoice__invoice_number")
     total_amount = payments.aggregate(total=models.Sum("amount"))["total"] or 0
+    # Resolve display names for filters
+    filter_client_name = None
+    filter_invoice_number = None
+    if client_id:
+        try:
+            client_obj = Client.objects.get(id=client_id)
+            filter_client_name = f"{client_obj.first_name} {client_obj.last_name or ''}".strip()
+        except Client.DoesNotExist:
+            filter_client_name = None
+    if invoice_id:
+        try:
+            inv = Invoice.objects.get(id=invoice_id)
+            filter_invoice_number = inv.invoice_number
+        except Invoice.DoesNotExist:
+            filter_invoice_number = None
+
     return render(
         request,
         "payments_list.html",
-        {"payments": payments, "start_date": start_date, "end_date": end_date, "total_amount": total_amount},
+        {
+            "payments": payments,
+            "start_date": start_date,
+            "end_date": end_date,
+            "total_amount": total_amount,
+            "filter_client_id": client_id,
+            "filter_invoice_id": invoice_id,
+            "filter_client_name": filter_client_name,
+            "filter_invoice_number": filter_invoice_number,
+        },
     )
 
 
@@ -368,3 +543,48 @@ def edit_payment(request, payment_id):
             payment.save()
             return redirect("payments_list")
     return render(request, "edit_payment.html", {"payment": payment})
+
+
+@login_required
+def delete_payment(request, payment_id):
+    if not request.user.has_perm('invoices.delete_payment'):
+        try:
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action="DELETE_ATTEMPT_DENIED",
+                object_type="Payment",
+                object_id=str(payment_id),
+                description=f"User {request.user} attempted to delete payment id={payment_id} without permission",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        except Exception:
+            pass
+        return HttpResponseForbidden()
+    payment = get_object_or_404(Payment, id=payment_id)
+    if request.method == "POST":
+        invoice = payment.invoice
+        try:
+            payment.delete()
+            try:
+                AuditLog.objects.create(
+                    user=request.user if request.user.is_authenticated else None,
+                    action="DELETE_PAYMENT",
+                    object_type="Payment",
+                    object_id=str(payment_id),
+                    description=f"Deleted payment {payment_id} for invoice {invoice.id if invoice else 'N/A'}",
+                    ip_address=request.META.get("REMOTE_ADDR"),
+                )
+            except Exception:
+                # Do not block delete on logging failure
+                pass
+        except Exception:
+            messages.error(request, "حدث خطأ أثناء حذف الدفع.")
+            return redirect("payments_list")
+        # Recompute invoice.paid: if no paid payments remain, mark unpaid
+        if invoice:
+            paid_exists = invoice.payments.filter(status="paid").exists()
+            invoice.paid = True if paid_exists else False
+            invoice.save()
+        messages.success(request, "تم حذف الدفع بنجاح.")
+        return redirect("payments_list")
+    return render(request, "delete_payment.html", {"payment": payment})

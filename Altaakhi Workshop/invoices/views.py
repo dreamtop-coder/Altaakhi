@@ -7,12 +7,16 @@ from django.contrib import messages
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from datetime import datetime, time
+from django.forms import modelformset_factory
+from django.db import transaction
 
 # عرض وتعديل جماعي لسجلات الصيانة المرتبطة بفاتورة
 from cars.maintenance_models import MaintenanceRecord
 from cars.models import Car
 from .models import Invoice, Payment
 from .forms import EditInvoiceForm, PaymentForm
+from cars.forms_edit_maintenance import EditMaintenanceRecordForm
+from cars.maintenance_models import MaintenanceRecord
 
 
 @login_required
@@ -66,6 +70,34 @@ def invoices_list(request):
             "total_amount": total_amount,
         },
     )
+
+
+@login_required
+def edit_invoice_full(request, invoice_id):
+    invoice = get_object_or_404(Invoice, id=invoice_id)
+    MaintenanceFormSet = modelformset_factory(
+        MaintenanceRecord, form=EditMaintenanceRecordForm, extra=0, can_delete=True
+    )
+    if request.method == "POST":
+        form = EditInvoiceForm(request.POST, instance=invoice)
+        formset = MaintenanceFormSet(
+            request.POST, queryset=MaintenanceRecord.objects.filter(invoice=invoice)
+        )
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                form.save()
+                instances = formset.save(commit=False)
+                for inst in instances:
+                    inst.invoice = invoice
+                    inst.save()
+                for obj in formset.deleted_objects:
+                    obj.delete()
+            messages.success(request, "تم حفظ التعديلات على الفاتورة وسجلات الصيانة.")
+            return redirect("invoices_list")
+    else:
+        form = EditInvoiceForm(instance=invoice)
+        formset = MaintenanceFormSet(queryset=MaintenanceRecord.objects.filter(invoice=invoice))
+    return render(request, "edit_invoice_full.html", {"form": form, "formset": formset, "invoice": invoice})
 
 
 

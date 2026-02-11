@@ -194,7 +194,16 @@
                 <li onclick="location.href='{% url 'dashboard' %}'"><i class="fa fa-tachometer"></i>لوحة التحكم</li>
                 <li><i class="fa fa-users"></i>إدارة المستخدمين</li>
                 <li><i class="fa fa-cogs"></i>الإعدادات العامة</li>
-                <li><i class="fa fa-archive"></i>المخازن وقطع الغيار</li>
+                <li id="purchases-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-archive"></i>المشتريات
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-right:7px;"></i>
+                    <ul id="purchases-submenu" style="display:none;list-style:none;padding-right:30px;margin:0;background:#263142;border-radius:7px 0 0 7px;position:absolute;top:100%;right:0;min-width:170px;z-index:10;">
+                        <li><a href="/suppliers/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">الموردين</a></li>
+                        <li><a href="{% url 'inventory:purchases_list' %}" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">الفواتير</a></li>
+                        <li><a href="/inventory/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">المخزون</a></li>
+                        <li><a href="/items/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">الأصناف</a></li>
+                    </ul>
+                </li>
                 <li id="services-section" style="position:relative;cursor:pointer;">
                     <i class="fa fa-wrench"></i>الأقسام والخدمات
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-right:7px;"></i>
@@ -258,7 +267,8 @@
                 var submenus = [
                     {section: 'services-section', submenu: 'brands-submenu'},
                     {section: 'cars-section', submenu: 'cars-submenu'},
-                    {section: 'invoices-section', submenu: 'invoices-submenu'}
+                    {section: 'invoices-section', submenu: 'invoices-submenu'},
+                    {section: 'purchases-section', submenu: 'purchases-submenu'}
                 ];
                 function openSidebar() {
                     sidebar.classList.remove('mobile-hidden');

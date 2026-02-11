@@ -1,1 +1,1 @@
-# Ensure Service model is registered for Django
+# cars app package

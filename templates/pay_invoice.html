@@ -21,7 +21,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for record in invoice.maintenance_records.all %}
+                {% for record in service_records %}
                 <tr>
                     <td style="padding:8px 10px;">{{ invoice.invoice_number }}</td>
                     <td style="padding:8px 10px;">{{ record.service.name }}</td>
@@ -35,6 +35,42 @@
                 <tr style="background:#f7fafd;">
                     <td colspan="2" style="padding:8px 10px;font-weight:bold;">المجموع</td>
                     <td style="padding:8px 10px;font-weight:bold;color:#c00;">{{ invoice.amount }}</td>
+                </tr>
+            </tfoot>
+        </table>
+        <!-- عرض قطع الغيار إن وُجدت -->
+        <h4 style="color:#1976d2;margin-bottom:8px;margin-top:6px;">قطع الفاتورة</h4>
+        <table style="width:100%;background:#fff;border-radius:6px;border:1px solid #e0e0e0;margin-bottom:10px;">
+            <thead>
+                <tr style="background:#e3eafc;color:#1a237e;">
+                    <th style="padding:8px 10px;text-align:right;">اسم الصنف</th>
+                    <th style="padding:8px 10px;text-align:center;">الكمية</th>
+                    <th style="padding:8px 10px;text-align:left;">سعر الوحدة</th>
+                    <th style="padding:8px 10px;text-align:left;">الإجمالي</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if invoice_parts %}
+                    {% for part in invoice_parts %}
+                    <tr>
+                        <td style="padding:8px 10px;">{{ part.part_name }}</td>
+                        <td style="padding:8px 10px;text-align:center;">{{ part.quantity }}</td>
+                        <td style="padding:8px 10px;text-align:left;">{{ part.unit_price }}</td>
+                        <td style="padding:8px 10px;text-align:left;color:#c00;">{{ part.total_price }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="4" style="color:#555;text-align:center;">لا توجد قطع مستخدمة في هذه الفاتورة.</td></tr>
+                {% endif %}
+            </tbody>
+            <tfoot>
+                <tr style="background:#f7fafd;">
+                    <td colspan="3" style="padding:8px 10px;font-weight:bold;">مجموع قطع الفاتورة</td>
+                    <td style="padding:8px 10px;font-weight:bold;color:#c00;">{{ parts_total|default:0 }}</td>
+                </tr>
+                <tr style="background:#eef7f1;">
+                    <td colspan="3" style="padding:8px 10px;font-weight:bold;">الإجمالي الكلي</td>
+                    <td style="padding:8px 10px;font-weight:bold;color:#0b6623;">{{ invoice.amount }}</td>
                 </tr>
             </tfoot>
         </table>

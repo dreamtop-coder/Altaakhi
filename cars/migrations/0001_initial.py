@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
     dependencies = [
         ("clients", "__first__"),
         ("invoices", "__first__"),
-        ("services", "__first__"),
     ]
 
     operations = [
@@ -221,13 +220,7 @@ class Migration(migrations.Migration):
                         verbose_name="رقم الفاتورة",
                     ),
                 ),
-                (
-                    "service",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        to="services.service",
-                    ),
-                ),
+                
             ],
         ),
     ]

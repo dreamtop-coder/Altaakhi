@@ -1,10 +1,23 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>تعديل موديل سيارة</h2>
-<form method="post" style="max-width:400px;background:#f9f9f9;padding:20px;border-radius:8px;">
+
+<div class="services-table-fix" style="max-width:700px;margin:12px 0 12px auto;background:#f9f9f9;padding:12px 14px;border-radius:10px;box-shadow:0 2px 6px #eee;direction:rtl;">
+    <style>
+    @media (max-width:700px) { .services-table-fix { padding:10px; } }
+    .services-table-fix label { display:block;margin-bottom:6px;font-weight:600; }
+    .services-table-fix .form-row { margin-bottom:10px; }
+    .services-table-fix input, .services-table-fix select, .services-table-fix textarea { padding:6px;border-radius:6px;border:1px solid #ccc; }
+    </style>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:18px;font-weight:bold;color:#333;text-align:right;">تعديل موديل سيارة</span>
+        <a href="{% url 'models_list' %}" style="color:#333;text-decoration:none;font-size:0.95em;">عودة</a>
+    </div>
+
+    <form method="post" style="max-width:100%;background:transparent;padding:0;">
     {% csrf_token %}
     {% if form.errors %}
-        <div style="background:#ffe0e0;color:#a11;padding:10px 18px;border-radius:7px;margin-bottom:10px;">
+        <div style="background:#ffe0e0;color:#a11;padding:8px 12px;border-radius:7px;margin-bottom:8px;">
             {% for field in form %}
                 {% for error in field.errors %}
                     {{ error }}<br>
@@ -15,15 +28,19 @@
             {% endfor %}
         </div>
     {% endif %}
-    <div style="margin-bottom:14px;">
-        <label for="id_brand" style="font-weight:bold;">الصنع (الشركة):</label>
+    <div class="form-row">
+        <label for="id_brand">الصنع (الشركة):</label>
         {{ form.brand }}
     </div>
-    <div style="margin-bottom:14px;">
-        <label for="id_name" style="font-weight:bold;">الموديل:</label>
+    <div class="form-row">
+        <label for="id_name">الموديل:</label>
         {{ form.name }}
     </div>
-    <button type="submit" style="background:#28a745;color:#fff;padding:8px 22px;border:none;border-radius:6px;font-weight:bold;">تحديث</button>
-    <a href="{% url 'models_list' %}" style="margin-right:15px;">إلغاء</a>
-</form>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <button type="submit" style="background:#28a745;color:#fff;padding:6px 14px;border:none;border-radius:6px;font-weight:bold;">تحديث</button>
+        <a href="{% url 'models_list' %}" style="color:#666;text-decoration:none;">إلغاء</a>
+    </div>
+    </form>
+</div>
+
 {% endblock %}

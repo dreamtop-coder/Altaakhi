@@ -34,6 +34,7 @@ urlpatterns = [
     path(
         "cars/finish/<int:car_id>/", views.finish_maintenance, name="finish_maintenance"
     ),
+    path("cars/delete/<int:car_id>/", views.delete_car, name="delete_car"),
     # AJAX filter endpoint for dashboard car status
     path("cars/ajax/filter/", cars_ajax_filter, name="cars_ajax_filter"),
     path(

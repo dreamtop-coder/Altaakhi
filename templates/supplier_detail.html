@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="padding:18px;display:grid;grid-template-columns:1fr 360px;gap:18px;">
+    <div>
+        <h2>مورد: {{ supplier.name }}</h2>
+        {% if message %}<div style="padding:8px;background:#e6ffed;border:1px solid:#b6f0c7;margin-bottom:12px;">{{ message }}</div>{% endif %}
+        <h3>1) معلومات أساسية</h3>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" name="save_supplier" style="padding:8px;background:#32405a;color:#fff;border:none;">حفظ</button>
+        </form>
+
+        <h3 style="margin-top:18px;">2) معلومات الحساب والملاحظات</h3>
+        <div style="padding:12px;border:1px solid #eee;background:#fafafa;">
+            <p><strong>رصيد المورد:</strong> {% comment %} يحتاج حسابات مستقبلية{% endcomment %} -- عرض حساب تجريبي --</p>
+            <p><strong>طريقة الدفع المفضلة:</strong> لم تُحدد</p>
+            <p><strong>ملاحظات خاصة:</strong> لا توجد ملاحظات</p>
+        </div>
+
+        <h3 style="margin-top:18px;">3) سجل المعاملات</h3>
+        <div style="margin-bottom:12px;">
+            <form method="post" id="purchase-form">
+                {% csrf_token %}
+                <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;">
+                    <input name="invoice_number" placeholder="رقم الفاتورة" style="padding:8px;border:1px solid #ddd;" />
+                    <input name="date" type="date" style="padding:8px;border:1px solid #ddd;" />
+                    <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" name="is_return" /> مرتجع</label>
+                </div>
+                <table id="purchase-items" style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #eee;margin-bottom:8px;">
+                    <thead>
+                        <tr style="background:#f7f7f7;text-align:right;">
+                            <th style="padding:8px;border-bottom:1px solid #eee;">اسم القطعة</th>
+                            <th style="padding:8px;border-bottom:1px solid #eee;">الكمية</th>
+                            <th style="padding:8px;border-bottom:1px solid #eee;">سعر الوحدة</th>
+                            <th style="padding:8px;border-bottom:1px solid #eee;">السعر الإجمالي</th>
+                            <th style="padding:8px;border-bottom:1px solid #eee;">&nbsp;</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding:6px;"><input name="item_name" style="width:100%;padding:6px;border:1px solid #ddd;" /></td>
+                            <td style="padding:6px;"><input name="item_qty" type="number" min="0" value="1" style="width:100px;padding:6px;border:1px solid #ddd;" /></td>
+                            <td style="padding:6px;"><input name="item_unit_price" type="number" step="0.01" value="0.00" style="width:120px;padding:6px;border:1px solid #ddd;" /></td>
+                            <td style="padding:6px;"><input name="item_total" readonly value="0.00" style="width:120px;padding:6px;border:1px solid #ddd;background:#f7f7f7;" /></td>
+                            <td style="padding:6px;"><button type="button" class="remove-row" style="padding:6px;background:#e74c3c;color:#fff;border:none;">حذف</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+                    <button type="button" id="add-row" style="padding:8px;background:#32405a;color:#fff;border:none;">إضافة صنف</button>
+                    <div style="margin-left:auto;">المجموع: <span id="purchase-total">0.00</span> ج.م</div>
+                </div>
+                <input type="hidden" name="amount" id="amount-field" />
+                <div>
+                    <textarea name="notes" placeholder="ملاحظات" style="width:100%;padding:8px;border:1px solid #ddd;min-height:60px;"></textarea>
+                </div>
+                <div style="margin-top:8px;">
+                    <button type="submit" name="add_purchase" style="padding:8px;background:#f6c23e;border:none;">أضف فاتورة شراء</button>
+                </div>
+            </form>
+            <script>
+            (function(){
+                function updateRowTotal(row){
+                    var qty = parseFloat(row.querySelector('[name="item_qty"]').value) || 0;
+                    var unit = parseFloat(row.querySelector('[name="item_unit_price"]').value) || 0;
+                    var total = (qty * unit).toFixed(2);
+                    row.querySelector('[name="item_total"]').value = total;
+                }
+                function updateTotal(){
+                    var rows = document.querySelectorAll('#purchase-items tbody tr');
+                    var sum = 0;
+                    rows.forEach(function(r){
+                        var t = parseFloat(r.querySelector('[name="item_total"]').value) || 0;
+                        sum += t;
+                    });
+                    document.getElementById('purchase-total').innerText = sum.toFixed(2);
+                    document.getElementById('amount-field').value = sum.toFixed(2);
+                }
+                document.getElementById('add-row').addEventListener('click', function(){
+                    var tbody = document.querySelector('#purchase-items tbody');
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = '<td style="padding:6px;"><input name="item_name" style="width:100%;padding:6px;border:1px solid #ddd;" /></td>'+
+                                   '<td style="padding:6px;"><input name="item_qty" type="number" min="0" value="1" style="width:100px;padding:6px;border:1px solid #ddd;" /></td>'+
+                                   '<td style="padding:6px;"><input name="item_unit_price" type="number" step="0.01" value="0.00" style="width:120px;padding:6px;border:1px solid #ddd;" /></td>'+
+                                   '<td style="padding:6px;"><input name="item_total" readonly value="0.00" style="width:120px;padding:6px;border:1px solid #ddd;background:#f7f7f7;" /></td>'+
+                                   '<td style="padding:6px;"><button type="button" class="remove-row" style="padding:6px;background:#e74c3c;color:#fff;border:none;">حذف</button></td>';
+                    tbody.appendChild(tr);
+                    tr.querySelector('[name="item_qty"]').addEventListener('input', function(){ updateRowTotal(tr); updateTotal(); });
+                    tr.querySelector('[name="item_unit_price"]').addEventListener('input', function(){ updateRowTotal(tr); updateTotal(); });
+                    // attach autocomplete to new row's item_name
+                    attachAutocomplete(tr.querySelector('[name="item_name"]'));
+                });
+                document.querySelector('#purchase-items').addEventListener('click', function(e){
+                    if(e.target && e.target.classList.contains('remove-row')){
+                        var tr = e.target.closest('tr');
+                        tr.parentNode.removeChild(tr);
+                        updateTotal();
+                    }
+                });
+                // autocomplete helper
+                function createSuggestionsBox(){
+                    var box = document.createElement('div');
+                    box.className = 'autocomplete-box';
+                    box.style.position = 'absolute';
+                    box.style.background = '#fff';
+                    box.style.border = '1px solid #ccc';
+                    box.style.zIndex = '9999';
+                    box.style.maxHeight = '180px';
+                    box.style.overflowY = 'auto';
+                    box.style.width = '320px';
+                    return box;
+                }
+
+                function attachAutocomplete(input){
+                    var box = createSuggestionsBox();
+                    input.parentNode.style.position = 'relative';
+                    input.parentNode.appendChild(box);
+                    var timer = null;
+                    input.addEventListener('input', function(){
+                        var q = this.value.trim();
+                        if(timer) clearTimeout(timer);
+                        timer = setTimeout(function(){
+                            if(!q || q.length < 1){ box.innerHTML = ''; return; }
+                            fetch("{% url 'inventory:parts_autocomplete' %}?q=" + encodeURIComponent(q))
+                                .then(function(r){ return r.json(); })
+                                .then(function(data){
+                                    box.innerHTML = '';
+                                    data.forEach(function(it){
+                                        var el = document.createElement('div');
+                                        el.style.padding = '6px';
+                                        el.style.cursor = 'pointer';
+                                        el.innerText = it.name;
+                                        el.addEventListener('click', function(){
+                                            input.value = it.name;
+                                            box.innerHTML = '';
+                                        });
+                                        box.appendChild(el);
+                                    });
+                                }).catch(function(){ box.innerHTML = ''; });
+                        }, 250);
+                    });
+                    document.addEventListener('click', function(ev){
+                        if(!input.contains(ev.target) && !box.contains(ev.target)) box.innerHTML = '';
+                    });
+                }
+
+                // wire initial row and autocomplete
+                var initialRow = document.querySelector('#purchase-items tbody tr');
+                initialRow.querySelector('[name="item_qty"]').addEventListener('input', function(){ updateRowTotal(initialRow); updateTotal(); });
+                initialRow.querySelector('[name="item_unit_price"]').addEventListener('input', function(){ updateRowTotal(initialRow); updateTotal(); });
+                attachAutocomplete(initialRow.querySelector('[name="item_name"]'));
+            })();
+            </script>
+        </div>
+        <div style="border:1px solid #eee;padding:12px;background:#fff;">
+            <h4>المشتريات الأخيرة</h4>
+            <ul style="list-style:none;padding:0;">
+                {% for p in purchases %}
+                    <li style="padding:8px;border-bottom:1px solid #f0f0f0;">
+                        <div><strong>{{ p.invoice_number }}</strong> — {{ p.date }} — {{ p.amount }} ج.م</div>
+                        {% if p.is_return %}<div style="color:#c00;">مرتجع</div>{% endif %}
+                        {% if p.notes %}<div style="color:#666;">ملاحظات: {{ p.notes }}</div>{% endif %}
+                    </li>
+                {% empty %}
+                    <li>لا توجد معاملات.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <aside>
+        <div style="padding:12px;border:1px solid #eee;background:#fff;margin-bottom:12px;">
+            <h4>معلومات سريعة</h4>
+            <p><strong>الهاتف:</strong> {{ supplier.phone }}</p>
+            <p><strong>البريد:</strong> {{ supplier.email }}</p>
+            <p><strong>العنوان:</strong> {{ supplier.address }}</p>
+        </div>
+        <div style="padding:12px;border:1px solid #eee;background:#fff;">
+            <h4>الأصناف المرتبطة</h4>
+            <ul style="list-style:none;padding:0;">
+                {% for part in parts %}
+                    <li style="padding:6px 0;border-bottom:1px solid #f6f6f6;">{{ part.name }} — المخزون: {{ part.quantity }}</li>
+                {% empty %}
+                    <li>لا توجد أصناف مرتبطة.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </aside>
+</div>
+{% endblock %}

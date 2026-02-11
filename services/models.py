@@ -34,6 +34,9 @@ class Service(models.Model):
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    parts = models.ManyToManyField(
+        'inventory.Part', blank=True, related_name='services'
+    )
 
     def __str__(self):
         return self.name
