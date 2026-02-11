@@ -47,9 +47,9 @@
     }
 }
 </style>
-<div class="payments-desktop">
-<h2>جدول المدفوعات</h2>
-<div style="display:flex;align-items:center;gap:32px;margin-bottom:18px;">
+<div class="services-table-fix" style="max-width:none;width:auto;margin-right:0;margin-left:auto;background:#f9f9f9;padding:28px 32px 22px 32px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;overflow-x:auto;">
+    <h2 style="font-size:22px;font-weight:bold;color:#333;margin-bottom:12px;">جدول المدفوعات</h2>
+    <div style="display:flex;align-items:center;gap:32px;margin-bottom:18px;justify-content:space-between;">
     <div style="font-size:1.15em;font-weight:bold;color:#1976d2;">
         {% if start_date or end_date %}
             مجموع المدفوعات للفترة: {{ total_amount|floatformat:2 }}
@@ -64,44 +64,46 @@
         <input type="date" name="end_date" value="{{ end_date|default:'' }}" style="padding:3px 8px;border-radius:4px;border:1px solid #ccc;">
         <button type="submit" style="padding:4px 16px;background:#1976d2;color:#fff;border:none;border-radius:4px;font-weight:bold;">بحث</button>
     </form>
-</div>
-<table style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;">
-    <thead>
-        <tr style="background:#e9ecef;color:#444;font-weight:bold;">
-            <th>رقم الفاتورة</th>
-            <th>تاريخ الصيانة</th>
-            <th>اسم العميل</th>
-            <th>رقم السيارة</th>
-            <th>المبلغ</th>
-            <th>طريقة الدفع</th>
-            <th>تاريخ الدفع</th>
-            <th>تعديل</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for payment in payments %}
-        <tr>
-            <td>{{ payment.invoice.invoice_number }}</td>
-            <td>
-                {% with maintenance=payment.invoice.maintenance_records.all|first %}
-                    {% if maintenance %}{{ maintenance.created_at|date:'Y-m-d' }}{% else %}-{% endif %}
-                {% endwith %}
-            </td>
-              <td style="text-align:right;">{{ payment.client.first_name }}{% if payment.client.last_name %} {{ payment.client.last_name }}{% endif %}</td>
-              <td style="text-align:right;">{{ payment.car.plate_number }}</td>
-              <td style="text-align:right;">{{ payment.amount }}</td>
-            <td>{{ payment.get_method_display }}</td>
-            <td>{{ payment.payment_date|date:'Y-m-d' }}</td>
-            <td>
-                <a href="{% url 'edit_payment' payment.id %}" style="background:#ffc107;color:#222;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:0.95em;">تعديل</a>
-                <a href="{% url 'delete_invoice' payment.invoice.id %}" style="background:#e53935;color:#fff;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:0.95em;margin-right:6px;" onclick="return confirm('هل أنت متأكد من حذف الفاتورة؟');">حذف</a>
-            </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="6" style="text-align:center;">لا توجد مدفوعات في هذه الفترة.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+    </div>
+    <table style="width:auto;min-width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #eee;border:1.5px solid #c2c7d0;" id="payments-table">
+        <thead style="background:#32405a;color:#fff;">
+            <tr>
+                <th style="padding:10px 6px;">رقم الفاتورة</th>
+                <th style="padding:10px 6px; min-width:120px;">تاريخ الصيانة</th>
+                <th style="padding:10px 6px; min-width:280px;">اسم العميل</th>
+                <th style="padding:10px 6px;">رقم السيارة</th>
+                <th style="padding:10px 6px;">المبلغ</th>
+                <th style="padding:10px 6px;">طريقة الدفع</th>
+                <th style="padding:10px 6px; min-width:140px;">تاريخ الدفع</th>
+                <th style="padding:10px 6px; min-width:120px;">تعديل</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payment in payments %}
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:8px 6px;">{{ payment.invoice.invoice_number }}</td>
+                <td style="padding:8px 6px;">
+                    {% with maintenance=payment.invoice.maintenance_records.all|first %}
+                        {% if maintenance %}{{ maintenance.created_at|date:'Y-m-d' }}{% else %}-{% endif %}
+                    {% endwith %}
+                </td>
+                <td style="padding:8px 6px;text-align:right; min-width:280px;">{{ payment.client.first_name }}{% if payment.client.last_name %} {{ payment.client.last_name }}{% endif %}</td>
+                <td style="padding:8px 6px;text-align:right;">{{ payment.car.plate_number }}</td>
+                <td style="padding:8px 6px;text-align:right;">{{ payment.amount }}</td>
+                <td style="padding:8px 6px;">{{ payment.get_method_display }}</td>
+                <td style="padding:8px 6px; min-width:140px;">{{ payment.payment_date|date:'Y-m-d' }}</td>
+                <td style="padding:8px 6px;text-align:center; min-width:120px;">
+                    <div style="display:inline-flex;gap:8px;align-items:center;justify-content:center;white-space:nowrap;">
+                        <a href="{% url 'edit_payment' payment.id %}" style="background:#ffc107;color:#222;padding:5px 12px;border-radius:5px;text-decoration:none;font-size:0.95em;display:inline-block;">تعديل</a>
+                        <a href="{% url 'delete_invoice' payment.invoice.id %}" style="background:#e53935;color:#fff;padding:5px 12px;border-radius:5px;text-decoration:none;font-size:0.95em;display:inline-block;" onclick="return confirm('هل أنت متأكد من حذف الفاتورة؟');">حذف</a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="text-align:center;padding:18px;color:#888;">لا توجد مدفوعات في هذه الفترة.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 <div class="payments-summary-mobile">
     <h2 style="margin-bottom:18px;">جدول المدفوعات</h2>

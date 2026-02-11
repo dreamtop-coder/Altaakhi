@@ -11,6 +11,47 @@ from invoices.models import Invoice
 # صفحة إضافة سجل صيانة لمركبة
 
 
+# API: جلب بيانات السيارة والعميل بناءً على رقم اللوحة
+@require_GET
+def get_car_info(request):
+    plate_number = request.GET.get("plate_number")
+    try:
+        car = Car.objects.select_related("client", "brand", "model").get(
+            plate_number=plate_number
+        )
+        client = car.client
+        data = {
+            "found": True,
+            "client": {
+                "name": f"{client.first_name} {client.last_name or ''}",
+                "personal_id": getattr(client, "personal_id", ""),
+                "phone": getattr(client, "phone", ""),
+                "email": getattr(client, "email", "-") or "-",
+                "address": getattr(client, "address", "-") or "-",
+            },
+            "car": {
+                "brand": car.brand.name if car.brand else "-",
+                "model": car.model.name if car.model else "-",
+                "year": car.year or "-",
+                "status": dict(car.STATUS_CHOICES).get(car.status, car.status),
+                "created_at": car.created_at.strftime("%Y-%m-%d"),
+            },
+        }
+    except Car.DoesNotExist:
+        data = {"found": False}
+    return JsonResponse(data)
+
+
+# جلب سعر الخدمة تلقائياً
+def get_service_price(request):
+    service_id = request.GET.get("service_id")
+    try:
+        service = Service.objects.get(id=service_id)
+        return JsonResponse({"price": float(service.default_price)})
+    except Service.DoesNotExist:
+        return JsonResponse({"price": ""})
+
+
 def add_maintenance_record(request):
     car_id = request.GET.get("car_id")
     car_instance = None

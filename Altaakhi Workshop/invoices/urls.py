@@ -5,6 +5,7 @@ from .views import delete_invoice
 urlpatterns = [
     path("", views.invoices_list, name="invoices_list"),
     path("edit/<int:invoice_id>/", views.edit_invoice, name="edit_invoice"),
+    path("edit-full/<int:invoice_id>/", views.edit_invoice_full, name="edit_invoice_full"),
     path("pay/<int:car_id>/", views.pay_invoice, name="pay_invoice"),
     path(
         "pay/invoice/<int:invoice_id>/",

@@ -1,6 +1,20 @@
 from django.shortcuts import render
 from services.models import Service
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
+from services.forms_service import ServiceFormNoCar
+
+
+@login_required
+def services_add(request):
+    if request.method == 'POST':
+        form = ServiceFormNoCar(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('services_list')
+    else:
+        form = ServiceFormNoCar()
+    return render(request, 'services_add.html', {'form': form})
 
 
 @login_required

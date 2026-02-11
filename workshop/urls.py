@@ -52,6 +52,7 @@ urlpatterns = [
     path("brands/", brands_list, name="brands_list"),
     path("brands/add/", add_brand, name="add_brand"),
     path("brands/<int:brand_id>/edit/", edit_brand, name="edit_brand"),
+    
     path("brands/<int:brand_id>/delete/", delete_brand, name="delete_brand"),
     # إدارة الموديلات
     path("", include(("cars.urls", "cars"), namespace="cars")),

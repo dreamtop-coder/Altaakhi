@@ -177,7 +177,11 @@
         </div>
         <div class="maintenance-actions">
             <button type="submit" class="maintenance-btn">حفظ السجل</button>
-            <a href="{% url 'cars:maintenance_list' %}" class="maintenance-cancel">إلغاء</a>
+            {% if car_instance %}
+                <a href="/dashboard/" class="maintenance-cancel">إلغاء</a>
+            {% else %}
+                <a href="{% url 'cars:maintenance_list' %}" class="maintenance-cancel">إلغاء</a>
+            {% endif %}
         </div>
     </form>
 </div>

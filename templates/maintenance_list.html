@@ -143,61 +143,52 @@
     .action-btn.delete { background: #e53935; color: #fff; min-width: 60px; }
  </style>
 </style>
-<div style="width:100%;display:flex;justify-content:flex-end;margin:40px 0 0 0;">
-    <div style="background:#fff;padding:28px 0 22px 0;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;display:flex;flex-direction:column;align-items:center;width:auto;min-width:0;">
-    <div class="maintenance-header-mobile-center" style="display:flex;justify-content:center;align-items:center;gap:24px;margin-bottom:20px;width:100%;">
+<div class="services-table-fix" style="max-width:none;width:auto;margin:12px 0 12px auto;background:#f9f9f9;padding:14px 16px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;overflow-x:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <span style="font-size:22px;font-weight:bold;color:#333;">سجل الصيانة</span>
-        <a href="{% url 'cars:add_maintenance_record' %}" class="maintenance-add-btn-desktop" style="background:#1976d2;color:#fff;padding:10px 24px;border:none;border-radius:8px;font-weight:bold;font-size:15px;text-decoration:none;">+ إضافة سجل صيانة</a>
+        <div style="display:flex;gap:12px;align-items:center;">
+            <form class="search-filters-desktop" method="get" style="display:flex;align-items:center;gap:8px;margin:0;">
+                <input type="text" name="plate_number" placeholder="بحث برقم السيارة" value="{{ plate_number|default:'' }}" style="padding:6px 12px;border-radius:6px;border:1px solid #ccc;min-width:120px;">
+                <button type="submit" style="padding:6px 18px;background:#1976d2;color:#fff;border:none;border-radius:6px;font-weight:bold;">بحث</button>
+            </form>
+            <a href="{% url 'cars:add_maintenance_record' %}" style="background:#1976d2;color:#fff;padding:8px 16px;border-radius:6px;font-weight:bold;text-decoration:none;">+ إضافة سجل صيانة</a>
+        </div>
     </div>
-    <div class="maintenance-add-btn-mobile" style="display:none;">
-        <a href="{% url 'cars:add_maintenance_record' %}" style="background:#1976d2;color:#fff;padding:14px 32px;border:none;border-radius:10px;font-weight:bold;font-size:18px;text-decoration:none;">+ إضافة سجل صيانة</a>
-    </div>
-    <!-- فلاتر البحث -->
-    <form class="search-filters-desktop" method="get" style="width:95%;max-width:500px;margin:0 auto 18px auto;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;">
-        <input type="text" name="plate_number" placeholder="بحث برقم السيارة" value="{{ plate_number|default:'' }}" style="padding:6px 12px;border-radius:6px;border:1px solid #ccc;min-width:120px;">
-        <button type="submit" style="padding:6px 24px;background:#1976d2;color:#fff;border:none;border-radius:6px;font-weight:bold;">بحث</button>
-        <span style="margin-right:auto;display:flex;align-items:center;gap:8px;">
-            <img src="/static/car-repair.png" alt="سيارة" style="width:28px;height:28px;vertical-align:middle;">
-        </span>
-    </form>
-    <table class="custom-table" style="margin:0;">
-        <thead>
+
+    <table style="width:auto;min-width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #eee;border:1.5px solid #c2c7d0;">
+        <thead style="background:#32405a;color:#fff;">
             <tr>
-                <th>رقم الفاتورة</th>
-                <th class="col-car">رقم السيارة</th>
-                <th class="col-owner">اسم صاحب المركبة</th>
-                <th class="col-service">نوع الخدمة</th>
-                <th>السعر</th>
-                <th class="col-date">تاريخ الصيانة</th>
-                <th>تاريخ تسليم المركبة</th>
-                <th>الحالة</th>
-                <th>ملاحظات</th>
-                <th class="col-actions">الإجراءات</th>
+                <th style="padding:10px 6px; min-width:80px;">رقم السيارة</th>
+                <th style="padding:10px 6px; min-width:240px;">اسم صاحب المركبة</th>
+                <th style="padding:10px 6px; min-width:200px;">نوع الخدمة</th>
+                <th style="padding:10px 6px; min-width:90px;">السعر</th>
+                <th style="padding:10px 6px; min-width:120px;">تاريخ الصيانة</th>
+                <th style="padding:10px 6px; min-width:160px;">تاريخ تسليم المركبة</th>
+                <th style="padding:10px 6px; min-width:120px;">الحالة</th>
+                <th style="padding:10px 6px; min-width:140px;">الإجراءات</th>
             </tr>
         </thead>
         <tbody>
         {% for record in records %}
-            <tr>
-                                <td style="font-weight:bold;">{% if record.invoice %}{{ record.invoice.invoice_number }}{% else %}-{% endif %}</td>
-                                <td style="font-weight:bold;">{{ record.car.plate_number }}</td>
-                                <td style="color:#1976d2;font-weight:bold;">
-                                    {{ record.car.client.first_name }}{% if record.car.client.last_name %} {{ record.car.client.last_name }}{% endif %}
-                                </td>
-                <td>{{ record.service.name }}</td>
-                <td>{{ record.price }}</td>
-                <td>{{ record.created_at|date:'Y-m-d' }}</td>
-                <td>{% if record.delivery_date %}{{ record.delivery_date|date:'Y-m-d H:i' }}{% else %}-{% endif %}</td>
-                <td>{{ record.get_status }}</td>
-                <td>{{ record.notes }}</td>
-                <td>
-                    <div class="actions-cell">
-                        <a href="{% url 'cars:edit_maintenance_record_fields' record.id %}" class="action-btn edit">تعديل</a>
-                        <a href="/maintenance/delete/{{ record.id }}/" class="action-btn delete" onclick="return confirm('هل أنت متأكد من حذف السجل؟');">حذف</a>
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:8px 6px;font-weight:bold;">{{ record.car.plate_number }}</td>
+                <td style="padding:8px 6px;color:#1976d2;font-weight:bold;">{{ record.car.client.first_name }}{% if record.car.client.last_name %} {{ record.car.client.last_name }}{% endif %}</td>
+                <td style="padding:8px 6px;">{{ record.service.name }}</td>
+                <td style="padding:8px 6px;">{{ record.price }}</td>
+                <td style="padding:8px 6px;">{{ record.created_at|date:'Y-m-d' }}</td>
+                <td style="padding:8px 6px;">{% if record.delivery_date %}{{ record.delivery_date|date:'Y-m-d H:i' }}{% else %}-{% endif %}</td>
+                <td style="padding:8px 6px;">{{ record.get_status }}</td>
+                <td style="padding:8px 6px;text-align:center;">
+                    <div style="display:flex;gap:8px;justify-content:center;align-items:center;white-space:nowrap;">
+                        <a href="{% url 'cars:edit_maintenance_record_fields' record.id %}" style="background:#ffc107;color:#333;padding:6px 12px;border-radius:5px;text-decoration:none;font-weight:bold;">تعديل</a>
+                        <a href="/maintenance/delete/{{ record.id }}/" style="background:#e53935;color:#fff;padding:6px 12px;border-radius:5px;text-decoration:none;font-weight:bold;" onclick="return confirm('هل أنت متأكد من حذف السجل؟');">حذف</a>
                     </div>
                 </td>
             </tr>
         {% empty %}
-            <tr><td colspan="7" style="text-align:center;padding:16px;color:#888;">لا توجد سجلات صيانة بعد.</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:18px;color:#888;">لا توجد سجلات صيانة بعد.</td></tr>
         {% endfor %}
-    	</tbody>
-    {% endblock %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

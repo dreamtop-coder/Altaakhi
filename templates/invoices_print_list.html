@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="print-invoices-main-container" style="max-width:900px;margin:auto;background:#fff;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:ltr;">
-    <h2 style="text-align:center;color:#1976d2;margin-bottom:18px;">طباعة الفواتير حسب رقم السيارة</h2>
-    <form method="get" class="search-form-print-invoices" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:center;">
+<div class="services-table-fix" style="max-width:900px;margin-right:0;margin-left:auto;background:#f9f9f9;padding:28px 32px 22px 32px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;">
+    <h2 style="text-align:right;color:#1976d2;margin-bottom:18px;font-size:22px;font-weight:700;">طباعة الفواتير حسب رقم السيارة</h2>
+    <form method="get" class="search-form-print-invoices" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:flex-end;">
         <input type="text" name="car_number" placeholder="رقم السيارة" value="{{ request.GET.car_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
         <input type="text" name="invoice_number" placeholder="رقم الفاتورة" value="{{ request.GET.invoice_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
         <button type="submit" style="background:#1976d2;color:#fff;padding:8px 22px;border-radius:6px;font-weight:bold;border:none;">بحث</button>
@@ -36,14 +36,14 @@
                     box-shadow: none !important;
                     background: none !important;
                     display: flex;
-                    justify-content: center;
+                    justify-content: flex-end;
                     align-items: center;
                 }
                 .table-print-invoices-wrapper table {
-                    width: 100% !important;
+                    width: auto !important;
                     max-width: 100% !important;
                     min-width: 0 !important;
-                    margin: 0 auto !important;
+                    margin: 0 !important;
                     font-size: 1.05em !important;
                 }
             }
@@ -73,31 +73,31 @@
     }
     </style>
     {% if request.GET.car_number or request.GET.invoice_number %}
-    <div class="table-print-invoices-wrapper" style="display:flex;justify-content:center;width:100%;">
-        <div class="table-print-invoices-outer-wrapper" style="display: flex; justify-content: center; width: 100%;">
-            <div class="table-print-invoices-wrapper" style="margin-top: 20px; width: fit-content; margin-left: auto; margin-right: auto;">
-                <table class="table table-bordered table-striped" id="print-invoices-table">
-                    <thead>
-                        <tr style="background:#e3eafc;color:#1a237e;">
-                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">رقم الفاتورة</th>
-                            <th style="padding:8px 10px;">رقم السيارة</th>
-                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">اسم العميل</th>
-                            <th class="hide-mobile-print" style="padding:8px 10px;">تاريخ الفاتورة</th>
-                            <th style="padding:8px 10px;">المبلغ</th>
-                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">الحالة</th>
-                            <th style="padding:8px 10px;">طباعة</th>
+    <div class="table-print-invoices-wrapper" style="display:flex;justify-content:flex-end;width:100%;">
+        <div class="table-print-invoices-outer-wrapper" style="display: flex; justify-content: flex-end; width: 100%;">
+            <div class="table-print-invoices-wrapper" style="margin-top: 20px; width: 100%; margin-left: 0; margin-right: 0;">
+                <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px #eee;" id="print-invoices-table">
+                    <thead style="background:#32405a;color:#fff;">
+                        <tr>
+                            <th class="hide-mobile-print-mobile" style="padding:10px 6px;">رقم الفاتورة</th>
+                            <th style="padding:10px 6px;">رقم السيارة</th>
+                            <th class="hide-mobile-print-mobile" style="padding:10px 6px;">اسم العميل</th>
+                            <th class="hide-mobile-print" style="padding:10px 6px;">تاريخ الفاتورة</th>
+                            <th style="padding:10px 6px;">المبلغ</th>
+                            <th class="hide-mobile-print-mobile" style="padding:10px 6px;">الحالة</th>
+                            <th style="padding:10px 6px;">طباعة</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for invoice in invoices %}
-                        <tr>
-                            <td class="hide-mobile-print-mobile" style="padding:8px 10px;">{{ invoice.invoice_number }}</td>
-                            <td style="padding:8px 10px;">{{ invoice.car.plate_number }}</td>
-                            <td class="hide-mobile-print-mobile" style="padding:8px 10px;">{{ invoice.client.first_name }} {% if invoice.client.last_name %}{{ invoice.client.last_name }}{% endif %}</td>
-                            <td class="hide-mobile-print" style="padding:8px 10px;">{{ invoice.created_at|date:'d-m-Y' }}</td>
-                            <td style="padding:8px 10px;">{{ invoice.amount }}</td>
-                            <td class="hide-mobile-print-mobile" style="padding:8px 10px;">{% if invoice.paid %}<span style="color:#28a745;font-weight:bold;">مدفوعة</span>{% else %}<span style="color:#c00;font-weight:bold;">غير مدفوعة</span>{% endif %}</td>
-                            <td style="padding:8px 10px;">
+                        <tr style="border-bottom:1px solid #eee;">
+                            <td class="hide-mobile-print-mobile" style="padding:8px 6px;">{{ invoice.invoice_number }}</td>
+                            <td style="padding:8px 6px;">{{ invoice.car.plate_number }}</td>
+                            <td class="hide-mobile-print-mobile" style="padding:8px 6px;">{{ invoice.client.first_name }} {% if invoice.client.last_name %}{{ invoice.client.last_name }}{% endif %}</td>
+                            <td class="hide-mobile-print" style="padding:8px 6px;">{{ invoice.created_at|date:'d-m-Y' }}</td>
+                            <td style="padding:8px 6px;">{{ invoice.amount }}</td>
+                            <td class="hide-mobile-print-mobile" style="padding:8px 6px;">{% if invoice.paid %}<span style="color:#28a745;font-weight:bold;">مدفوعة</span>{% else %}<span style="color:#c00;font-weight:bold;">غير مدفوعة</span>{% endif %}</td>
+                            <td style="padding:8px 6px;text-align:center;">
                                 <button type="button" class="print-invoice-btn" data-invoice-id="{{ invoice.id }}" style="background:#1976d2;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;text-decoration:none;">طباعة</button>
                             </td>
                         </tr>
