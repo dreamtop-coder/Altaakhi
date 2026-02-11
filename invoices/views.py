@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.db import models
@@ -13,6 +14,7 @@ from cars.forms_edit_maintenance import EditMaintenanceRecordForm
 from decimal import Decimal
 
 from .models import Invoice, Payment
+from audit.models import AuditLog
 from .forms import EditInvoiceForm, PaymentForm
 from cars.models import Car
 from cars.maintenance_models import MaintenanceRecord
@@ -181,12 +183,36 @@ def edit_invoice_full(request, invoice_id):
 # حذف الفاتورة إذا لم يكن لها سجلات صيانة مرتبطة
 @login_required
 def delete_invoice(request, invoice_id):
+    if not request.user.has_perm('invoices.delete_invoice'):
+        try:
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action="DELETE_ATTEMPT_DENIED",
+                object_type="Invoice",
+                object_id=str(invoice_id),
+                description=f"User {request.user} attempted to delete invoice id={invoice_id} without permission",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        except Exception:
+            pass
+        return HttpResponseForbidden()
     invoice = get_object_or_404(Invoice, id=invoice_id)
     if MaintenanceRecord.objects.filter(invoice=invoice).exists():
         messages.error(request, "لا يمكن حذف الفاتورة لوجود سجلات صيانة مرتبطة بها.")
         return redirect("cars:maintenance_list")
     if request.method == "POST":
         invoice.delete()
+        try:
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action="DELETE_INVOICE",
+                object_type="Invoice",
+                object_id=str(invoice_id),
+                description=f"Deleted invoice {invoice.invoice_number}",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        except Exception:
+            pass
         messages.success(request, "تم حذف الفاتورة بنجاح.")
         return redirect("cars:maintenance_list")
     return render(request, "delete_invoice.html", {"invoice": invoice})
@@ -521,11 +547,36 @@ def edit_payment(request, payment_id):
 
 @login_required
 def delete_payment(request, payment_id):
+    if not request.user.has_perm('invoices.delete_payment'):
+        try:
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action="DELETE_ATTEMPT_DENIED",
+                object_type="Payment",
+                object_id=str(payment_id),
+                description=f"User {request.user} attempted to delete payment id={payment_id} without permission",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        except Exception:
+            pass
+        return HttpResponseForbidden()
     payment = get_object_or_404(Payment, id=payment_id)
     if request.method == "POST":
         invoice = payment.invoice
         try:
             payment.delete()
+            try:
+                AuditLog.objects.create(
+                    user=request.user if request.user.is_authenticated else None,
+                    action="DELETE_PAYMENT",
+                    object_type="Payment",
+                    object_id=str(payment_id),
+                    description=f"Deleted payment {payment_id} for invoice {invoice.id if invoice else 'N/A'}",
+                    ip_address=request.META.get("REMOTE_ADDR"),
+                )
+            except Exception:
+                # Do not block delete on logging failure
+                pass
         except Exception:
             messages.error(request, "حدث خطأ أثناء حذف الدفع.")
             return redirect("payments_list")

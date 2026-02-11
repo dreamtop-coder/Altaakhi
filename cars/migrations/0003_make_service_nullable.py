@@ -5,7 +5,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("cars", "0002_maintenancepart"),
+        ("cars", "0004_add_service_field"),
     ]
 
     operations = [
