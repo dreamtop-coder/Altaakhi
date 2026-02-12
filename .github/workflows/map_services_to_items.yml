@@ -1,0 +1,51 @@
+name: Map Services → Items (mapping)
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'If true the workflow will run non-dry-run placeholder creation'
+        required: false
+        default: 'false'
+
+jobs:
+  mapping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run migrations
+        run: |
+          python manage.py migrate --no-input
+
+      - name: Dry-run mapping (write CSV)
+        run: |
+          python manage.py map_services_to_items -o mapping_dryrun.csv
+
+      - name: Upload dry-run CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-dryrun
+          path: mapping_dryrun.csv
+
+      - name: Apply placeholders (optional)
+        if: ${{ github.event.inputs.apply == 'true' }}
+        run: |
+          python manage.py map_services_to_items --no-dry-run --create-placeholders --yes -o mapping_applied.csv
+
+      - name: Upload applied CSV (if any)
+        if: ${{ github.event.inputs.apply == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-applied
+          path: mapping_applied.csv
