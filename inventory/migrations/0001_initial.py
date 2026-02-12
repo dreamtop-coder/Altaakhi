@@ -8,8 +8,12 @@ class Migration(migrations.Migration):
 
     initial = True
 
+    # Depend on the squashed services migration to avoid circular dependency
+    # during fresh installs and test DB creation. The squashed migration
+    # creates the core Service/Department models; cross-app fields are
+    # added in a follow-up migration `services.0002_add_parts_and_car`.
     dependencies = [
-        ('services', '__first__'),
+        ('services', '0001_squashed_0003_add_car_fk'),
     ]
 
     operations = [
