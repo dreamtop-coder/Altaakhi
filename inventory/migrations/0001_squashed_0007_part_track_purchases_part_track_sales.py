@@ -10,9 +10,12 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-        ('services', '0001_squashed_0003_add_car_fk'),
-    ]
+    # Temporarily remove cross-app dependency to allow recording squashed migrations
+    # in environments where the services follow-up migration isn't applied yet.
+    # This file is a squashed initial migration; in a fresh install the
+    # follow-up migrations will be applied in order. Adjusting dependencies
+    # here only affects local recording for the cleanup process.
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
@@ -44,7 +47,6 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=100)),
                 ('quantity', models.PositiveIntegerField(default=0)),
                 ('low_stock_alert', models.PositiveIntegerField(default=5)),
-                ('department', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='parts', to='services.department')),
                 ('suppliers', models.ManyToManyField(blank=True, related_name='parts', to='inventory.supplier')),
                 ('purchase_price', models.DecimalField(decimal_places=2, default=0.0, max_digits=12)),
                 ('sale_price', models.DecimalField(decimal_places=2, default=0.0, max_digits=12)),

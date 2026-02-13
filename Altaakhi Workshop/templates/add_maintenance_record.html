@@ -183,6 +183,11 @@
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // ensure the service parts box is hidden by default until a service with parts is selected
+    try{
+        var _partsBox = document.getElementById('service-parts-box');
+        if(_partsBox){ _partsBox.style.display = 'none'; }
+    }catch(e){}
     var serviceSelect = document.getElementById('id_service');
     var priceInput = document.getElementById('id_price');
     if(serviceSelect && priceInput) {

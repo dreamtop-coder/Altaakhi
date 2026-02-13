@@ -68,7 +68,7 @@
                 <td class="invoices-hide-mobile" style="padding:6px 8px;text-align:right;min-width:120px;">{{ invoice.car.plate_number }}</td>
                 <td class="invoices-amount-col" style="padding:6px 8px;text-align:right;min-width:120px;">{{ invoice.amount }}</td>
                 <td class="invoices-hide-mobile" style="padding:6px 8px;text-align:right;min-width:140px;">{% if invoice.paid %}<span style="color:green;font-weight:bold;">مدفوعة</span>{% else %}<span style="color:#e53935;font-weight:bold;">غير مدفوعة</span>{% endif %}</td>
-                <td class="invoices-hide-mobile" style="padding:6px 8px;text-align:right;min-width:140px;">{{ invoice.created_at|date:'Y-m-d' }}</td>
+                <td class="invoices-hide-mobile" style="padding:6px 8px;text-align:right;min-width:140px;">{{ invoice.invoice_date|date:'Y-m-d' }}</td>
                 <td class="invoices-hide-mobile" style="padding:6px 8px;text-align:right;min-width:120px;">
                     <a href="{% url 'edit_invoice_full' invoice.id %}" style="background:#ffc107;color:#222;padding:6px 12px;border-radius:5px;text-decoration:none;display:inline-block;">تعديل</a>
                 </td>

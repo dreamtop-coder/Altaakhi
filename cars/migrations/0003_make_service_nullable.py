@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
             model_name="maintenancerecord",
             name="service",
             field=models.ForeignKey(
-                to="services.service",
+                to="cars.service",
                 on_delete=django.db.models.deletion.SET_NULL,
                 null=True,
                 blank=True,

@@ -1,7 +1,6 @@
 # Create your models here.
 
 from django.db import models
-from services.models import Department
 
 
 class Supplier(models.Model):
@@ -18,11 +17,15 @@ class Part(models.Model):
     name = models.CharField(max_length=100)
     quantity = models.PositiveIntegerField(default=0)
     department = models.ForeignKey(
-        Department, on_delete=models.SET_NULL, null=True, related_name="parts"
+        "services.Department", on_delete=models.SET_NULL, null=True, related_name="parts"
     )
     # whether this part is a real stock item (purchases affect quantity).
     # Services and non-stock entries should set this to False.
     is_stock_item = models.BooleanField(default=True)
+    # whether this item is tracked in purchase records
+    track_purchases = models.BooleanField(default=True)
+    # whether this item is tracked in sales records (invoices/maintenance)
+    track_sales = models.BooleanField(default=True)
     suppliers = models.ManyToManyField(
         Supplier, blank=True, related_name="parts"
     )

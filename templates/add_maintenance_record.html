@@ -249,6 +249,25 @@
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // ensure the service parts box is hidden by default until a service with parts is selected
+    try{
+        var _partsBox = document.getElementById('service-parts-box');
+        if(_partsBox){ _partsBox.style.display = 'none'; }
+    }catch(e){}
+    // guard to prevent duplicate auto-appends when multiple events fire
+    var _lastAutoAppendAt = 0;
+    function safeAddInvoiceRow(delay){
+        var d = typeof delay === 'number' ? delay : 10;
+        setTimeout(function(){
+            try{
+                var now = Date.now();
+                if(now - _lastAutoAppendAt > 400){
+                    _lastAutoAppendAt = now;
+                    addInvoiceRow();
+                }
+            }catch(e){ /* ignore */ }
+        }, d);
+    }
     var serviceSelect = document.getElementById('id_service');
     var priceInput = document.getElementById('id_price');
     if(serviceSelect && priceInput) {
@@ -273,7 +292,8 @@ document.addEventListener('DOMContentLoaded', function() {
             var partsList = document.getElementById('service-parts-list');
             partsList.innerHTML = '';
             if(!serviceId) { partsBox.style.display = 'none'; return; }
-            fetch('/services/' + serviceId + '/parts/')
+            // try items parts endpoint first (items now contain services), fall back to services endpoint
+            fetch('/items/' + serviceId + '/parts/')
                 .then(r => r.json())
                 .then(function(data){
                     function renderParts(arr){
@@ -309,7 +329,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             .then(function(all){ renderParts(all); })
                             .catch(function(){ partsBox.style.display = 'none'; });
                     }
-                }).catch(function(){ partsBox.style.display = 'none'; });
+                }).catch(function(){
+                    // fallback to legacy services endpoint if items endpoint not present
+                    fetch('/services/' + serviceId + '/parts/')
+                        .then(r2 => r2.json())
+                        .then(function(data2){
+                            if(Array.isArray(data2) && data2.length>0){ renderParts(data2); } else { partsBox.style.display = 'none'; }
+                        }).catch(function(){ partsBox.style.display = 'none'; });
+                });
         });
     }
 
@@ -382,6 +409,19 @@ document.addEventListener('DOMContentLoaded', function() {
         function showSuggestions(list){
             closeContainer();
             container = document.createElement('div');
+            // header row for columns: Name | Qty | Price
+            var headerRow = document.createElement('div');
+            headerRow.style.display = 'flex';
+            headerRow.style.justifyContent = 'space-between';
+            headerRow.style.alignItems = 'center';
+            headerRow.style.padding = '6px 8px';
+            headerRow.style.borderBottom = '1px solid #eee';
+            headerRow.style.fontWeight = 'bold';
+            headerRow.style.background = '#fafafa';
+            var hPrice = document.createElement('div'); hPrice.style.width='110px'; hPrice.style.textAlign='right'; hPrice.textContent = 'السعر'; headerRow.appendChild(hPrice);
+            var hQty = document.createElement('div'); hQty.style.width='80px'; hQty.style.textAlign='center'; hQty.textContent = 'العدد'; headerRow.appendChild(hQty);
+            var hName = document.createElement('div'); hName.style.flex='1'; hName.style.textAlign='right'; hName.textContent = 'اسم الصنف'; headerRow.appendChild(hName);
+            container.appendChild(headerRow);
             container.style.position = 'absolute';
             container.style.zIndex = 9999;
             container.style.background = '#fff';
@@ -394,26 +434,58 @@ document.addEventListener('DOMContentLoaded', function() {
                 var row = document.createElement('div');
                 row.style.padding = '8px';
                 row.style.cursor = 'pointer';
-                // show only the name for cleaner suggestions
-                row.textContent = it.name;
+                row.style.display = 'flex';
+                row.style.justifyContent = 'space-between';
+                row.style.alignItems = 'center';
+                // three-column layout: name | qty | unit price
+                var nameDiv = document.createElement('div');
+                nameDiv.style.flex = '1';
+                nameDiv.style.textAlign = 'right';
+                nameDiv.style.paddingRight = '8px';
+                nameDiv.textContent = it.name;
+                var qtyDiv = document.createElement('div');
+                qtyDiv.style.width = '80px';
+                qtyDiv.style.textAlign = 'center';
+                qtyDiv.style.color = '#333';
+                var qtyVal = (typeof it.quantity !== 'undefined') ? it.quantity : (typeof it.qty !== 'undefined' ? it.qty : '');
+                qtyDiv.textContent = qtyVal !== '' ? String(qtyVal) : '-';
+                var priceDiv = document.createElement('div');
+                priceDiv.style.width = '110px';
+                priceDiv.style.textAlign = 'right';
+                priceDiv.style.color = '#333';
+                var priceVal = '';
+                if(it._type === 'service') priceVal = (typeof it.default_price !== 'undefined') ? parseFloat(it.default_price||0).toFixed(2) : '';
+                else priceVal = (typeof it.sale_price !== 'undefined') ? parseFloat(it.sale_price||0).toFixed(2) : '';
+                priceDiv.textContent = priceVal !== '' ? priceVal : '-';
+                // append in order: price | qty | name
+                row.appendChild(priceDiv);
+                row.appendChild(qtyDiv);
+                row.appendChild(nameDiv);
                 row.addEventListener('click', function(){
                     input.value = it.name;
                     // mark dataset based on type
+                    var tr = input.closest('tr');
                     if(it._type === 'service'){
                         delete input.dataset.partId;
                         input.dataset.serviceId = it.id;
-                        var tr = input.closest('tr');
                         if(tr){
-                            var unit = tr.querySelector('.inv-unit'); if(unit){ unit.value = parseFloat(it.default_price||0).toFixed(2); unit.dispatchEvent(new Event('change')); }
+                            var unit = tr.querySelector('.inv-unit'); if(unit){ unit.value = parseFloat(it.default_price||0).toFixed(2); }
                             var qty = tr.querySelector('.inv-qty'); if(qty) qty.value = 1;
                         }
+                        // sync top service selector if present
+                        var svcSel = document.getElementById('id_service'); if(svcSel){ try{ svcSel.value = it.id; svcSel.dispatchEvent(new Event('change')); }catch(e){} }
                     } else {
                         input.dataset.partId = it.id;
                         delete input.dataset.serviceId;
-                        var tr = input.closest('tr');
-                        if(tr){ var unit = tr.querySelector('.inv-unit'); if(unit){ unit.value = parseFloat(it.sale_price||0).toFixed(2); unit.dispatchEvent(new Event('change')); } var qty = tr.querySelector('.inv-qty'); if(qty && (!qty.value || parseInt(qty.value)<=0)) qty.value = 1; }
+                        if(tr){ var unit = tr.querySelector('.inv-unit'); if(unit){ unit.value = parseFloat(it.sale_price||0).toFixed(2); } var qty = tr.querySelector('.inv-qty'); if(qty && (!qty.value || parseInt(qty.value)<=0)) qty.value = 1; }
                     }
+                    // trigger line update
+                    if(tr){ var unitEl = tr.querySelector('.inv-unit'); if(unitEl) unitEl.dispatchEvent(new Event('change')); }
                     closeContainer();
+                    // if this was the last row and now has content, auto-append a new blank row
+                    try{
+                        if(tr){ var tbody = tr.parentNode; if(tbody && tr === tbody.lastElementChild){ var nameEl = tr.querySelector('.inv-name'); var qtyEl = tr.querySelector('.inv-qty'); var unitEl2 = tr.querySelector('.inv-unit'); var n = nameEl && nameEl.value && nameEl.value.trim() !== ''; var qv = parseFloat(qtyEl && qtyEl.value||0); var uv = parseFloat(unitEl2 && unitEl2.value||0); if(n && qv>0 && !isNaN(uv)){ safeAddInvoiceRow(10); } } }
+                    }catch(e){ /* ignore */ }
                 });
                 container.appendChild(row);
             });
@@ -425,15 +497,14 @@ document.addEventListener('DOMContentLoaded', function() {
         var handler = debounce(function(){
             var q = input.value.trim();
             if(!q){ closeContainer(); return; }
-            var partsUrl = '/items-autocomplete/?q=' + encodeURIComponent(q);
-            var servicesUrl = '/services-autocomplete/?q=' + encodeURIComponent(q);
-            Promise.all([fetch(partsUrl).then(r=>r.json()), fetch(servicesUrl).then(r=>r.json())])
-                .then(function(results){
-                    var parts = Array.isArray(results[0]) ? results[0].map(function(p){ p._type='part'; return p; }) : [];
-                    var svcs = Array.isArray(results[1]) ? results[1].map(function(s){ s._type='service'; return s; }) : [];
-                    var combined = svcs.concat(parts);
-                    if(combined.length>0) showSuggestions(combined); else closeContainer();
-                }).catch(function(){ closeContainer(); });
+            var itemsUrl = '/items-autocomplete/?q=' + encodeURIComponent(q);
+            fetch(itemsUrl).then(r=>r.json()).then(function(results){
+                var arr = Array.isArray(results) ? results : [];
+                var parts = arr.filter(function(it){ return !it.is_service; }).map(function(p){ p._type='part'; return p; });
+                var svcs = arr.filter(function(it){ return it.is_service; }).map(function(s){ s._type='service'; return s; });
+                var combined = svcs.concat(parts);
+                if(combined.length>0) showSuggestions(combined); else closeContainer();
+            }).catch(function(){ closeContainer(); });
         }, 200);
         input.addEventListener('input', handler);
         input.addEventListener('blur', function(){ setTimeout(closeContainer, 200); });
@@ -448,6 +519,21 @@ document.addEventListener('DOMContentLoaded', function() {
             var total = (q*u)||0;
             tr.querySelector('.inv-line-total').textContent = formatMoney(total);
             updateInvoiceTotal();
+            // if this is the last row and it's filled, auto-append a blank row for next entry
+            try{
+                var tbody = tr.parentNode;
+                var isLast = tbody && tr === tbody.lastElementChild;
+                var nameEl = tr.querySelector('.inv-name');
+                var nameFilled = nameEl && nameEl.value && nameEl.value.trim() !== '';
+                if(isLast && nameFilled && q>0 && !isNaN(u)){
+                    // delay to avoid interfering with current event handlers
+                    setTimeout(function(){
+                        // ensure lastElementChild didn't change to a newly-added empty row
+                        var nowTbody = tr.parentNode;
+                        if(nowTbody && tr === nowTbody.lastElementChild){ safeAddInvoiceRow(0); }
+                    }, 10);
+                }
+            }catch(e){ /* ignore */ }
         }
         qty.addEventListener('change', updateLine);
         qty.addEventListener('keyup', updateLine);

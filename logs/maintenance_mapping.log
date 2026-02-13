@@ -1,0 +1,82 @@
+2026-02-12T17:48:57.059493 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:48:57.064519 Validating stock for parts_list (count=1)
+2026-02-12T17:48:57.064869 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:48:57.082786 Invoice creation failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:49:42.093763 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:49:42.098568 Validating stock for parts_list (count=1)
+2026-02-12T17:49:42.099114 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:49:42.106462 Invoice creation failed: Invoice() got unexpected keyword arguments: 'invoice_date'
+2026-02-12T17:50:16.222559 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:50:16.227281 Validating stock for parts_list (count=1)
+2026-02-12T17:50:16.227593 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:50:16.244684 Invoice creation failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:50:42.365045 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:50:42.365547 Form bound. data keys: ['plate_number', 'service', 'price', 'notes', 'maintenance_date', 'service_parts']
+2026-02-12T17:50:42.369545 Form is valid
+2026-02-12T17:50:42.370287 Validating stock for parts_list (count=1)
+2026-02-12T17:50:42.370560 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:50:42.388243 Invoice creation failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:51:35.309451 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:51:35.309989 Form bound. data keys: ['plate_number', 'service', 'price', 'notes', 'maintenance_date', 'service_parts']
+2026-02-12T17:51:35.314418 Form is valid
+2026-02-12T17:51:35.315427 Validating stock for parts_list (count=1)
+2026-02-12T17:51:35.315775 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:51:35.334818 Invoice creation failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:51:53.933528 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:51:53.934001 Form bound. data keys: ['plate_number', 'service', 'price', 'notes', 'maintenance_date', 'service_parts']
+2026-02-12T17:51:53.937888 Form is valid
+2026-02-12T17:51:53.938722 Validating stock for parts_list (count=1)
+2026-02-12T17:51:53.939116 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:51:53.956746 Invoice.objects.create failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:51:53.960416 Raw invoice insert also failed: not all arguments converted during string formatting
+2026-02-12T17:52:19.231138 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:52:19.231606 Form bound. data keys: ['plate_number', 'service', 'price', 'notes', 'maintenance_date', 'service_parts']
+2026-02-12T17:52:19.235649 Form is valid
+2026-02-12T17:52:19.236385 Validating stock for parts_list (count=1)
+2026-02-12T17:52:19.236664 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:52:19.254054 Invoice.objects.create failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:52:19.257632 Raw invoice insert also failed (django cursor): not all arguments converted during string formatting
+2026-02-12T17:52:19.259957 Raw sqlite3 insert also failed: table invoices_invoice has no column named invoice_date
+2026-02-12T17:52:34.008173 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:52:34.008678 Form bound. data keys: ['plate_number', 'service', 'price', 'notes', 'maintenance_date', 'service_parts']
+2026-02-12T17:52:34.012767 Form is valid
+2026-02-12T17:52:34.013468 Validating stock for parts_list (count=1)
+2026-02-12T17:52:34.013739 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:52:34.031249 Invoice.objects.create failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:52:34.034681 Raw invoice insert also failed (django cursor): not all arguments converted during string formatting
+2026-02-12T17:52:34.035485 Raw sqlite3 insert also failed: table invoices_invoice has no column named invoice_date
+2026-02-12T17:52:34.035770 About to create Maintenance: car=101 service=None price=0.00 invoice_id=None notes_len=10 maintenance_date=2026-02-12
+2026-02-12T17:52:34.036692 Maintenance creation IntegrityError: NOT NULL constraint failed: cars_maintenancerecord.maintenance_date
+2026-02-12T17:53:21.407481 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:53:21.407964 Form bound. data keys: ['plate_number', 'service', 'price', 'notes', 'maintenance_date', 'service_parts']
+2026-02-12T17:53:21.411859 Form is valid
+2026-02-12T17:53:21.412529 Validating stock for parts_list (count=1)
+2026-02-12T17:53:21.412811 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:53:21.430241 Invoice.objects.create failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:53:21.433897 Raw invoice insert also failed (django cursor): not all arguments converted during string formatting
+2026-02-12T17:53:21.434756 Raw sqlite3 insert also failed: table invoices_invoice has no column named invoice_date
+2026-02-12T17:53:21.435041 About to create Maintenance: car=102 service=None price=0.00 invoice_id=None notes_len=10 maintenance_date=2026-02-12
+2026-02-12T17:53:21.436185 Maintenance creation IntegrityError: NOT NULL constraint failed: cars_maintenancerecord.maintenance_date
+2026-02-12T17:53:21.437383 Raw sqlite3 maintenance insert also failed: NOT NULL constraint failed: cars_maintenancerecord.service_id
+2026-02-12T17:55:17.006338 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:55:17.006815 Form bound. data keys: ['plate_number', 'service', 'price', 'notes', 'maintenance_date', 'service_parts']
+2026-02-12T17:55:17.010732 Form is valid
+2026-02-12T17:55:17.011421 Validating stock for parts_list (count=1)
+2026-02-12T17:55:17.011699 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:55:17.029531 Invoice.objects.create failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:55:17.032987 Raw invoice insert also failed (django cursor): not all arguments converted during string formatting
+2026-02-12T17:55:17.033817 Raw sqlite3 insert also failed: table invoices_invoice has no column named invoice_date
+2026-02-12T17:55:17.034100 About to create Maintenance: car=103 service=7 price=100.00 invoice_id=None notes_len=10 maintenance_date=2026-02-12
+2026-02-12T17:55:17.035110 Maintenance creation IntegrityError: NOT NULL constraint failed: cars_maintenancerecord.maintenance_date
+2026-02-12T17:55:17.041330 Raw SQL inserted maintenance but ORM could not fetch it.
+2026-02-12T17:55:43.148083 Initial parts_list parsed (count=1): [{'id': 27, 'name': 'Test Service X', 'qty': 1, 'unit': 100.0, 'is_service': True}]
+2026-02-12T17:55:43.148581 Form bound. data keys: ['plate_number', 'service', 'price', 'notes', 'maintenance_date', 'service_parts']
+2026-02-12T17:55:43.152752 Form is valid
+2026-02-12T17:55:43.153539 Validating stock for parts_list (count=1)
+2026-02-12T17:55:43.153832 Attempting service mapping from parts_list (count=1)
+2026-02-12T17:55:43.171476 Invoice.objects.create failed: NOT NULL constraint failed: invoices_invoice.invoice_date
+2026-02-12T17:55:43.174969 Raw invoice insert also failed (django cursor): not all arguments converted during string formatting
+2026-02-12T17:55:43.176573 Raw sqlite3 insert also failed: table invoices_invoice has no column named invoice_date
+2026-02-12T17:55:43.176863 About to create Maintenance: car=104 service=7 price=100.00 invoice_id=None notes_len=10 maintenance_date=2026-02-12
+2026-02-12T17:55:43.177866 Maintenance creation IntegrityError: NOT NULL constraint failed: cars_maintenancerecord.maintenance_date
+2026-02-12T17:55:43.181701 Raw SQL inserted maintenance but ORM could not fetch it.

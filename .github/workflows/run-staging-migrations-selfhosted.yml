@@ -1,0 +1,42 @@
+name: Run staging migrations (self-hosted)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-migrations-selfhosted:
+    # This job is intended to run on a self-hosted runner inside staging network with label `staging`.
+    runs-on: [self-hosted, staging]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run monitor script locally on staging runner
+        env:
+          STAGING_SECRET: ${{ secrets.STAGING_SECRET }}
+        run: |
+          echo 'Running monitor script locally on self-hosted runner'
+          pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\monitor_migrations_staging.ps1 -EnvSecret "${{ secrets.STAGING_SECRET }}" -Yes
+
+      - name: Gather latest migration log (local)
+        id: fetch_log
+        run: |
+          echo 'Retrieving latest migration_run_*.log from workspace...'
+          pwsh -NoProfile -Command "$f = Get-ChildItem -Path . -Filter 'migration_run_*.log' -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if($f) { Get-Content -Raw $f.FullName } else { Write-Output 'NO_MIGRATION_LOG_FOUND_ON_RUNNER' }" > migration_run_staging.log || true
+          if [ ! -s migration_run_staging.log ]; then
+            echo 'NO_MIGRATION_LOG_FOUND_ON_RUNNER' > migration_run_staging.log
+          fi
+          echo "logfile=migration_run_staging.log" >> $GITHUB_OUTPUT
+
+      - name: Upload migration log as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-log
+          path: migration_run_staging.log
+
+      - name: Show migration log summary
+        if: always()
+        run: |
+          echo '---- migration_run_staging.log (first 200 lines) ----'
+          head -n 200 migration_run_staging.log || true

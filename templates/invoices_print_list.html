@@ -94,7 +94,7 @@
                             <td class="hide-mobile-print-mobile" style="padding:8px 6px;">{{ invoice.invoice_number }}</td>
                             <td style="padding:8px 6px;">{{ invoice.car.plate_number }}</td>
                             <td class="hide-mobile-print-mobile" style="padding:8px 6px;">{{ invoice.client.first_name }} {% if invoice.client.last_name %}{{ invoice.client.last_name }}{% endif %}</td>
-                            <td class="hide-mobile-print" style="padding:8px 6px;">{{ invoice.created_at|date:'d-m-Y' }}</td>
+                            <td class="hide-mobile-print" style="padding:8px 6px;">{{ invoice.invoice_date|date:'d-m-Y' }}</td>
                             <td style="padding:8px 6px;">{{ invoice.amount }}</td>
                             <td class="hide-mobile-print-mobile" style="padding:8px 6px;">{% if invoice.paid %}<span style="color:#28a745;font-weight:bold;">مدفوعة</span>{% else %}<span style="color:#c00;font-weight:bold;">غير مدفوعة</span>{% endif %}</td>
                             <td style="padding:8px 6px;text-align:center;">

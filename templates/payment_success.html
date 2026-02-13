@@ -74,7 +74,7 @@ body {
             </div>
             <div style="min-width:220px;max-width:260px;">
                 <div style="text-align:left;">
-                    <div style="font-weight:bold;">Date: <span style="font-weight:normal;">{{ invoice.created_at|date:'d-m-Y' }}</span></div>
+                        <div style="font-weight:bold;">Date: <span style="font-weight:normal;">{{ invoice.invoice_date|date:'d-m-Y' }}</span></div>
                     <div style="font-weight:bold;">Invoice No: <span style="font-weight:normal;">{{ invoice.invoice_number }}</span></div>
                     <div style="height:16px;"></div>
                     <div style="font-weight:bold;">Name: <span style="font-weight:normal;">{{ invoice.client.first_name }} {% if invoice.client.last_name %}{{ invoice.client.last_name }}{% endif %}</span></div>

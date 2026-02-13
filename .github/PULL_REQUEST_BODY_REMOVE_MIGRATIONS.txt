@@ -1,0 +1,46 @@
+Summary
+
+Remove legacy migration files that were superseded by squashed migrations for services, cars, and inventory.
+These squashes were created to simplify fresh installs; follow-up migrations were added where cross-app fields were required.
+
+Why this PR
+
+Keeps new installs fast/clean by using squashed migrations.
+Old migrations are kept only for backward compatibility; now we remove them after verification.
+
+What I changed
+
+Deleted legacy migration files (see branch chore/remove-old-squashed-migrations).
+Squashed migrations are already present and committed: services/migrations/0001_squashed_0003_add_car_fk.py, services/migrations/0002_add_parts_and_car.py, cars/migrations/0001_squashed_0004_maintenancerecord_maintenance_date.py, inventory/migrations/0001_squashed_0007_part_track_purchases_part_track_sales.py.
+Minor model fix: inventory.models.Part.department uses a lazy FK to avoid import-time issues.
+
+Checklist — REQUIRED before merging
+
+- [ ] Confirm `manage.py showmigrations` on local/staging/production shows the squashed migrations recorded.
+- [ ] Run `manage.py migrate --plan` in each environment and confirm no unexpected operations.
+- [ ] Confirm ops/staging have applied the squashed migrations (or run `manage.py migrate` there).
+- [ ] CI green (mapping command dry-run already runs in CI).
+
+Verification commands (run in each environment)
+
+Show migrations:
+
+powershell
+```
+$env:DJANGO_SECRET_KEY='devkey'; venv\Scripts\python.exe manage.py showmigrations
+```
+
+Migration plan:
+
+powershell
+```
+$env:DJANGO_SECRET_KEY='devkey'; venv\Scripts\python.exe manage.py migrate --plan
+```
+
+If anything goes wrong
+
+Revert this PR (restore deleted migration files) and coordinate with ops to re-run migrations on the affected environment(s).
+
+Notes
+
+Keep an eye on RELEASE_NOTES.md for squash details and upgrade instructions.

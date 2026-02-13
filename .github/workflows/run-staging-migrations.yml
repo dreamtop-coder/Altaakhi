@@ -6,7 +6,7 @@ on:
 
 jobs:
   run-migrations:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]  # ← استخدم self-hosted runner هنا
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,7 +44,6 @@ jobs:
           ATTEMPTS=3
           for i in $(seq 1 $ATTEMPTS); do
             echo "Attempt $i..."
-            # use a short ConnectTimeout to fail fast when network path is blocked
             ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
               "cd '${{ secrets.REMOTE_REPO_PATH }}' && powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\monitor_migrations_staging.ps1 -EnvSecret \"${STAGING_SECRET}\" -Yes" > monitor_remote_output.txt 2>&1 && break || (echo "ssh attempt $i failed" && sleep 8)
           done || true
@@ -55,10 +54,8 @@ jobs:
         id: fetch_log
         run: |
           echo 'Retrieving latest migration_run_*.log from staging...'
-          # Try to cat the latest log on the remote host; if none exists, output a placeholder string
           ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "powershell -NoProfile -Command \"$f = Get-ChildItem -Path '${{ secrets.REMOTE_REPO_PATH }}' -Filter 'migration_run_*.log' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if(\$f) { Get-Content -Raw \$f.FullName } else { Write-Output 'NO_MIGRATION_LOG_FOUND_ON_STAGING' }\"" > migration_run_staging.log || true
-          # Ensure a file exists so the artifact uploader always has something
           if [ ! -s migration_run_staging.log ]; then
             echo 'NO_MIGRATION_LOG_FOUND_ON_STAGING' > migration_run_staging.log
           fi

@@ -1,0 +1,30 @@
+name: SSH Reachability Debug
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  debug-reachability:
+    name: Debug SSH/TCP Reachability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show inputs & env
+        run: |
+          echo "Runner: $(uname -a)"
+          echo "SSH_HOST=${{ secrets.SSH_HOST }}"
+          echo "SSH_USER=${{ secrets.SSH_USER }}"
+
+      - name: Test TCP port 22 with netcat
+        run: |
+          echo 'Testing TCP connect to port 22 using nc'
+          nc -vz -w 10 "${{ secrets.SSH_HOST }}" 22 || echo 'nc failed'
+
+      - name: Test SSH connection attempt
+        run: |
+          echo 'Testing SSH connection (will fail without key)'
+          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no "${{ secrets.SSH_USER }}"@"${{ secrets.SSH_HOST }}" -p 22 exit || echo 'ssh failed or unreachable'
+
+      - name: Print traceroute (partial)
+        run: |
+          echo 'Running traceroute (may require sudo)'
+          traceroute -w 2 -q 1 "${{ secrets.SSH_HOST }}" || echo 'traceroute failed'

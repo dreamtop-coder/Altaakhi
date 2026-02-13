@@ -106,14 +106,13 @@ def add_maintenance_record(request):
                     car=car,
                     amount=0,
                     paid=False,
-                    created_at=maintenance_date,
                 )
             MaintenanceRecord.objects.create(
                 car=car,
                 service=service,
                 price=price,
                 notes=notes,
-                created_at=maintenance_date,
+                maintenance_date=maintenance_date,
                 invoice=invoice,
             )
             # إذا كانت السيارة في حالة waiting، انقلها إلى active

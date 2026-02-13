@@ -18,7 +18,7 @@
             <td>{{ invoice.client.first_name }}{% if invoice.client.last_name %} {{ invoice.client.last_name }}{% endif %}</td>
             <td>{{ invoice.car.plate_number }}</td>
             <td>{{ invoice.amount }}</td>
-            <td>{{ invoice.created_at|date:'Y-m-d' }}</td>
+            <td>{{ invoice.invoice_date|date:'Y-m-d' }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="5" style="text-align:center;">لا توجد فواتير مستحقة حالياً.</td></tr>

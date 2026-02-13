@@ -34,36 +34,46 @@ class Command(BaseCommand):
             action="store_true",
             help="Create placeholder Part records for unmatched Services (only when --no-dry-run is passed)",
         )
+        parser.add_argument(
+            "--yes",
+            "-y",
+            action="store_true",
+            help="Assume yes to confirmation prompts when applying changes",
+        )
 
     def handle(self, *args, **options):
         out_path = options.get("output")
         dry_run = not options.get("no_dry_run")
         create_placeholders = options.get("create_placeholders")
+        assume_yes = options.get("yes")
 
         if create_placeholders and dry_run:
             self.stdout.write(self.style.WARNING("--create-placeholders requested but running in dry-run mode. Use --no-dry-run to apply changes."))
 
+        # Prepare output file
         if out_path:
             out_file = open(out_path, "w", newline="", encoding="utf-8")
         else:
             out_file = sys.stdout
 
-        writer = csv.DictWriter(
-            out_file,
-            fieldnames=[
-                "service_id",
-                "service_name",
-                "matched_part_id",
-                "matched_part_name",
-                "match_type",
-                "confidence",
-                "note",
-            ],
-        )
+        fieldnames = [
+            "service_id",
+            "service_name",
+            "matched_part_id",
+            "matched_part_name",
+            "match_type",
+            "confidence",
+            "note",
+        ]
+        writer = csv.DictWriter(out_file, fieldnames=fieldnames)
         writer.writeheader()
 
         parts = list(Part.objects.all())
         parts_by_name = {normalize(p.name): p for p in parts}
+
+        # First pass: compute matches and collect rows; track unmatched services
+        rows = []
+        unmatched = []
 
         for svc in Service.objects.all():
             svc_name = svc.name or ""
@@ -71,7 +81,6 @@ class Command(BaseCommand):
             matched = None
             match_type = ""
             confidence = 0.0
-            note = ""
 
             # exact match
             p = parts_by_name.get(svc_norm)
@@ -112,11 +121,10 @@ class Command(BaseCommand):
                 if best and best_score > 0:
                     matched = best
                     match_type = "token_overlap"
-                    # confidence scaled by proportion of matched tokens
                     confidence = round(best_score / max(1, len(tokens(svc_name))), 2)
 
             if matched:
-                writer.writerow(
+                rows.append(
                     {
                         "service_id": svc.id,
                         "service_name": svc_name,
@@ -128,8 +136,7 @@ class Command(BaseCommand):
                     }
                 )
             else:
-                # No match found
-                writer.writerow(
+                rows.append(
                     {
                         "service_id": svc.id,
                         "service_name": svc_name,
@@ -140,20 +147,46 @@ class Command(BaseCommand):
                         "note": "no-match",
                     }
                 )
-                if create_placeholders and not dry_run:
-                    # create a basic placeholder part
+                unmatched.append(svc)
+
+        # If we are to create placeholders and not dry-run, require confirmation
+        if create_placeholders and not dry_run:
+            if unmatched:
+                msg = f"{len(unmatched)} unmatched services found. This will create placeholder Parts for them. Proceed? [y/N]: "
+                proceed = assume_yes
+                if not assume_yes:
+                    try:
+                        # interactive prompt
+                        ans = input(msg).strip().lower()
+                        proceed = ans in ("y", "yes")
+                    except Exception:
+                        # Non-interactive environment: abort
+                        proceed = False
+
+                if not proceed:
+                    self.stdout.write(self.style.WARNING("Aborting placeholder creation. CSV will still be written in dry-run form."))
+                    # write CSV and exit without creating
+                    for r in rows:
+                        writer.writerow(r)
+                    if out_path:
+                        out_file.close()
+                    self.stdout.write(self.style.SUCCESS("Mapping complete."))
+                    return
+
+                # proceed to create placeholders
+                for svc in unmatched:
                     try:
                         dept = getattr(svc, "department", None)
                         part = Part.objects.create(
-                            name=svc_name,
+                            name=svc.name or "",
                             quantity=0,
                             low_stock_alert=5,
                             department=dept if dept else None,
                         )
-                        writer.writerow(
+                        rows.append(
                             {
                                 "service_id": svc.id,
-                                "service_name": svc_name,
+                                "service_name": svc.name or "",
                                 "matched_part_id": part.id,
                                 "matched_part_name": part.name,
                                 "match_type": "created_placeholder",
@@ -163,6 +196,10 @@ class Command(BaseCommand):
                         )
                     except Exception as e:
                         self.stderr.write(f"Failed to create placeholder for Service {svc.id}: {e}")
+
+        # Write all rows
+        for r in rows:
+            writer.writerow(r)
 
         if out_path:
             out_file.close()

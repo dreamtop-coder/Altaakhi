@@ -136,7 +136,7 @@
         {% for invoice in invoices %}
             <tr>
                 <td>{{ invoice.invoice_number }}</td>
-                <td>{{ invoice.created_at|date:'d-m-Y' }}</td>
+                <td>{{ invoice.invoice_date|date:'d-m-Y' }}</td>
                 <td>{{ invoice.car.plate_number }}</td>
                 <td>{{ invoice.car.model|default:'-'|cut:invoice.car.brand.name|cut:' - ' }}</td>
                 <td>{{ invoice.car.brand|default:'-' }}</td>

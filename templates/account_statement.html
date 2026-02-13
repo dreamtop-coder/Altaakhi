@@ -30,7 +30,7 @@
             {% for invoice in invoices %}
             <tr>
                 <td style="padding:8px 10px;">{{ invoice.invoice_number }}</td>
-                <td style="padding:8px 10px; min-width:120px; width:22%; text-align:center;">{{ invoice.created_at|date:'d-m-Y' }}</td>
+                <td style="padding:8px 10px; min-width:120px; width:22%; text-align:center;">{{ invoice.invoice_date|date:'d-m-Y' }}</td>
                 <td style="padding:8px 10px;">{{ invoice.amount }}</td>
                 <td style="padding:8px 10px;">{% if invoice.paid %}<span style="color:#28a745;font-weight:bold;">مدفوعة</span>{% else %}<span style="color:#c00;font-weight:bold;">غير مدفوعة</span>{% endif %}</td>
             </tr>

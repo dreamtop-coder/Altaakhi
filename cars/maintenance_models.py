@@ -1,8 +1,5 @@
 from django.db import models
 from .models import Car
-from services.models import Service
-
-
 from invoices.models import Invoice
 
 
@@ -21,7 +18,10 @@ class MaintenanceRecord(models.Model):
     car = models.ForeignKey(
         Car, on_delete=models.CASCADE, related_name="maintenance_records"
     )
-    service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True)
+    service = models.ForeignKey(
+        'cars.Service', on_delete=models.SET_NULL, null=True, blank=True
+    )
+    maintenance_date = models.DateField(blank=True, null=True, verbose_name="تاريخ الصيانة")
     price = models.DecimalField(max_digits=10, decimal_places=2)
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField()

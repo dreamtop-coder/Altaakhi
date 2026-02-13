@@ -31,12 +31,26 @@ class PurchaseForm(forms.ModelForm):
 class PartForm(forms.ModelForm):
     class Meta:
         model = Part
-        fields = ["name", "quantity", "department", "suppliers", "purchase_price", "sale_price", "low_stock_alert"]
+        fields = [
+            "name",
+            "quantity",
+            "department",
+            "suppliers",
+            "is_stock_item",
+            "track_purchases",
+            "track_sales",
+            "purchase_price",
+            "sale_price",
+            "low_stock_alert",
+        ]
         widgets = {
             "name": forms.TextInput(attrs={"class": "form-control"}),
             "quantity": forms.NumberInput(attrs={"class": "form-control"}),
             "department": forms.Select(attrs={"class": "form-control"}),
             "suppliers": forms.SelectMultiple(attrs={"class": "form-control"}),
+            "is_stock_item": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "track_purchases": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "track_sales": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "purchase_price": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
             "sale_price": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
             "low_stock_alert": forms.NumberInput(attrs={"class": "form-control"}),

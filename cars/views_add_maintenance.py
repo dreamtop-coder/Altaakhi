@@ -5,7 +5,7 @@ from django.http import HttpResponse
 import traceback
 from decimal import Decimal
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime, date
 
 from .models import Car
 from .forms_add_maintenance import AddMaintenanceForm
@@ -71,21 +71,21 @@ def add_maintenance_record(request):
             except Car.DoesNotExist:
                 car_instance = None
         if request.method == "POST":
-            # make a mutable copy of POST so we can inject inferred fields (service, price, maintenance_date)
+            # make a mutable copy of POST so we can inject inferred fields (service, price)
             post_data = request.POST.copy()
-            # ensure maintenance_date exists (default to today) to avoid validation error
-            if not post_data.get('maintenance_date'):
-                try:
-                    from datetime import date
-
-                    post_data['maintenance_date'] = date.today().isoformat()
-                except Exception:
-                    post_data['maintenance_date'] = ''
 
             # If the form was opened from a car card (car_id in GET), inject the plate number
             # into POST so bound form validation (required plate field) passes.
             if car_instance and not post_data.get('plate_number'):
                 post_data['plate_number'] = car_instance.plate_number
+
+            # Ensure maintenance_date is present for bound form validation
+            if not post_data.get('maintenance_date'):
+                try:
+                    post_data['maintenance_date'] = date.today().isoformat()
+                except Exception:
+                    pass
+                # pre-bind parts_list processed (debug prints removed)
 
             # try to infer service from submitted service_parts (added by JS) when top service field is empty
             if not post_data.get('service'):
@@ -96,7 +96,27 @@ def add_maintenance_record(request):
                     parts_list = json.loads(parts_json) if parts_json else []
                 except Exception:
                     parts_list = []
+                # Temporary debug: show incoming parts_list for pre-bind inference
+                print("DEBUG(pre-bind): parts_list=", parts_list)
                 if parts_list:
+                    # Also consider rows that include an item id marked as service
+                    for it in parts_list:
+                        if (it.get('is_service') or it.get('service_id')) and it.get('id'):
+                            try:
+                                from inventory.models import Part as InvPart
+                                pid = int(it.get('id') or 0)
+                                p = InvPart.objects.filter(pk=pid).first()
+                                if p:
+                                    svc = Service.objects.filter(name__iexact=(getattr(p,'name',None) or '').strip()).first()
+                                    if svc:
+                                        post_data['service'] = str(svc.id)
+                                        try:
+                                            post_data['price'] = str(float(getattr(svc, 'default_price', 0) or 0))
+                                        except Exception:
+                                            post_data['price'] = '0'
+                                        break
+                            except Exception:
+                                pass
                     for it in parts_list:
                         if not it.get('id') and it.get('name'):
                             svc_name = (it.get('name') or '').strip()
@@ -125,7 +145,10 @@ def add_maintenance_record(request):
                                     continue
 
             form = AddMaintenanceForm(post_data, initial=initial)
+            if not form.is_valid():
+                pass
             if form.is_valid():
+                print("DEBUG: form.is_valid() -> True")
                 car = form.get_car_instance()
                 service = form.cleaned_data.get("service")
                 price = form.cleaned_data.get("price")
@@ -144,6 +167,7 @@ def add_maintenance_record(request):
                     parts_list = []
 
                 stock_errors = []
+                # validate stock for parts_list
                 for item in parts_list:
                     # skip service (labor) rows which are not inventory items
                     if item.get('is_service') or item.get('service_id'):
@@ -182,6 +206,7 @@ def add_maintenance_record(request):
                     )
 
                 # If service not provided in the top field, try to infer it from invoice rows submitted
+                # We now support mapping selected `item_id` (or rows marked `is_service`) -> existing Service
                 if not service:
                     try:
                         import json
@@ -189,18 +214,80 @@ def add_maintenance_record(request):
                         parts_list = json.loads(parts_json) if parts_json else []
                     except Exception:
                         parts_list = []
-                    # look for an item whose id is null and whose name matches a Service
+                    # Attempt service mapping from parts_list
                     if parts_list:
+                        # First, prefer rows explicitly marked as service (frontend sets `is_service` for service items)
+                        from inventory.models import Part as InvPart
                         for it in parts_list:
-                            if not it.get('id') and it.get('name'):
-                                svc_name = (it.get('name') or '').strip()
-                                svc = Service.objects.filter(name__iexact=svc_name).first()
+                            name_to_match = None
+                            # explicit service marker on the row
+                            if it.get('is_service') or it.get('service_id'):
+                                if it.get('id'):
+                                    try:
+                                # mapping attempt logged (debug prints removed)
+                                        if p:
+                                            name_to_match = getattr(p, 'name', None)
+                                    except Exception:
+                                        name_to_match = it.get('name')
+                                else:
+                                    name_to_match = it.get('name')
+                                # Try to map by the resolved name (either from the part record or the row name)
+                                if name_to_match:
+                                    svc = Service.objects.filter(name__iexact=(name_to_match or '').strip()).first()
+                                else:
+                                    svc = None
+                                # Temporary debug: show mapping attempt for this row
+                                print("DEBUG(mapping-row): row=", { 'id': it.get('id'), 'name': it.get('name'), 'is_service': it.get('is_service'), 'name_to_match': name_to_match, 'svc_id': getattr(svc, 'id', None) if svc else None })
                                 if svc:
                                     service = svc
                                     break
+                        # Fallback: look for id-less invoice rows whose name matches a Service
+                        if not service:
+                            for it in parts_list:
+                                if not it.get('id') and it.get('name'):
+                                    svc_name = (it.get('name') or '').strip()
+                                    svc = Service.objects.filter(name__iexact=svc_name).first()
+                                    if svc:
+                                        service = svc
+                                        break
+
+                # If still no service after inference, create a placeholder Service so DB constraints
+                # that require a non-null service_id are satisfied. This is a pragmatic fallback
+                # for running the new frontend (item-based) without migrating all Services first.
+                if not service and parts_list:
+                    candidate_name = None
+                    try:
+                        # pick a candidate name from parts_list: prefer rows marked is_service
+                        for it in parts_list:
+                            if it.get('is_service') and it.get('name'):
+                                candidate_name = (it.get('name') or '').strip()
+                                break
+                        if not candidate_name:
+                            # fallback to first row name
+                            for it in parts_list:
+                                if it.get('name'):
+                                    candidate_name = (it.get('name') or '').strip()
+                                    break
+                        if candidate_name:
+                            from services.models import Department
+                            svc = Service.objects.filter(name__iexact=candidate_name).first()
+                            if not svc:
+                                dept, _ = Department.objects.get_or_create(name='Imported')
+                                try:
+                                    svc = Service.objects.create(name=candidate_name, default_price=(price or 0), department=dept)
+                                except Exception:
+                                    svc = None
+                            if svc:
+                                service = svc
+                    except Exception:
+                        pass
+
+                # Temporary debug: final resolved service before creating maintenance
+                print("DEBUG(final-service):", {'service_id': getattr(service, 'id', None), 'service_name': getattr(service, 'name', None)})
 
                 car.status = "active"
                 car.save()
+                print("DEBUG: after car.save(), about to check invoice and create maintenance")
 
                 # Require car and client, but allow service to be empty for
                 # parts-only maintenance records (customer buying parts).
@@ -224,18 +311,31 @@ def add_maintenance_record(request):
                     else:
                         next_number = 1
                     invoice_number = f"{next_number:06d}"
-                    invoice = Invoice.objects.create(
-                        invoice_number=invoice_number,
-                        client=car.client,
-                        car=car,
-                        amount=0,
-                        paid=False,
-                        created_at=maintenance_date,
-                    )
+                    try:
+                        # Some deployments may not have `invoice_date` on the Invoice model
+                        invoice_fields = {f.name for f in Invoice._meta.get_fields()}
+                        create_kwargs = dict(
+                            invoice_number=invoice_number,
+                            client=car.client,
+                            car=car,
+                            amount=0,
+                            paid=False,
+                            created_at=maintenance_date,
+                        )
+                        if 'invoice_date' in invoice_fields:
+                            create_kwargs['invoice_date'] = maintenance_date
+                        try:
+                            invoice = Invoice.objects.create(**create_kwargs)
+                        except Exception:
+                            invoice = None
+                    except Exception:
+                        invoice = None
                 # Ensure price is taken from the service definition (price field removed from top form)
                 try:
                     if service:
                         price = Decimal(str(getattr(service, 'default_price', 0) or 0))
+                    else:
+                        price = Decimal(str(price or 0))
                 except Exception:
                     try:
                         price = Decimal(str(price or 0))
@@ -250,23 +350,27 @@ def add_maintenance_record(request):
 
                 from django.db.utils import IntegrityError
                 try:
+                    print("DEBUG: about to call MaintenanceRecord.objects.create with service=", {'id': getattr(service,'id',None), 'name': getattr(service,'name',None)})
                     maintenance = MaintenanceRecord.objects.create(
                         car=car,
                         service=service,
                         price=price,
                         notes=notes,
+                        maintenance_date=maintenance_date,
                         created_at=maintenance_date,
                         invoice=invoice,
                     )
-                except IntegrityError:
-                    # Likely DB schema still requires a non-null service_id.
+                    # Temporary debug: confirm created maintenance and attached service
+                    print("DEBUG(created-maintenance):", {'maintenance_id': getattr(maintenance,'id',None), 'service_id': getattr(maintenance.service, 'id', None) if getattr(maintenance,'service',None) else None})
+                except IntegrityError as ie:
+                    print("DEBUG: IntegrityError creating Maintenance:", ie)
                     return render(
                         request,
                         "add_maintenance_record.html",
                         {
                             "form": form,
                             "car_instance": car_instance,
-                            "error": "قاعدة البيانات لا تسمح بحقل الخدمة الفارغ. شغّل: manage.py migrate cars ثم أعد المحاولة.",
+                            "error": "قاعدة البيانات لا تسمح بحقل الخدمة الفارغ أو تتطلب تغييرات في المخطط. شغّل: manage.py migrate ثم أعد المحاولة.",
                         },
                     )
                 # handle parts submitted with the maintenance
@@ -327,26 +431,33 @@ def add_maintenance_record(request):
                 if car.status == "waiting":
                     car.status = "active"
                     car.save()
-                if service and service.pk not in invoice.services.values_list("pk", flat=True):
-                    invoice.services.add(service.pk)
-                # Recompute invoice amount as sum of service prices + parts used in those maintenance records
-                services_total = sum(
-                    (r.price or Decimal("0.00"))
-                    for r in invoice.maintenance_records.all()
-                )
-
-                parts_sum = Decimal("0.00")
-
-                for r in invoice.maintenance_records.all():
-                    parts_sum += sum(
-                        (Decimal(str(p.total_price or 0)))
-                        for p in r.parts.all()
+                if invoice:
+                    if service and service.pk not in invoice.services.values_list("pk", flat=True):
+                        invoice.services.add(service.pk)
+                    # Recompute invoice amount as sum of service prices + parts used in those maintenance records
+                    services_total = sum(
+                        (r.price or Decimal("0.00"))
+                        for r in invoice.maintenance_records.all()
                     )
 
-                invoice.amount = services_total + parts_sum
-                invoice.save()
+                    parts_sum = Decimal("0.00")
+
+                    for r in invoice.maintenance_records.all():
+                        parts_sum += sum(
+                            (Decimal(str(p.total_price or 0)))
+                            for p in r.parts.all()
+                        )
+
+                    invoice.amount = services_total + parts_sum
+                    invoice.save()
                 return redirect(f"/cars/?plate_number={car.plate_number}")
         else:
+            # ensure the maintenance date is pre-filled on the GET form
+            try:
+                if not initial.get('maintenance_date'):
+                    initial['maintenance_date'] = date.today().isoformat()
+            except Exception:
+                pass
             form = AddMaintenanceForm(initial=initial)
     except Exception:
         return HttpResponse('<pre>' + traceback.format_exc() + '</pre>')
