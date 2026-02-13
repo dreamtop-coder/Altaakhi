@@ -1,0 +1,63 @@
+name: Run staging migrations monitor
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add staging host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Run monitor script on staging (with retries)
+        env:
+          STAGING_SECRET: ${{ secrets.STAGING_SECRET }}
+        run: |
+          echo 'Running monitor on staging (attempts up to 3)...'
+          set -e
+          ATTEMPTS=3
+          for i in $(seq 1 $ATTEMPTS); do
+            echo "Attempt $i..."
+            # use a short ConnectTimeout to fail fast when network path is blocked
+            ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+              "cd '${{ secrets.REMOTE_REPO_PATH }}' && powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\monitor_migrations_staging.ps1 -EnvSecret \"${STAGING_SECRET}\" -Yes" > monitor_remote_output.txt 2>&1 && break || (echo "ssh attempt $i failed" && sleep 8)
+          done || true
+          echo '--- remote monitor output ---'
+          cat monitor_remote_output.txt || true
+
+      - name: Fetch newest migration log from staging (safe)
+        id: fetch_log
+        run: |
+          echo 'Retrieving latest migration_run_*.log from staging...'
+          # Try to cat the latest log on the remote host; if none exists, output a placeholder string
+          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=yes ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "powershell -NoProfile -Command \"$f = Get-ChildItem -Path '${{ secrets.REMOTE_REPO_PATH }}' -Filter 'migration_run_*.log' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if(\$f) { Get-Content -Raw \$f.FullName } else { Write-Output 'NO_MIGRATION_LOG_FOUND_ON_STAGING' }\"" > migration_run_staging.log || true
+          # Ensure a file exists so the artifact uploader always has something
+          if [ ! -s migration_run_staging.log ]; then
+            echo 'NO_MIGRATION_LOG_FOUND_ON_STAGING' > migration_run_staging.log
+          fi
+          echo "logfile=migration_run_staging.log" >> $GITHUB_OUTPUT
+
+      - name: Upload migration log as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-log
+          path: migration_run_staging.log
+
+      - name: Show migration log summary
+        if: always()
+        run: |
+          echo '---- migration_run_staging.log (first 200 lines) ----'
+          head -n 200 migration_run_staging.log || true
