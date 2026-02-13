@@ -2,6 +2,7 @@ name: Run staging migrations monitor
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   run-migrations:
@@ -20,7 +21,21 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Run monitor script on staging via appleboy/ssh-action (preferred)
+        if: ${{ secrets.SSH_PRIVATE_KEY != '' }}
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 10
+          script: |
+            cd '${{ secrets.REMOTE_REPO_PATH }}'
+            powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\monitor_migrations_staging.ps1 -EnvSecret "${{ secrets.STAGING_SECRET }}" -Yes
+
       - name: Run monitor script on staging (with retries)
+        if: ${{ secrets.SSH_PRIVATE_KEY == '' }}
         env:
           STAGING_SECRET: ${{ secrets.STAGING_SECRET }}
         run: |
