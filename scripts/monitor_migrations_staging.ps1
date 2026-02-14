@@ -3,7 +3,10 @@ param(
   [switch]$Yes
 )
 
-$py = "venv\Scripts\python.exe"
+$pyRel = "venv\Scripts\python.exe"
+# Resolve python exe to an absolute path when possible so invocation is reliable
+$py = (Resolve-Path $pyRel -ErrorAction SilentlyContinue).Path
+if (-not $py) { $py = Join-Path (Get-Location).Path $pyRel }
 $timestamp = (Get-Date).ToString("yyyyMMddHHmmss")
 $log = "migration_run_$timestamp.log"
 
@@ -35,7 +38,13 @@ function Run-Step($args) {
   } else {
     $parts = $args
   }
-  & $py @parts 2>&1 | Tee-Object -FilePath $log -Append
+  if (-not $parts -or $parts.Count -eq 0) {
+    Write-Output "WARNING: empty command passed to Run-Step; skipping to avoid starting interactive Python REPL" | Tee-Object -FilePath $log -Append
+    return
+  }
+  # Force unbuffered stdout/stderr with -u to make logs reliable and avoid interactive behavior
+  $argList = @('-u') + $parts
+  & $py @argList 2>&1 | Tee-Object -FilePath $log -Append
   if ($LASTEXITCODE -ne 0) {
     Write-Output "`n> FAILED: '$args' returned exit code $LASTEXITCODE" | Tee-Object -FilePath $log -Append
     Write-Output "See $log for full output."
