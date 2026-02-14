@@ -10,6 +10,7 @@ on:
 
 jobs:
   run-alignment:
+    # Requires a self-hosted Windows runner tagged for production
     runs-on: [self-hosted, windows, production]
 
     steps:
@@ -27,16 +28,18 @@ jobs:
           python -m venv venv
           .\venv\Scripts\Activate.ps1
           python -m pip install --upgrade pip
-          if (Test-Path requirements.txt) { pip install -r requirements.txt }
+          if (Test-Path requirements.txt) { pip install -r requirements.txt } else { Write-Host 'requirements.txt not found, continuing' }
 
       - name: Run production alignment runbook
         shell: pwsh
         run: |
           .\venv\Scripts\Activate.ps1
           $ni = '${{ github.event.inputs.nonInteractive }}'
-          if ($ni -eq 'true') {
+          if ($ni -and $ni -eq 'true') {
+            Write-Host "Running run_production_alignment.ps1 -NonInteractive"
             .\scripts\run_production_alignment.ps1 -NonInteractive
           } else {
+            Write-Host "Running run_production_alignment.ps1 (interactive)"
             .\scripts\run_production_alignment.ps1
           }
 
