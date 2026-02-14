@@ -17,15 +17,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+      - name: Prepare portable Python (no admin required)
+        shell: pwsh
+        run: |
+          $pyDir = Join-Path $env:RUNNER_TEMP 'portable_python'
+          if (-Not (Test-Path $pyDir)) { New-Item -ItemType Directory -Path $pyDir | Out-Null }
+          $zip = Join-Path $pyDir 'python-3.11-embed-amd64.zip'
+          if (-Not (Test-Path $zip)) {
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip' -OutFile $zip -ErrorAction Stop
+            Expand-Archive -LiteralPath $zip -DestinationPath $pyDir -Force
+          }
+          # Set PYTHON_EXE for later steps
+          $pyExe = Join-Path $pyDir 'python.exe'
+          if (-Not (Test-Path $pyExe)) {
+            # Some embed zips name python differently; try to find executable
+            $found = Get-ChildItem -Path $pyDir -Filter 'python*.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $pyExe = $found.FullName }
+          }
+          if (-Not (Test-Path $pyExe)) { Write-Error "Portable python not found at $pyExe"; exit 1 }
+          Add-Content -Path $env:GITHUB_ENV -Value "PYTHON_EXE=$pyExe"
 
       - name: Create & activate venv, install requirements
         shell: pwsh
+        env:
+          PYTHON_EXE: ${{ env.PYTHON_EXE }}
         run: |
-          python -m venv venv
+          $py = $env:PYTHON_EXE
+          & $py -m venv venv
           .\venv\Scripts\Activate.ps1
           python -m pip install --upgrade pip
           if (Test-Path requirements.txt) { pip install -r requirements.txt } else { Write-Host 'requirements.txt not found, continuing' }
