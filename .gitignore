@@ -1,0 +1,14 @@
+# Ignore local DB and caches
+db.sqlite3
+db.sqlite3.bak*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.tmp*
+*.patch
+i18n-rtl.patch
+i18n-rtl-2.patch
+scripts/visual_reports/*.html
