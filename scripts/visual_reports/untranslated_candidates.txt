@@ -1,0 +1,29 @@
+Untranslated candidates (filtered - Safe only)
+=============================================
+
+Text: Workshop Dashboard
+Text: Dashboard
+Text: Users
+Text: Settings
+Text: Purchases
+Text: New Purchase
+Text: Purchase Invoices
+Text: Inventory
+Text: Items
+Text: Departments & Services
+Text: Car Makers
+Text: Clients & Suppliers
+Text: Clients
+Text: Suppliers
+Text: Cars & Maintenance
+Text: Cars
+Text: Maintenance Records
+Text: Bookings
+Text: Services
+Text: Invoices & Payments
+Text: Payments
+Text: Invoices
+Text: Print Invoice
+Text: Account Statement
+Text: Financial Management
+Text: Reports
