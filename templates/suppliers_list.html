@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load i18n %}
 {% block content %}
 <div style="padding:18px;">
     <h2>الموردين</h2>
@@ -7,15 +8,17 @@
         <button type="submit" style="padding:8px;background:#32405a;color:#fff;border:none;">بحث</button>
         <a href="{% url 'inventory:add_supplier' %}" style="margin-left:12px;padding:8px;background:#f6c23e;color:#222;text-decoration:none;">إضافة مورد</a>
     </form>
-    <ul style="list-style:none;padding:0;">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;">
         {% for s in suppliers %}
-            <li style="padding:10px;border-bottom:1px solid #eee;">
-                <a href="{% url 'inventory:supplier_detail' s.id %}" style="color:#32405a;text-decoration:none;font-weight:bold;">{{ s.name }}</a>
-                <div style="color:#666;font-size:0.95em;">{{ s.phone }} {% if s.email %}| {{ s.email }}{% endif %}</div>
-            </li>
+            <div style="width:260px;border:1px solid #e6e6e6;border-radius:8px;padding:12px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+                <a href="{% url 'inventory:supplier_detail' s.id %}" style="color:#222;text-decoration:none;font-weight:700;font-size:1.05em;display:block;margin-bottom:6px;">{{ s.name }}</a>
+                <div style="color:#666;margin-bottom:8px;font-size:0.95em;">{% if s.phone %}الهاتف: {{ s.phone }}{% else %}الهاتف: -{% endif %}</div>
+                <div style="color:#444;font-weight:600;font-size:1em;margin-bottom:6px;">المبلغ الإجمالي: <span style="color:#0b6;">{{ s.total_purchased|default_if_none:0|floatformat:2 }}</span></div>
+                {% if s.email %}<div style="color:#888;font-size:0.85em;">البريد: {{ s.email }}</div>{% endif %}
+            </div>
         {% empty %}
-            <li>لا يوجد موردين مسجلين.</li>
+            <div>لا يوجد موردين مسجلين.</div>
         {% endfor %}
-    </ul>
+    </div>
 </div>
 {% endblock %}
