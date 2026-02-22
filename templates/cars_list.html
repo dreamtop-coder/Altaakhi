@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<style>
+.cars-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:15px; background:transparent; border-radius:0; overflow:visible; margin:0; }
+.table-wrapper { text-align:left; display:block; margin:0; padding:0; overflow-x: hidden; }
+.table-head-wrap, .table-body-scroll { text-align:left; display:block; width:100%; }
+    .table-head-wrap { overflow:hidden; }
+    .table-body-scroll { overflow:auto; }
+    .table-head-wrap table, .table-body-scroll table { margin:0 !important; display:table; border-collapse:collapse; }
+    /* ensure inner tables are not auto-centered */
+    .table-head-wrap table, .table-body-scroll table { margin: 0; }
+    .table-head-wrap { position:relative; z-index:1200; }
+    .table-head-wrap table th { position:static; z-index:1300; background:#f7f7f7; }
+    .cars-table { margin:0 !important; display:table; }
+    .cars-table thead, .cars-table tbody { display:table-row-group; }
+/* Position tables to the right so columns expand to the left-to-right side */
+.cars-table { background:transparent; box-shadow:none; }
+.cars-table th { background:#f7f7f7; padding:8px; border:1px solid #eee; text-align:left; position:relative; box-sizing:border-box; }
+/* Visible resize handle for cars table (apply to head/body tables) */
+#cars-table-head th, #cars-table-body th { position: relative; }
+.resize-handle { position: absolute; right: 0; top: 0; width: 10px; height: 100%; cursor: col-resize; z-index: 5; }
+.resize-handle:hover { background: rgba(0,0,0,0.03); }
+.resize-handle:before { content: ''; position: absolute; left: 3px; top: 8px; width: 2px; height: calc(100% - 16px); background: rgba(0,0,0,0.06); border-radius: 1px; }
+.cars-table td { padding:8px; border:1px solid #eee; text-align:center; box-sizing:border-box; }
+.cars-table th,
+.cars-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cars-action-btn { padding:8px 14px; border-radius:6px; color:#fff; text-decoration:none; display:inline-block; }
+.add-part-pill { display:inline-flex; align-items:center; gap:10px; padding:8px 14px; background: linear-gradient(180deg,#4a7df5,#1976d2); color:#fff; border-radius:10px; text-decoration:none; font-weight:600; box-shadow:0 2px 6px rgba(0,0,0,0.12);} 
+.mobile-card { background:#fff; border-radius:10px; box-shadow:0 1px 4px #eee; margin-bottom:14px; padding:14px 16px; direction:rtl; }
+@media (max-width:700px){ .desktop-table{display:none;} .mobile-cards{display:block;} }
+@media (min-width:701px){ .desktop-table{display:table;} .mobile-cards{display:none;} }
+</style>
+
+<style>
+/* Keep page RTL; but force scrollbars on the right by setting scroll wrappers to LTR,
+   while keeping the inner tables RTL so cell content remains right-to-left */
+.table-head-wrap, .table-body-scroll {
+    direction: ltr;
+}
+.table-head-wrap table, .table-body-scroll table {
+    direction: rtl;
+}
+.table-body-scroll {
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+/* Keep table body scrollable (use internal scrollbar) across screen sizes. */
+</style>
+
+<div id="cars-header-bar" style="position:sticky; top:70px; z-index:1000; background:#f4f6fa; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #e6e6e6; height:56px;">
+    <div style="display:flex; align-items:center; gap:12px;"><h2 style="margin:0; font-size:1.2em; font-weight:700; color:#222;">Cars List</h2></div>
+    <a href="/maintenance/add/" class="add-part-pill" title="Add Maintenance"><span class="icon">+</span><span class="label">New</span></a>
+</div>
+<div style="height:6px;"></div>
+    <div style="max-width:none; width:100%; padding:18px 0 22px 0; direction:rtl; overflow-x:hidden;">
+    <div style="display:flex; direction:ltr; align-items:center; gap:12px; justify-content:flex-start; width:100%; margin-bottom:20px;">
+        <div style="flex:0 0 auto;"><span style="font-size:22px;font-weight:bold;color:#333;">Cars List</span></div>
+        <div style="flex:0 0 auto; max-width:400px;">
+            <form method="get" style="display:flex;align-items:center;gap:7px;justify-content:flex-start;">
+                <input type="text" name="plate_number" value="{{ request.GET.plate_number|default:'' }}" placeholder="Search by plate" style="padding:7px 14px;border-radius:5px;border:1.2px solid #c2c7d0;width:180px;">
+                <button type="submit" style="background:#007bff;color:#fff;padding:7px 18px;border-radius:5px;border:none;font-weight:bold;">Search</button>
+            </form>
+        </div>
+    </div>
+
+    {% if cars %}
+
+    <div class="table-wrapper">
+        <!-- bulk toolbar moved inside table wrapper so it lines up with table columns -->
+        <div id="cars-bulk-toolbar" style="display:none; position:relative; margin-bottom:8px; background:#fff; padding:8px 8px 8px 4px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06); direction:ltr; justify-content:space-between; align-items:center; gap:12px; width:auto;">
+            <div style="display:flex;align-items:center;gap:8px;"><span id="cars-selected-count">0 Selected</span>
+                <button id="cars-reset-columns" style="background:#f1f1f1;border:1px solid #e0e0e0;padding:6px 10px;border-radius:4px;cursor:pointer;color:#333;">Reset columns</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;"><button id="cars-bulk-delete" style="background:#dc3545; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">Delete</button></div>
+        </div>
+        <div class="table-head-wrap">
+            <table id="cars-table-head" class="cars-table" aria-hidden="false" style="table-layout:fixed; width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#f7f7f7;text-align:left;">
+                        <th style="padding:8px;border:1px solid #eee;">Status<div class="resize-handle" data-col="status"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Year<div class="resize-handle" data-col="year"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Model<div class="resize-handle" data-col="model"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Brand<div class="resize-handle" data-col="brand"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Client Name<div class="resize-handle" data-col="client"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Plate Number<div class="resize-handle" data-col="plate"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;width:36px;text-align:center;"><input type="checkbox" id="select-all-cars"><div class="resize-handle" data-col="select"></div></th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+        <div class="table-body-scroll" style="overflow:auto; max-height:60vh;">
+            <table id="cars-table-body" class="cars-table" style="table-layout:fixed; width:100%; border-collapse:collapse;">
+                <tbody>
+                {% for car in cars %}
+                    <tr data-part-id="{{ car.id }}" data-client-id="{{ car.client.id }}">
+                        <td style="padding:8px;border:1px solid #eee;">{{ car.get_status_display }}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{{ car.year }}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{% if car.model %}{{ car.model.name }}{% else %}-{% endif %}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{% if car.brand %}{{ car.brand.name }}{% else %}-{% endif %}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{{ car.plate_number }}</td>
+                        <td style="padding:8px;border:1px solid #eee;text-align:center;"><input class="cars-row-checkbox" type="checkbox" data-id="{{ car.id }}"></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" style="padding:12px;text-align:center;color:#666;">No cars found.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Mobile Cards -->
+    <div class="mobile-cards">
+        {% for car in cars %}
+        <div class="mobile-card">
+            <div class="mobile-row"><span class="mobile-label">Plate Number</span><span class="mobile-value">{{ car.plate_number }}</span></div>
+            <div class="mobile-row"><span class="mobile-label">Client Name</span><span class="mobile-value">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</span></div>
+            <div class="mobile-row"><span class="mobile-label">Status</span><span class="mobile-value">{{ car.get_status_display }}</span></div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="cars-table-mobile-conditional" style="padding:30px;text-align:center;color:#888;">No cars registered.</div>
+    {% endif %}
+
+    
+
+    <div style="width:100%; display:flex; justify-content:flex-start; margin-top:12px;">
+        <link rel="stylesheet" href="{% static 'css/components.css' %}">
+        <div class="per-page-align" style="direction:ltr; width:100%;">
+            <style>
+                /* scoped override: align the pagination block to the right end of the table */
+                .per-page-align { display:flex; justify-content:flex-end; }
+                .per-page-align .table-footer { justify-content: flex-end !important; }
+            </style>
+            {% include 'partials/per_page_pagination.html' with per_page=per_page per_page_options=per_page_options page_obj=page_obj search=request.GET.plate_number %}
+        </div>
+        <script src="{% static 'js/per_page_dropdown.js' %}"></script>
+    </div>
+</div>
+
+<!-- JS: selection and resizable columns -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const selectAll = document.getElementById('select-all-cars');
+    const rowCheckboxes = Array.from(document.querySelectorAll('.cars-row-checkbox'));
+    const toolbar = document.getElementById('cars-bulk-toolbar');
+    const selectedCount = document.getElementById('cars-selected-count');
+    const deleteBtn = document.getElementById('cars-bulk-delete');
+    const resetBtn = document.getElementById('cars-reset-columns');
+
+    function updateToolbar(){
+        const checked = rowCheckboxes.filter(cb => cb.checked).map(cb=>cb.dataset.id);
+        if(checked.length>0){ toolbar.style.display='flex'; selectedCount.textContent = checked.length + ' Selected'; }
+        else { toolbar.style.display='none'; }
+    }
+    if(selectAll){ selectAll.addEventListener('change', function(){ rowCheckboxes.forEach(cb=> cb.checked = selectAll.checked); updateToolbar(); }); }
+    rowCheckboxes.forEach(cb=> cb.addEventListener('change', function(){ const tr = cb.closest('tr'); if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected'); updateToolbar(); }));
+
+    if(deleteBtn){ deleteBtn.addEventListener('click', function(){ const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id); if(ids.length===0) return; if(!confirm('Delete '+ids.length+' selected cars?')) return; fetch('/cars/bulk-delete/', { method:'POST', headers:{ 'Content-Type':'application/json','X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] }, body: JSON.stringify({ids: ids}) }).then(r=>r.json()).then(data=>{ if(data.ok){ location.reload(); } else alert('Delete failed'); }).catch(()=> alert('Delete error')); }); }
+
+    if(resetBtn){ resetBtn.addEventListener('click', function(){ if(!confirm('Reset saved column widths to defaults?')) return; try{ localStorage.removeItem('cars_table_col_widths_v1'); }catch(e){} location.reload(); }); }
+
+    /* resizable columns — inventory-style (set widths on th/td, no <colgroup>) */
+    function initResizableColumnsCars() {
+        const head = document.getElementById('cars-table-head');
+        const body = document.getElementById('cars-table-body');
+        if (!head || !body) return;
+
+        const STORAGE_KEY = 'cars_table_col_widths_v1';
+        const ths = head.querySelectorAll('th');
+        const bodyRows = Array.from(body.querySelectorAll('tbody tr'));
+        const wrapper = document.querySelector('.table-wrapper');
+        if(wrapper){ try{ wrapper.style.overflowX = 'hidden'; wrapper.style.boxSizing = 'border-box'; }catch(e){} }
+
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const map = JSON.parse(saved);
+                ths.forEach((th, i) => {
+                    const w = map[i] || (th.offsetWidth + 'px');
+                    th.style.width = w;
+                    bodyRows.forEach(r => {
+                        const c = r.children[i];
+                        if (c) c.style.width = w;
+                    });
+                });
+            } else {
+                ths.forEach((th, i) => {
+                    const w = th.offsetWidth + 'px';
+                    th.style.width = w;
+                    bodyRows.forEach(r => {
+                        const c = r.children[i];
+                        if (c) c.style.width = w;
+                    });
+                });
+            }
+
+            let total = 0;
+            ths.forEach(th => {
+                total += parseInt(th.style.width, 10) || th.offsetWidth;
+            });
+
+            head.style.width = total + 'px';
+            body.style.width = total + 'px';
+            try {
+                const toolbar = document.getElementById('cars-bulk-toolbar');
+                if (toolbar) {
+                    // size toolbar to the visible wrapper width and anchor to wrapper left
+                    const visible = (wrapper && wrapper.clientWidth) ? wrapper.clientWidth : total;
+                    toolbar.style.width = visible + 'px';
+                    toolbar.style.boxSizing = 'border-box';
+                    toolbar.style.marginLeft = '0px';
+                }
+            } catch (e){}
+
+        } catch (e) {}
+
+        const handles = head.querySelectorAll('.resize-handle');
+        const bodyWrap = document.querySelector('.table-body-scroll');
+
+        handles.forEach(handle => {
+            const th = handle.closest('th');
+            if (!th) return;
+
+            handle.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                const startX = e.pageX;
+                const startWidth = th.offsetWidth;
+                const startScroll = bodyWrap ? bodyWrap.scrollLeft : 0;
+
+                function onMouseMove(ev) {
+                    const dx = ev.pageX - startX;
+                    const newWidth = Math.max(80, startWidth + dx);
+
+                    const index = Array.from(th.parentNode.children).indexOf(th);
+
+                    th.style.width = newWidth + 'px';
+
+                    bodyRows.forEach(r => {
+                        const c = r.children[index];
+                        if (c) c.style.width = newWidth + 'px';
+                    });
+
+                    let total = 0;
+                    ths.forEach(t => {
+                        total += parseInt(t.style.width, 10) || t.offsetWidth;
+                    });
+
+                    head.style.width = total + 'px';
+                    body.style.width = total + 'px';
+                    try {
+                        const toolbar = document.getElementById('cars-bulk-toolbar');
+                        if (toolbar) {
+                            const visible = (wrapper && wrapper.clientWidth) ? wrapper.clientWidth : total;
+                            toolbar.style.width = visible + 'px';
+                            toolbar.style.marginLeft = '0px';
+                        }
+                    } catch(e){}
+
+                    // keep left edge fixed by restoring wrapper scroll
+                    try { if (bodyWrap) bodyWrap.scrollLeft = startScroll; } catch (e) {}
+                }
+
+                function onMouseUp() {
+                    try {
+                        const widths = {};
+                        ths.forEach((t, idx) => {
+                            widths[idx] = t.style.width || (t.offsetWidth + 'px');
+                        });
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+                        if (bodyWrap) bodyWrap.scrollLeft = startScroll;
+                        try {
+                            const toolbar = document.getElementById('cars-bulk-toolbar');
+                            if (toolbar) toolbar.style.marginLeft = '0px';
+                        } catch(e){}
+                    } catch (e) {}
+
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+    // try init with retries to avoid race conditions where elements aren't present yet
+    (function tryInitResizable(retries, delay){
+        retries = retries === undefined ? 15 : retries;
+        delay = delay === undefined ? 80 : delay;
+        if(document.getElementById('cars-table-head') && document.getElementById('cars-table-body')){
+            try{ initResizableColumnsCars(); }catch(e){ console.warn('initResizableColumnsCars failed', e); }
+            return;
+        }
+        if(retries<=0){ console.warn('initResizableColumnsCars: elements not found after retries'); return; }
+        setTimeout(function(){ tryInitResizable(retries-1, delay); }, delay);
+    })();
+
+    // per-page dropdown is auto-initialized by static/js/per_page_dropdown.js
+
+    // Row hover/selection and click behavior similar to Inventory
+    try{
+        const rows = Array.from(document.querySelectorAll('#cars-table-body tbody tr[data-part-id]'));
+        rows.forEach(function(tr){
+            tr.addEventListener('mouseenter', () => tr.classList.add('row-hover'));
+            tr.addEventListener('mouseleave', () => tr.classList.remove('row-hover'));
+            const cb = tr.querySelector('.cars-row-checkbox');
+            if(cb) cb.addEventListener('change', function(){
+                if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected');
+                updateToolbar();
+            });
+            // click row: navigation disabled per user request (no redirect on row click)
+            tr.addEventListener('click', function(e){
+                const target = e.target;
+                // keep interactions for inputs/links/buttons as-is; otherwise do nothing
+                if(target && (target.tagName === 'INPUT' || target.closest('button') || target.closest('a'))) return;
+                // intentionally not navigating on row click to avoid unexpected redirects
+                // (previous behavior: window.location.href = '/clients/<clientId>/cars/<id>/edit/')
+            });
+        });
+    }catch(e){}
+});
+</script>
+
+{% endblock %}

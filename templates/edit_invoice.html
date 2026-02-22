@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/components.css' %}">
+<style>
+    /* reuse maintenance/add invoice styles for consistent layout */
+    .maintenance-card { max-width: 980px; margin:18px 0 18px 18px; background: transparent; padding: 18px; border-radius: 10px; box-shadow: none; direction: ltr; width:100%; }
+    .maintenance-title { text-align:left; margin-bottom:12px; font-size:20px; font-weight:700; color:#1976d2; }
+    /* invoice-like table styles (matching add_maintenance_record) */
+    #items-table thead th { background:#fafafa; font-weight:600; color:#374151; padding:12px 8px; }
+    #items-table tbody td { padding:8px; border-bottom:1px solid #f1f5f9; }
+    #items-table input { border:1px solid #e6e9ee; padding:6px; border-radius:6px; }
+    #items-table .item-amount[readonly] { background:#f8fafc; border-color:#eceff4; }
+    .invoice-summary-card { background:transparent;border-radius:0;border:0;padding:8px; }
+    #bottom-action-bar { box-shadow:0 -4px 18px rgba(15,23,42,0.03); }
+</style>
+<div class="maintenance-card">
+    <div class="maintenance-title">Edit Invoice — #{{ invoice.invoice_number }}</div>
+    {% if debug_warnings %}
+    <div style="border:1px solid #e55;padding:10px;background:#fff6f6;border-radius:8px;margin-bottom:12px;">
+        <strong style="color:#b71c1c;">Debug warnings:</strong>
+        <ul style="margin:8px 0;padding-left:18px;color:#b71c1c;">
+            {% for w in debug_warnings %}
+            <li>{{ w }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" id="invoice-form">
+        {% csrf_token %}
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+            <div style="flex:1;min-width:260px;">
+                <label style="display:block;font-weight:700;margin-bottom:6px;">Customer Name*</label>
+                <div style="position:relative;">
+                    {% if invoice.client %}
+                        <div style="padding:10px;border:1px solid #eee;border-radius:6px;background:transparent;font-weight:600;">{{ invoice.client.first_name }}{% if invoice.client.last_name %} {{ invoice.client.last_name }}{% endif %}</div>
+                        <input type="hidden" name="client_id" value="{{ invoice.client.id }}" />
+                    {% else %}
+                        <input id="customer-input" name="client_id" type="text" autocomplete="off" placeholder="Select or add a customer" value="" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;" />
+                        <div id="customer-dropdown" style="position:absolute;left:0;right:0;top:44px;background:transparent;border:1px solid #e6e6e6;border-radius:6px;box-shadow:none;display:none;max-height:260px;overflow:auto;z-index:1200;"></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div style="flex:0 0 220px;">
+                <label style="display:block;font-weight:700;margin-bottom:6px;">Invoice#</label>
+                <div style="padding:10px;border:1px solid #f0f0f0;border-radius:6px;background:transparent;font-weight:700;">{{ invoice.invoice_number }}</div>
+            </div>
+
+            <div style="flex:0 0 200px;">
+                <label style="display:block;font-weight:700;margin-bottom:6px;">Invoice Date</label>
+                <input type="date" name="created_at" id="created_at" value="{{ invoice.created_at|date:'Y-m-d' }}" style="padding:8px;border:1px solid #ccc;border-radius:6px;width:100%;" />
+            </div>
+        </div>
+
+        <div style="margin-top:8px;border-top:1px solid #f3f3f3;padding-top:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-weight:700;font-size:15px;">Item Table</div>
+                <div>
+                    <button type="button" id="add-row" style="background:#1976d2;color:#fff;padding:6px 12px;border-radius:6px;border:none;font-weight:600;">Add New Row</button>
+                </div>
+            </div>
+
+            <div style="overflow:auto;border:1px solid #e9ecef;border-radius:8px;background:transparent;">
+                <table id="items-table" style="width:100%;border-collapse:collapse;">
+                    <thead style="background:transparent;border-bottom:1px solid #eee;font-weight:700;color:#333;">
+                        <tr>
+                            <th style="padding:10px 12px;text-align:left;min-width:300px;">Item Details</th>
+                            <th style="padding:10px 12px;text-align:center;width:110px;">Quantity</th>
+                            <th style="padding:10px 12px;text-align:center;width:120px;">Rate</th>
+                            <th style="padding:10px 12px;text-align:center;width:120px;">Discount</th>
+                            <th style="padding:10px 12px;text-align:center;width:140px;">Amount</th>
+                            <th style="padding:10px 12px;text-align:center;width:60px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in invoice_items %}
+                        <tr class="item-row">
+                            <td style="padding:8px 12px;"><input type="text" class="item-desc" value="{{ item.description }}" style="width:100%;padding:8px;border:1px solid #eee;border-radius:6px;" /></td>
+                            <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="{{ item.qty }}" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                            <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="{{ item.rate }}" step="0.01" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                            <td style="padding:8px 12px;text-align:center;"><div style="display:flex;align-items:center;justify-content:center;gap:8px;"><input type="number" class="item-disc" value="{{ item.disc }}" step="0.01" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /><span style="min-width:14px;text-align:left;">%</span></div></td>
+                            <td style="padding:8px 12px;text-align:right;"><span class="item-amount">{{ item.amount|floatformat:3 }}</span></td>
+                            <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-row" style="background:transparent;border:none;color:#e53935;font-weight:700;">×</button></td>
+                        </tr>
+                        {% empty %}
+                        <tr class="item-row">
+                            <td style="padding:8px 12px;"><input type="text" class="item-desc" placeholder="Type or click to select an item." style="width:100%;padding:8px;border:1px solid #eee;border-radius:6px;" /></td>
+                            <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="1" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                            <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="0.00" step="0.01" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                            <td style="padding:8px 12px;text-align:center;"><div style="display:flex;align-items:center;justify-content:center;gap:8px;"><input type="number" class="item-disc" value="0" step="0.01" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /><span style="min-width:14px;text-align:left;">%</span></div></td>
+                            <td style="padding:8px 12px;text-align:right;"><span class="item-amount">0.000</span></td>
+                            <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-row" style="background:transparent;border:none;color:#e53935;font-weight:700;">×</button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;margin-top:12px;gap:12px;align-items:flex-end;">
+                <div style="width:320px;border:1px solid #f3f3f3;border-radius:8px;padding:12px;background:transparent;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><div>Sub Total</div><div id="sub-total">0.000</div></div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><div>Discount</div><div id="total-discount">0.000</div></div>
+                    <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.06em;"><div>Total ( BHD )</div><div id="grand-total">0.000</div></div>
+                </div>
+            </div>
+        </div>
+
+        {% if invoice.paid or paid_amount %}
+        <div style="margin-top:12px;border-top:1px dashed #eee;padding-top:12px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">
+            <div style="min-width:280px;background:transparent;border:1px solid #f3f3f3;border-radius:8px;padding:12px;">
+                <div style="font-weight:700;margin-bottom:8px;color:green;">Invoice Status: <span id="invoice-status">{% if invoice.paid %}Paid{% else %}Partially Paid{% endif %}</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Sub Total</div><div id="payment-subtotal">{{ invoice.amount|floatformat:3 }}</div></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Amount Received</div><div>{{ paid_amount|floatformat:3 }}</div></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Amount used for Payments</div><div>{{ amount_used_for_payments|floatformat:3 }}</div></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Amount Refunded</div><div id="amount-refunded">{{ amount_refunded|floatformat:3 }}</div></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Remaining Balance</div><div id="remaining-balance">{{ remaining_balance|floatformat:3 }}</div></div>
+                <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:8px;"><div>Amount in Excess</div><div id="amount-excess">BHD {{ amount_in_excess|floatformat:3 }}</div></div>
+            </div>
+            <div style="align-self:flex-start;display:flex;flex-direction:column;gap:8px;">
+                {% if remaining_balance and remaining_balance > 0 %}
+                <a id="pay-remaining-btn" href="{% url 'pay_invoice_by_id' invoice.id %}?amount={{ remaining_balance }}" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:700;">Pay Remaining ({{ remaining_balance|floatformat:3 }})</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Server totals removed (duplicate of sticky bottom bar) -->
+
+        <input type="hidden" name="amount" id="form-amount" value="{{ invoice.amount }}" />
+        <input type="hidden" name="action" id="form-action" value="" />
+        <input type="hidden" name="discount" id="form-discount" value="0.000" />
+        <input type="hidden" name="items_json" id="items-json" value="" />
+
+        <div style="margin-top:14px;display:flex;gap:10px;">
+            <button type="submit" style="background:#1976d2;color:#fff;padding:10px 18px;border:none;border-radius:8px;font-weight:700;">Save Invoice</button>
+            <a href="{% url 'invoices_list' %}" style="background:#fff;color:#1976d2;border:1px solid #1976d2;padding:10px 14px;border-radius:8px;font-weight:700;text-decoration:none;">Cancel</a>
+        </div>
+    </form>
+
+    <!-- sticky bottom action bar like maintenance page -->
+    <div id="bottom-action-bar" style="position:fixed;left:0;right:0;bottom:0;background:linear-gradient(90deg, #fff, #fff);border-top:1px solid #e6e6e6;padding:10px 18px;">
+        <div style="max-width:980px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;gap:8px;align-items:center;">
+                <button type="button" class="maintenance-cancel" onclick="(function(f){ if(f.requestSubmit) { f.requestSubmit(); } else { f.submit(); } })(document.getElementById('invoice-form'))" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;">Save Draft</button>
+                <button type="button" class="maintenance-btn" onclick="(function(f){ if(f.requestSubmit) { f.requestSubmit(); } else { f.submit(); } })(document.getElementById('invoice-form'))" style="padding:8px 14px;background:#1976d2;color:#fff;border-radius:6px;border:none;">Save Invoice</button>
+                <a href="{% url 'invoices_list' %}" class="maintenance-cancel" style="background:#fff;color:#1976d2;border:1px solid #1976d2;padding:8px 12px;border-radius:6px;font-weight:700;text-decoration:none;">Cancel</a>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="color:#6b7280;font-size:13px;">&nbsp;</div>
+                <div style="background:#f3f4f6;border-radius:6px;padding:8px 10px;font-weight:600;">Total Amount: <span id="bottom-total">BHD {{ invoice.amount|floatformat:3 }}</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    // Build customers and parts list for dropdown/price lookup
+    const customers = [
+        {% for c in clients %}
+        { id: {{ c.id }}, name: '{{ c.first_name }}{% if c.last_name %} {{ c.last_name }}{% endif %}' },
+        {% endfor %}
+    ];
+    const parts = [
+        {% for p in parts %}
+        { id: {{ p.id }}, name: '{{ p.name|escapejs }}', price: {{ p.sale_price|default:0 }} },
+        {% endfor %}
+    ];
+
+    const custInput = document.getElementById('customer-input');
+    const custDrop = document.getElementById('customer-dropdown');
+
+    // server-provided paid amount (used to compute remaining balance live)
+    const SERVER_PAID_AMOUNT = parseFloat('{{ paid_amount|default:0 }}') || 0;
+    const statusEl = document.getElementById('invoice-status');
+    const remainingEl = document.getElementById('remaining-balance');
+    const excessEl = document.getElementById('amount-excess');
+    const paymentSubtotalEl = document.getElementById('payment-subtotal');
+
+    function showDropdown(){ custDrop.style.display = 'block'; }
+    function hideDropdown(){ setTimeout(()=> custDrop.style.display = 'none',150); }
+
+    function renderCustomers(filter){
+        const q = (filter||'').toLowerCase();
+        custDrop.innerHTML = '';
+        const list = customers.filter(c => c.name.toLowerCase().includes(q));
+        if(!list.length) { custDrop.innerHTML = '<div style="padding:10px;color:#666;">No customers</div>'; return; }
+        list.forEach(c=>{
+            const d = document.createElement('div');
+            d.style.padding='10px'; d.style.cursor='pointer'; d.style.borderBottom='1px solid #f5f5f5';
+            d.textContent = c.name;
+            d.addEventListener('click', ()=>{ custInput.value = c.name; custInput.dataset.id = c.id; hideDropdown(); });
+            custDrop.appendChild(d);
+        });
+    }
+
+    if(custInput){
+        custInput.addEventListener('focus', ()=>{ renderCustomers(''); showDropdown(); });
+        custInput.addEventListener('input', (e)=>{ renderCustomers(e.target.value); showDropdown(); });
+        custInput.addEventListener('blur', hideDropdown);
+    }
+
+    // Items table logic
+    const tbody = document.querySelector('#items-table tbody');
+    const addBtn = document.getElementById('add-row');
+
+    function calcRow(tr){
+        const qty = parseFloat(tr.querySelector('.item-qty').value) || 0;
+        const rate = parseFloat(tr.querySelector('.item-rate').value) || 0;
+        const disc = parseFloat(tr.querySelector('.item-disc').value) || 0;
+        const amount = qty * rate * (1 - disc/100);
+        tr.querySelector('.item-amount').textContent = amount.toFixed(3);
+        return amount;
+    }
+
+    function recalcAll(){
+        const rows = Array.from(tbody.querySelectorAll('.item-row'));
+        let subtotal = 0; let totalDisc = 0;
+        rows.forEach(r=>{
+            // calcRow returns line amount after discount
+            const qty = parseFloat(r.querySelector('.item-qty').value) || 0;
+            const rate = parseFloat(r.querySelector('.item-rate').value) || 0;
+            const disc = parseFloat(r.querySelector('.item-disc').value) || 0;
+            const lineBefore = qty * rate;
+            const lineDisc = lineBefore * (disc/100);
+            totalDisc += lineDisc;
+            subtotal += (lineBefore - lineDisc);
+            // ensure displayed line amount is correct
+            calcRow(r);
+        });
+        document.getElementById('sub-total').textContent = (subtotal + totalDisc).toFixed(3);
+        document.getElementById('total-discount').textContent = totalDisc.toFixed(3);
+        document.getElementById('grand-total').textContent = subtotal.toFixed(3);
+        document.getElementById('form-amount').value = subtotal.toFixed(3);
+        // update visible bottom total
+        const bottomTotalEl = document.getElementById('bottom-total');
+        if(bottomTotalEl) bottomTotalEl.textContent = 'BHD ' + subtotal.toFixed(3);
+        // Update remaining balance and excess using server-paid amount
+        try{
+            const grand = parseFloat(subtotal) || 0;
+            const paid = parseFloat(SERVER_PAID_AMOUNT) || 0;
+            let remaining = parseFloat((grand - paid).toFixed(3));
+            if(remaining < 0) remaining = 0;
+            let excess = parseFloat((paid - grand).toFixed(3));
+            if(excess < 0) excess = 0;
+            if(paymentSubtotalEl) paymentSubtotalEl.textContent = grand.toFixed(3);
+            if(remainingEl) remainingEl.textContent = remaining.toFixed(3);
+            if(excessEl) excessEl.textContent = 'BHD ' + excess.toFixed(3);
+            if(statusEl){
+                if(remaining <= 0 && (grand > 0)) statusEl.textContent = 'Paid';
+                else if(grand === 0) statusEl.textContent = ({{ invoice.paid|yesno:'Paid,Unpaid' }});
+                else statusEl.textContent = 'Partially Paid';
+            }
+        }catch(e){/* ignore */}
+        // set hidden discount field
+        const discField = document.getElementById('form-discount');
+        if(discField) discField.value = totalDisc.toFixed(3);
+    }
+
+    function lookupPartPrice(name){
+        if(!name) return null;
+        const q = name.toLowerCase().trim();
+        // exact match first
+        let found = parts.find(p => p.name.toLowerCase() === q);
+        if(!found) found = parts.find(p => p.name.toLowerCase().includes(q));
+        return found ? parseFloat(found.price || 0) : null;
+    }
+
+    function attachRowEvents(tr){
+        tr.querySelectorAll('.item-qty, .item-rate, .item-disc').forEach(inp=> inp.addEventListener('input', recalcAll));
+        const desc = tr.querySelector('.item-desc');
+        if(desc){
+            desc.addEventListener('blur', function(){
+                const price = lookupPartPrice(desc.value);
+                if(price !== null){
+                    const rateInp = tr.querySelector('.item-rate');
+                    if(rateInp) { rateInp.value = parseFloat(price).toFixed(2); recalcAll(); }
+                }
+            });
+        }
+        const rem = tr.querySelector('.remove-row');
+        if(rem) rem.addEventListener('click', ()=>{ tr.remove(); recalcAll(); });
+    }
+
+    addBtn.addEventListener('click', function(){
+        const tr = document.createElement('tr'); tr.className = 'item-row';
+        tr.innerHTML = `\
+            <td style="padding:8px 12px;"><input type="text" class="item-desc" placeholder="Item description" style="width:100%;padding:8px;border:1px solid #eee;border-radius:6px;" /></td>\
+            <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="1" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\
+            <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="0.00" step="0.01" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\
+            <td style="padding:8px 12px;text-align:center;"><div style="display:flex;align-items:center;justify-content:center;gap:8px;"><input type="number" class="item-disc" value="0" step="0.01" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /><span style="min-width:14px;text-align:left;">%</span></div></td>\
+            <td style="padding:8px 12px;text-align:right;"><span class="item-amount">0.000</span></td>\
+            <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-row" style="background:transparent;border:none;color:#e53935;font-weight:700;">×</button></td>`;
+        tbody.appendChild(tr);
+        attachRowEvents(tr);
+        recalcAll();
+    });
+
+    // attach to existing rows
+    Array.from(tbody.querySelectorAll('.item-row')).forEach(attachRowEvents);
+    recalcAll();
+    const recalcBtn = document.getElementById('recalc-btn');
+    const formAction = document.getElementById('form-action');
+    if(recalcBtn) recalcBtn.addEventListener('click', function(){
+        // do a client-side recalc so the UI updates immediately
+        recalcAll();
+        // submit to server to persist computed items/amount
+        if(formAction) formAction.value = 'recalculate';
+        // submit the form (this will POST items_json and amount)
+        const f = document.getElementById('invoice-form');
+        if(f){
+            if(f.requestSubmit){ f.requestSubmit(); }
+            else { f.submit(); }
+        }
+    });
+
+    // serialize items on submit
+    document.getElementById('invoice-form').addEventListener('submit', function(e){
+        // ensure action is empty for normal saves; keep 'recalculate' when intentionally set
+        try{ if(formAction && formAction.value !== 'recalculate'){ formAction.value = ''; } }catch(er){}
+        const rows = Array.from(tbody.querySelectorAll('.item-row'));
+        const items = rows.map(r=>({
+            description: r.querySelector('.item-desc').value || '',
+            qty: parseFloat(r.querySelector('.item-qty').value) || 0,
+            rate: parseFloat(r.querySelector('.item-rate').value) || 0,
+            disc: parseFloat(r.querySelector('.item-disc').value) || 0,
+            amount: parseFloat(r.querySelector('.item-amount').textContent) || 0
+        }));
+        document.getElementById('items-json').value = JSON.stringify(items);
+        // continue submit — server will receive `amount`, `created_at`, `client_id` (as text), and `items_json`.
+    });
+});
+</script>
+
+{% endblock %}

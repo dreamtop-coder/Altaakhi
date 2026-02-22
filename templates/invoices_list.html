@@ -1,0 +1,282 @@
+<style>
+@media (max-width: 600px) {
+    .invoices-mobile-center {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin: 24px 0 0 7vw;
+        width: 88vw;
+        max-width: 400px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px #e0e0e0;
+        padding: 24px 10px 18px 10px;
+    }
+    .invoices-mobile-center form {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .invoices-mobile-center label,
+    .invoices-mobile-center input,
+    .invoices-mobile-center button {
+        width: 90%;
+        max-width: 260px;
+        margin: 0 auto;
+        text-align: center;
+    }
+    .invoices-mobile-total {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #1976d2;
+        margin-top: 10px;
+        text-align: center;
+    }
+}
+</style>
+<style>
+@media (max-width: 600px) {
+    .invoices-hide-mobile { display: none !important; }
+    table, thead, tbody, tr, th, td { text-align: center !important; }
+    .invoices-name-col { text-align: right !important; }
+}
+.invoices-name-col { text-align: right !important; }
+</style>
+<style>
+@media (max-width: 600px) {
+    .invoices-hide-mobile { display: none !important; }
+    table, thead, tbody, tr, th, td { text-align: center !important; }
+}
+</style>
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/components.css' %}">
+<div class="invoices-mobile-center">
+    <h2 style="margin-bottom:18px;">Invoices</h2>
+    <form method="get" id="invoices-search-form" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;">
+        <label style="font-weight:bold;">From date:</label>
+        <input type="date" name="start_date" id="start_date" value="{{ start_date|default:'' }}" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;margin-top:6px;max-width:180px;">
+        <label style="font-weight:bold;">To date:</label>
+        <input type="date" name="end_date" id="end_date" value="{{ end_date|default:'' }}" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;margin-top:6px;max-width:180px;">
+        <button type="submit" style="background:#1976d2;color:#fff;padding:8px 32px;border:none;border-radius:8px;font-weight:bold;font-size:1.1em;display:block;margin:10px 0 0 0;text-align:center;min-width:90px;">
+            Search
+        </button>
+        {% if start_date or end_date %}
+        <span class="invoices-total-inline" style="font-size:1.08em;font-weight:bold;color:#1976d2;margin-right:18px;white-space:nowrap;">
+            Total invoices for period: {{ total_amount|floatformat:2 }}
+        </span>
+        {% endif %}
+    </form>
+    <script>
+    document.getElementById('invoices-search-form').addEventListener('submit', function(e) {
+        var start = document.getElementById('start_date').value;
+        var end = document.getElementById('end_date').value;
+        if ((start && !end) || (!start && end)) {
+            alert('يرجى إدخال تاريخ البداية وتاريخ النهاية معًا.');
+            e.preventDefault();
+        }
+    });
+    </script>
+    <style>
+    @media (max-width: 600px) {
+        #invoices-search-form {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 10px !important;
+        }
+        .invoices-total-inline {
+            display: none !important;
+        }
+    }
+    </style>
+    {% if start_date or end_date %}
+    <div class="invoices-mobile-total">
+        مجموع الفواتير للفترة: {{ total_amount|floatformat:2 }}
+    </div>
+    {% endif %}
+</div>
+<!-- Bulk actions bar (hidden until selection) -->
+<div id="bulk-actions-bar" style="display:none;position:sticky;top:70px;z-index:1001;background:#fff;border:1px solid #e0e0e0;padding:10px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+    <div id="selected-count" style="font-weight:bold;">0 Selected</div>
+    <div>
+        <button id="bulk-print" style="background:#6c757d;color:#fff;padding:6px 12px;border-radius:5px;border:none;margin-right:8px;">Print</button>
+        <button id="bulk-delete" style="background:#dc3545;color:#fff;padding:6px 12px;border-radius:5px;border:none;">Delete</button>
+    </div>
+</div>
+    <div class="table-wrapper">
+        <div class="table-head-wrap">
+            <table id="invoices-table-head" class="responsive-table clients-table" aria-hidden="false" style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;">
+                <thead>
+                    <tr style="background:#e9ecef;color:#444;font-weight:bold;">
+                        <th style="padding:12px 0;border-left:1.5px solid #c2c7d0;"><input type="checkbox" id="select-all" /><div class="resize-handle" data-col="select"></div></th>
+                        <th class="invoices-number-col" style="padding:12px 0;">Invoice Number<div class="resize-handle" data-col="number"></div></th>
+                        <th class="invoices-name-col col-name" style="padding:12px 0;">Client Name<div class="resize-handle" data-col="name"></div></th>
+                        <th class="invoices-hide-mobile" style="padding:12px 0;">Car Plate<div class="resize-handle" data-col="plate"></div></th>
+                        <th style="padding:12px 0;">Model<div class="resize-handle" data-col="model"></div></th>
+                        <th style="padding:12px 0;">Brand<div class="resize-handle" data-col="brand"></div></th>
+                        <th style="padding:12px 0;">Year<div class="resize-handle" data-col="year"></div></th>
+                        <th class="invoices-amount-col" style="padding:12px 0;">Amount<div class="resize-handle" data-col="amount"></div></th>
+                        <th class="invoices-hide-mobile" style="padding:12px 0;">Status<div class="resize-handle" data-col="status"></div></th>
+                        <th class="invoices-hide-mobile" style="padding:12px 0;">Created At<div class="resize-handle" data-col="created"></div></th>
+                        <th class="invoices-hide-mobile" style="padding:12px 0;">Delivery Date<div class="resize-handle" data-col="delivery"></div></th>
+                        <!-- Action columns removed per request -->
+                    </tr>
+                </thead>
+            </table>
+        </div>
+
+        <div class="table-body-scroll">
+            <table id="invoices-table-body" class="responsive-table clients-table" aria-hidden="false" style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;">
+                <tbody>
+                    {% for invoice in invoices %}
+                    <tr data-url="{% url 'edit_invoice' invoice.id %}">
+                        <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="invoice-checkbox" value="{{ invoice.id }}" /></td>
+                        <td class="invoices-number-col" style="padding:10px 0;text-align:right;">{{ invoice.invoice_number }}</td>
+                        <td class="invoices-name-col col-name" style="padding:10px 0;">{{ invoice.client.first_name }}{% if invoice.client.last_name %} {{ invoice.client.last_name }}{% endif %}</td>
+                        <td class="invoices-hide-mobile" style="padding:10px 0;text-align:center;">{{ invoice.car.plate_number }}</td>
+                        <td style="padding:10px 0;text-align:right;">{% if invoice.car.model %}{{ invoice.car.model.name }}{% else %}-{% endif %}</td>
+                        <td style="padding:10px 0;text-align:right;">{% if invoice.car.brand %}{{ invoice.car.brand.name }}{% else %}-{% endif %}</td>
+                        <td style="padding:10px 0;text-align:center;">{% if invoice.car.year %}{{ invoice.car.year }}{% else %}-{% endif %}</td>
+                        <td class="invoices-amount-col" style="padding:10px 0;text-align:right;">{{ invoice.amount }}</td>
+                        <td class="invoices-hide-mobile" style="padding:10px 0;text-align:center;">{% if invoice.paid %}<span style="color:green;font-weight:bold;">Paid</span>{% else %}<span style="color:#e53935;font-weight:bold;">Unpaid</span>{% endif %}</td>
+                        <td class="invoices-hide-mobile" style="padding:10px 0;text-align:center;">{{ invoice.created_at|date:'Y-m-d' }}</td>
+                        <td class="invoices-hide-mobile" style="padding:10px 0;text-align:center;">{% if invoice.delivery_date %}{{ invoice.delivery_date|date:'Y-m-d' }}{% else %}-{% endif %}</td>
+                        <!-- Action cells removed per request -->
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="11" style="text-align:center;">No invoices.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<link rel="stylesheet" href="{% static 'css/components.css' %}">
+{% include 'partials/per_page_pagination.html' with per_page=per_page per_page_options=per_page_options page_obj=page_obj search=None %}
+<script src="{% static 'js/per_page_dropdown.js' %}"></script>
+<!-- per-page dropdown auto-initialized by static/js/per_page_dropdown.js -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    // row hover and click navigation; keep behavior same as clients
+    const rows = Array.from(document.querySelectorAll('#invoices-table-body tbody tr'));
+    rows.forEach(function(tr){
+        tr.addEventListener('mouseenter', () => tr.classList.add('row-hover'));
+        tr.addEventListener('mouseleave', () => tr.classList.remove('row-hover'));
+        tr.addEventListener('click', function(e){
+            if (e.target.closest('a') || e.target.tagName === 'A') return;
+            if (e.target.tagName === 'INPUT') return;
+            const url = tr.dataset.url;
+            if (url) window.location.href = url;
+        });
+    });
+
+    // --- Bulk selection + actions (select-all, delete, print) ---
+    const invoiceCheckboxes = () => Array.from(document.querySelectorAll('.invoice-checkbox'));
+    const selectAll = document.getElementById('select-all');
+    const bulkBar = document.getElementById('bulk-actions-bar');
+    const selectedCount = document.getElementById('selected-count');
+    const bulkDeleteBtn = document.getElementById('bulk-delete');
+    const bulkPrintBtn = document.getElementById('bulk-print');
+
+    function updateBulkBar(){
+        const checked = invoiceCheckboxes().filter(c => c.checked).map(c => c.value);
+        if(checked.length){
+            bulkBar.style.display = 'flex';
+            selectedCount.textContent = checked.length + ' Selected';
+        } else {
+            bulkBar.style.display = 'none';
+            selectedCount.textContent = '0 Selected';
+        }
+    }
+
+    if(selectAll){
+        selectAll.addEventListener('change', function(){ invoiceCheckboxes().forEach(c => c.checked = selectAll.checked); updateBulkBar(); });
+    }
+    invoiceCheckboxes().forEach(c => c.addEventListener('change', updateBulkBar));
+
+    if(bulkDeleteBtn){
+        bulkDeleteBtn.addEventListener('click', function(){
+            const selected = invoiceCheckboxes().filter(c => c.checked).map(c => c.value);
+            if(!selected.length) return;
+            if(!confirm('Delete selected invoices?')) return;
+            const csrftoken = (document.cookie.match(/csrftoken=([^;]+)/)||[])[1];
+            Promise.all(selected.map(id => fetch('/invoices/delete/' + id + '/', { method: 'POST', headers: {'X-CSRFToken': csrftoken} }))).then(()=> location.reload()).catch(()=> alert('Delete failed'));
+        });
+    }
+
+    if(bulkPrintBtn){
+        bulkPrintBtn.addEventListener('click', function(){
+            const selected = invoiceCheckboxes().filter(c => c.checked).map(c => c.value);
+            if(!selected.length) return;
+            const url = '{% url "invoices_print_list" %}?ids=' + selected.join(',');
+            window.open(url, '_blank');
+        });
+    }
+
+    // --- Resizable columns (header/body two-table sync) ---
+    function initResizableColumns() {
+        const head = document.getElementById('invoices-table-head');
+        const body = document.getElementById('invoices-table-body');
+        if (!head || !body) return;
+        const STORAGE_KEY = 'invoices_table_col_widths_v1';
+        const ths = head.querySelectorAll('th');
+        const bodyRows = Array.from(body.querySelectorAll('tbody tr'));
+
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const map = JSON.parse(saved);
+                ths.forEach((th, i) => {
+                    const w = map[i] || (th.offsetWidth + 'px');
+                    th.style.width = w;
+                    bodyRows.forEach(r => { const c = r.children[i]; if (c) c.style.width = w; });
+                });
+            } else {
+                ths.forEach((th, i) => {
+                    const w = th.offsetWidth + 'px';
+                    th.style.width = w;
+                    bodyRows.forEach(r => { const c = r.children[i]; if (c) c.style.width = w; });
+                });
+            }
+            let total = 0;
+            ths.forEach(th => { total += parseInt(th.style.width, 10) || th.offsetWidth; });
+            head.style.width = total + 'px';
+            body.style.width = total + 'px';
+        } catch (e) { /* ignore */ }
+
+        const handles = head.querySelectorAll('.resize-handle');
+        handles.forEach(handle => {
+            const th = handle.closest('th');
+            if (!th) return;
+            handle.addEventListener('mousedown', function(e){
+                e.preventDefault();
+                const startX = e.pageX;
+                const startWidth = th.offsetWidth;
+                function onMouseMove(ev) {
+                    const dx = ev.pageX - startX;
+                    const newWidth = Math.max(40, startWidth + dx);
+                    th.style.width = newWidth + 'px';
+                    bodyRows.forEach(r => { const c = r.children[Array.from(th.parentNode.children).indexOf(th)]; if (c) c.style.width = newWidth + 'px'; });
+                    let total = 0; ths.forEach(t => { total += parseInt(t.style.width, 10) || t.offsetWidth; });
+                    head.style.width = total + 'px'; body.style.width = total + 'px';
+                }
+                function onMouseUp() {
+                    try { const widths = {}; ths.forEach((t, idx) => { widths[idx] = t.style.width || (t.offsetWidth + 'px'); }); localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); } catch(e) {}
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+    initResizableColumns();
+});
+</script>
+{% endblock %}

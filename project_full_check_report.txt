@@ -1,0 +1,30 @@
+--- تقرير فحص السكربتات ---
+عدد السكربتات: 16
+✔ سليمة (Syntax): 16
+✖ بها أخطاء صياغة: 0
+✔ سليمة (Logic): 3
+✖ بها أخطاء تنفيذ: 13
+تخطي (بسبب أخطاء Syntax): 0
+
+
+--- أخطاء تنفيذ ---
+- check_car_status.py
+- clear_clients_maintenance_payments.py
+- clear_maintenance_and_invoices.py
+- create_demo_data.py
+- debug_car_client.py
+- debug_data_overview.py
+- fix_booking_client_column.py
+- fix_booking_plate_number_column.py
+- fix_maintenance_finished.py
+- list_demo_data.py
+- manage.py
+- reset_all_ids.py
+- reset_car_delivery.py
+
+--- سكربتات ناجحة ---
+- clean_project.py
+- clean_temp_files.py
+- zip_project_for_server.py
+
+--- انتهى التقرير ---

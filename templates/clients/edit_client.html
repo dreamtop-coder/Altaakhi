@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Edit Client</h2>
+<form method="post" style="max-width:600px;direction:ltr;">
+    {% csrf_token %}
+    <div style="display:flex;flex-direction:column;gap:18px;">
+        <style>
+        .input-ar {
+            width:100%;padding:9px 12px;border-radius:6px;border:1.2px solid #bbb;font-size:1.08em;
+        }
+        </style>
+        {% for field in form %}
+            <div style="margin-bottom:0;">
+                {% if field.name == 'first_name' %}
+                    <label for="id_{{ field.name }}" style="display:block;font-weight:bold;margin-bottom:6px;">Name{% if field.field.required %} <span style="color:#888;font-size:0.95em;">(required)</span>{% endif %}</label>
+                {% elif field.name == 'customer_id' %}
+                    <label for="id_{{ field.name }}" style="display:block;font-weight:bold;margin-bottom:6px;">Customer ID{% if field.field.required %} <span style="color:#888;font-size:0.95em;">(required)</span>{% endif %}</label>
+                {% elif field.name == 'phone_number' %}
+                    <label for="id_{{ field.name }}" style="display:block;font-weight:bold;margin-bottom:6px;">Phone{% if field.field.required %} <span style="color:#888;font-size:0.95em;">(required)</span>{% endif %}</label>
+                {% elif field.name == 'email' %}
+                    <label for="id_{{ field.name }}" style="display:block;font-weight:bold;margin-bottom:6px;">Email <span style="color:#888;font-size:0.95em;">(optional)</span></label>
+                {% elif field.name == 'address' %}
+                    <label for="id_{{ field.name }}" style="display:block;font-weight:bold;margin-bottom:6px;">Address <span style="color:#888;font-size:0.95em;">(optional)</span></label>
+                {% else %}
+                    <label style="display:block;font-weight:bold;margin-bottom:6px;">{{ field.label_tag }}</label>
+                {% endif %}
+                {% if field.name == 'created_at' %}
+                    <input type="date" name="{{ field.html_name }}" value="{{ field.value|date:'Y-m-d' }}" class="input-ar" id="id_{{ field.name }}" />
+                {% else %}
+                    <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" value="{{ field.value|default_if_none:'' }}" class="input-ar" id="id_{{ field.name }}" {% if field.field.required %}required{% endif %} />
+                {% endif %}
+                {% if field.errors %}
+                    <div style="color:#c00;font-size:0.97em;margin-top:3px;">{{ field.errors|striptags }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+        <div style="display:flex;gap:12px;justify-content:flex-start;">
+            <button type="submit" style="background:#28a745;color:#fff;padding:8px 14px;border-radius:6px;font-weight:bold;">Save</button>
+            <a href="{% url 'clients_list' %}" style="background:#eee;color:#222;padding:8px 14px;border-radius:6px;font-weight:bold;text-decoration:none;">Cancel</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

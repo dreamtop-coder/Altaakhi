@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+    <style>
+    .supplier-page { max-width:760px; margin:18px 0 40px 24px; background:transparent; padding:0; direction:ltr; }
+    .supplier-page h2 { color:#16325c; margin:0 0 12px 0; font-size:1.5rem; font-weight:700; }
+    .supplier-form { display:flex; flex-direction:column; gap:12px; }
+    /* two-column row: label on left, input on right */
+    .form-row { display:flex; align-items:center; gap:18px; }
+    .form-row label { width:180px; font-weight:600; color:#33475b; margin:0; text-align:left; }
+    .form-row .field-wrap { flex:1; }
+    .form-control { width:100%; padding:12px 14px; border:1px solid #e3e8ee; border-radius:10px; background:#fff; box-sizing:border-box; font-size:1rem; color:#16325c }
+    .form-control:focus { outline: none; box-shadow: 0 0 0 4px rgba(25,118,210,0.06); border-color:#1976d2 }
+    .form-actions { display:flex; gap:12px; margin-top:12px; }
+    .btn-primary { background:#1976d2; color:#fff; padding:10px 16px; border-radius:8px; border:none; font-weight:700; cursor:pointer; }
+    .btn-link { color:#556b84; text-decoration:none; align-self:center; }
+    @media (max-width:800px) { .supplier-page { margin-left:12px; margin-right:12px; max-width:100%; } .form-row{flex-direction:column;align-items:flex-start} .form-row label{width:100%;margin-bottom:6px} }
+    </style>
+
+<div class="supplier-page">
+    <h2>{% trans title %}</h2>
+    <form method="post" class="supplier-form">
+        {% csrf_token %}
+        <div class="form-row">
+            <label>{% trans "ID" %}</label>
+            <div class="field-wrap">{{ form.supplier_code }}</div>
+        </div>
+
+        <div class="form-row">
+            <label>{% trans "Company Name" %}</label>
+            <div class="field-wrap">{{ form.name }}</div>
+        </div>
+
+        <div class="form-row">
+            <label>{% trans "Phone" %}</label>
+            <div class="field-wrap">{{ form.phone }}</div>
+        </div>
+
+        <div class="form-row">
+            <label>{% trans "Email Address" %}</label>
+            <div class="field-wrap">{{ form.email }}</div>
+        </div>
+
+        <div class="form-row">
+            <label>{% trans "Address" %}</label>
+            <div class="field-wrap">{{ form.address }}</div>
+        </div>
+
+        <div class="form-row">
+            <label>{% trans "Opening Balance" %}</label>
+            <div class="field-wrap">{{ form.amount }}</div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">{% trans "Save" %}</button>
+            <a href="{% url 'suppliers_list' %}" class="btn-link">{% trans "Cancel" %}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

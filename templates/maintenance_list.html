@@ -1,0 +1,268 @@
+<style>
+/* تخصيص الهيدر لهذه الصفحة فقط */
+.topbar {
+    width: 100% !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    direction: rtl !important;
+    border-radius: 0 0 18px 18px !important;
+    box-shadow: 0 2px 8px #e0e0e0 !important;
+}
+.topbar .workshop-logo {
+    font-size: 1.1em !important;
+    gap: 6px !important;
+}
+.topbar .workshop-logo img {
+    height: 30px !important;
+    width: 30px !important;
+}
+.topbar .user-info {
+    gap: 10px !important;
+    font-size: 0.98em !important;
+}
+.topbar .user-info .icon-btn {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 1em !important;
+}
+.topbar .user-info .admin-name {
+    font-size: 0.98em !important;
+    margin-left: 4px !important;
+}
+</style>
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<style>
+/* Cars table styles copied into maintenance page */
+.cars-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:15px; background:transparent; }
+
+.table-wrapper { text-align:left; display:block; margin:0; padding:0; overflow-x:hidden; }
+
+.table-head-wrap, .table-body-scroll { text-align:left; display:block; width:100%; }
+
+.table-head-wrap { overflow:hidden; }
+.table-body-scroll { overflow:auto; }
+
+.table-head-wrap table, .table-body-scroll table { margin:0 !important; display:table; border-collapse:collapse; }
+
+.table-head-wrap { direction:ltr; }
+.table-body-scroll { direction:ltr; }
+
+.table-head-wrap table, .table-body-scroll table { direction:rtl; }
+
+.cars-table th { background:#f7f7f7; padding:8px; border:1px solid #eee; text-align:left; position:relative; box-sizing:border-box; }
+
+.cars-table td { padding:8px; border:1px solid #eee; text-align:center; box-sizing:border-box; }
+
+.cars-table th, .cars-table td { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.resize-handle { position:absolute; right:0; top:0; width:10px; height:100%; cursor:col-resize; z-index:5; }
+
+.resize-handle:hover { background:rgba(0,0,0,0.03); }
+/* hover state for table rows to show pointer and subtle gray background */
+#maintenance-table-body tbody tr.row-hover { cursor: pointer; background: #f5f6f7; }
+</style>
+</style>
+<div style="max-width:none; width:100%; padding:18px 0 22px 0; direction:rtl; overflow-x:hidden;">
+    <div style="background:transparent;padding:28px 0 22px 0;border-radius:0;box-shadow:none;direction:rtl;display:flex;flex-direction:column;align-items:stretch;width:100%;margin:0;">
+    <div class="maintenance-header-mobile-center" style="display:flex;justify-content:center;align-items:center;gap:24px;margin-bottom:20px;width:100%;">
+        <span style="font-size:22px;font-weight:bold;color:#333;">Maintenance Records</span>
+        <a href="{% url 'cars:add_maintenance_record' %}" class="maintenance-add-btn-desktop" style="background:#1976d2;color:#fff;padding:10px 24px;border:none;border-radius:8px;font-weight:bold;font-size:15px;text-decoration:none;">+ Add Maintenance Record</a>
+    </div>
+    <div class="maintenance-add-btn-mobile" style="display:none;">
+        <a href="{% url 'cars:add_maintenance_record' %}" style="background:#1976d2;color:#fff;padding:14px 32px;border:none;border-radius:10px;font-weight:bold;font-size:18px;text-decoration:none;">+ Add Maintenance Record</a>
+    </div>
+    <!-- فلاتر البحث -->
+    <form class="search-filters-desktop" method="get" style="width:95%;max-width:500px;margin:0 auto 18px auto;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;">
+        <input type="text" name="plate_number" placeholder="Search by Plate Number" value="{{ plate_number|default:'' }}" style="padding:6px 12px;border-radius:6px;border:1px solid #ccc;min-width:120px;">
+        <button type="submit" style="padding:6px 24px;background:#1976d2;color:#fff;border:none;border-radius:6px;font-weight:bold;">Search</button>
+        <span style="margin-right:auto;display:flex;align-items:center;gap:8px;">
+            <img src="/static/car-repair.png" alt="Car" style="width:28px;height:28px;vertical-align:middle;">
+        </span>
+    </form>
+    <div class="table-wrapper" style="width:100%;">
+        <div id="maintenance-bulk-toolbar" style="display:none; position:relative; margin-bottom:8px; background:#fff; padding:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06); justify-content:space-between; align-items:center; gap:12px; width:100%; direction:ltr;">
+            <div style="display:flex;align-items:center;gap:12px;"><span id="maintenance-selected-count">0 Selected</span>
+                <button id="maintenance-reset-columns" style="background:#f1f1f1;border:1px solid #e0e0e0;padding:6px 10px;border-radius:4px;cursor:pointer;color:#333;">Reset columns</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button id="maintenance-bulk-edit" style="background:#ffc107;color:#333;border:none;padding:6px 10px;border-radius:4px;cursor:pointer;display:none;">Edit</button>
+                <button id="maintenance-bulk-delete" style="background:#dc3545; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">Delete</button>
+            </div>
+        </div>
+        <div class="table-head-wrap">
+                <style>
+                    /* Keep page RTL; but force scrollbars on the right by setting scroll wrappers to LTR,
+                       while keeping the inner tables RTL so cell content remains right-to-left */
+                    .table-head-wrap, .table-body-scroll { direction: ltr; }
+                    .table-head-wrap table, .table-body-scroll table { direction: ltr; }
+                    .table-body-scroll { overflow-y: auto; overflow-x: auto; }
+                    /* visible resize handle */
+                    .resize-handle { position: absolute; right: 0; top: 0; width: 10px; height: 100%; cursor: col-resize; z-index: 5; }
+                    .resize-handle:hover { background: rgba(0,0,0,0.03); }
+                    .resize-handle:before { content: ''; position: absolute; left: 3px; top: 8px; width: 2px; height: calc(100% - 16px); background: rgba(0,0,0,0.06); border-radius: 1px; }
+                </style>
+                <table id="maintenance-table-head" class="cars-table" aria-hidden="false" style="direction:ltr; table-layout: fixed; width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="padding:8px;border:1px solid #eee;width:36px;text-align:center;"><input type="checkbox" id="select-all-maintenance"><div class="resize-handle" data-col="select"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Invoice Number<div class="resize-handle" data-col="invoice"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Plate Number<div class="resize-handle" data-col="plate"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Vehicle Owner<div class="resize-handle" data-col="owner"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Service Type<div class="resize-handle" data-col="service"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Price<div class="resize-handle" data-col="price"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Maintenance Date<div class="resize-handle" data-col="created_at"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Delivery Date<div class="resize-handle" data-col="delivery_date"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">Status<div class="resize-handle" data-col="status"></div></th>
+                        <!-- Notes column removed as requested -->
+                        
+                    </tr>
+                </thead>
+            </table>
+        </div>
+        <div class="table-body-scroll" style="overflow:auto; max-height:60vh;">
+            <table id="maintenance-table-body" class="cars-table" style="direction:ltr; table-layout: fixed; width:100%; border-collapse:collapse;">
+                <tbody>
+                {% for record in records %}
+                    <tr data-record-id="{{ record.id }}" data-invoice-id="{% if record.invoice %}{{ record.invoice.id }}{% endif %}">
+                        <td style="text-align:center;padding:8px;border:1px solid #eee;"><input class="maintenance-row-checkbox" type="checkbox" data-id="{{ record.id }}" data-invoice-id="{% if record.invoice %}{{ record.invoice.id }}{% endif %}"></td>
+                        <td style="font-weight:bold;">{% if record.invoice %}{{ record.invoice.invoice_number }}{% else %}-{% endif %}</td>
+                        <td style="font-weight:bold;">{{ record.car.plate_number }}</td>
+                        <td style="color:#111;font-weight:bold;">{{ record.car.client.first_name }}{% if record.car.client.last_name %} {{ record.car.client.last_name }}{% endif %}</td>
+                        <td>{{ record.service.name }}</td>
+                        <td>{{ record.price }}</td>
+                        <td>{{ record.created_at|date:'Y-m-d' }}</td>
+                        <td>{% if record.delivery_date %}{{ record.delivery_date|date:'Y-m-d H:i' }}{% else %}-{% endif %}</td>
+                        <td>{{ record.get_status }}</td>
+                        <!-- notes cell removed -->
+                        
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="9" style="text-align:center;padding:16px;color:#888;">No maintenance records yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div style="width:100%; display:flex; justify-content:flex-start; margin-top:12px;">
+        <link rel="stylesheet" href="{% static 'css/components.css' %}">
+        <div class="per-page-align" style="direction:ltr; width:100%;">
+            <style>
+                .per-page-align { display:flex; justify-content:flex-end; }
+                .per-page-align .table-footer { justify-content: flex-end !important; }
+            </style>
+            {% include 'partials/per_page_pagination.html' with per_page=per_page per_page_options=per_page_options page_obj=page_obj search=plate_number %}
+        </div>
+        <script src="{% static 'js/per_page_dropdown.js' %}"></script>
+    </div>
+
+    <!-- JS: resizable columns + row click behavior -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        const selectAll = document.getElementById('select-all-maintenance');
+        const rowCheckboxes = Array.from(document.querySelectorAll('.maintenance-row-checkbox'));
+        const toolbar = document.getElementById('maintenance-bulk-toolbar');
+        const selectedCount = document.getElementById('maintenance-selected-count');
+        const deleteBtn = document.getElementById('maintenance-bulk-delete');
+        const resetBtn = document.getElementById('maintenance-reset-columns');
+        const editBtn = document.getElementById('maintenance-bulk-edit');
+
+        function updateToolbar(){
+            const checked = rowCheckboxes.filter(cb => cb.checked).map(cb => cb.dataset.id);
+            if(checked.length>0){
+                toolbar.style.display='flex';
+                selectedCount.textContent = checked.length + ' Selected';
+            } else {
+                toolbar.style.display='none';
+            }
+
+            // show Edit when exactly one item is selected
+            try{
+                if(editBtn){
+                        if(checked.length===1){ 
+                            // find selected checkbox element to read invoice id
+                            const sel = rowCheckboxes.find(cb => cb.checked);
+                            const invId = sel ? sel.dataset.invoiceId : null;
+                            if(invId){
+                                editBtn.style.display='inline-block';
+                                editBtn.onclick = function(){ window.location.href = '/invoices/edit/' + invId + '/'; };
+                            } else {
+                                // fallback to maintenance edit if no invoice
+                                editBtn.style.display='inline-block';
+                                editBtn.onclick = function(){ window.location.href = '/maintenance/edit-fields/' + checked[0] + '/'; };
+                            }
+                        }
+                        else { editBtn.style.display='none'; editBtn.onclick = null; }
+                    }
+            }catch(e){}
+        }
+        if(selectAll){ selectAll.addEventListener('change', function(){ rowCheckboxes.forEach(cb => cb.checked = selectAll.checked); updateToolbar(); }); }
+        rowCheckboxes.forEach(cb=> cb.addEventListener('change', function(){ const tr = cb.closest('tr'); if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected'); updateToolbar(); }));
+
+        if(deleteBtn){ deleteBtn.addEventListener('click', function(){ const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id); if(ids.length===0) return; if(!confirm('Delete '+ids.length+' selected records?')) return; alert('Bulk delete not implemented on this endpoint.'); }); }
+        if(resetBtn){ resetBtn.addEventListener('click', function(){ if(!confirm('Reset saved column widths to defaults?')) return; try{ localStorage.removeItem('maintenance_table_col_widths_v1'); }catch(e){} location.reload(); }); }
+
+        const rows = Array.from(document.querySelectorAll('#maintenance-table-body tbody tr[data-record-id]'));
+        rows.forEach(function(tr){
+            tr.addEventListener('mouseenter', () => tr.classList.add('row-hover'));
+            tr.addEventListener('mouseleave', () => tr.classList.remove('row-hover'));
+            tr.addEventListener('click', function(e){
+                    const target = e.target;
+                    // allow interactions with real inputs/buttons/links
+                    if(target && (target.tagName === 'INPUT' || target.closest('button') || target.closest('a'))) return;
+                    // Toggle the row checkbox when the row is clicked
+                    try{
+                        const cb = tr.querySelector('.maintenance-row-checkbox');
+                        if(cb){ cb.checked = !cb.checked; if(cb.dispatchEvent){ cb.dispatchEvent(new Event('change',{bubbles:true})); } }
+                    }catch(err){ console.error('row toggle error', err); }
+                });
+        });
+
+        // Resizable columns (inventory-style)
+        function initResizableColumnsMaintenance(){
+            const head = document.getElementById('maintenance-table-head');
+            const body = document.getElementById('maintenance-table-body');
+            if(!head || !body) return;
+            const STORAGE_KEY = 'maintenance_table_col_widths_v1';
+            const ths = head.querySelectorAll('th');
+            const bodyRows = Array.from(body.querySelectorAll('tbody tr'));
+            const wrapper = document.querySelector('.table-wrapper');
+            if(wrapper){ try{ wrapper.style.overflowX = 'hidden'; wrapper.style.boxSizing = 'border-box'; }catch(e){}
+            }
+            try{
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if(saved){ const map = JSON.parse(saved); ths.forEach((th,i)=>{ const w = map[i] || (th.offsetWidth + 'px'); th.style.width = w; bodyRows.forEach(r=>{ const c = r.children[i]; if(c) c.style.width = w; }); }); }
+                else { ths.forEach((th,i)=>{ const w = th.offsetWidth + 'px'; th.style.width = w; bodyRows.forEach(r=>{ const c = r.children[i]; if(c) c.style.width = w; }); }); }
+                let total = 0; ths.forEach(th=>{ total += parseInt(th.style.width,10) || th.offsetWidth; }); head.style.width = total + 'px'; body.style.width = total + 'px';
+                try {
+                    const toolbarEl = document.getElementById('maintenance-bulk-toolbar');
+                    if (toolbarEl) {
+                        const visible = (wrapper && wrapper.clientWidth) ? wrapper.clientWidth : total;
+                        toolbarEl.style.width = visible + 'px';
+                        toolbarEl.style.boxSizing = 'border-box';
+                        toolbarEl.style.marginLeft = '0px';
+                    }
+                } catch(e){}
+            }catch(e){}
+
+            const handles = head.querySelectorAll('.resize-handle');
+            const bodyWrap = document.querySelector('.table-body-scroll');
+            handles.forEach(handle=>{
+                const th = handle.closest('th'); if(!th) return;
+                handle.addEventListener('mousedown', function(e){ e.preventDefault(); const startX = e.pageX; const startWidth = th.offsetWidth; const startScroll = bodyWrap ? bodyWrap.scrollLeft : 0;
+                    function onMouseMove(ev){ const dx = ev.pageX - startX; const newWidth = Math.max(60, startWidth + dx); const index = Array.from(th.parentNode.children).indexOf(th); th.style.width = newWidth + 'px'; bodyRows.forEach(r=>{ const c = r.children[index]; if(c) c.style.width = newWidth + 'px'; }); let total = 0; ths.forEach(t=>{ total += parseInt(t.style.width,10) || t.offsetWidth; }); head.style.width = total + 'px'; body.style.width = total + 'px'; try{ const toolbarEl = document.getElementById('maintenance-bulk-toolbar'); const visible = (wrapper && wrapper.clientWidth) ? wrapper.clientWidth : total; if(toolbarEl) { toolbarEl.style.width = visible + 'px'; toolbarEl.style.marginLeft = '0px'; } if(bodyWrap) bodyWrap.scrollLeft = startScroll; }catch(e){}
+                    }
+                    function onMouseUp(){ try{ const widths = {}; ths.forEach((t,idx)=>{ widths[idx] = t.style.width || (t.offsetWidth + 'px'); }); localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); if(bodyWrap) bodyWrap.scrollLeft = startScroll; try{ const toolbarEl = document.getElementById('maintenance-bulk-toolbar'); if(toolbarEl) toolbarEl.style.marginLeft = '0px'; }catch(e){} }catch(e){} document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); }
+                document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
+                });
+            });
+        }
+        (function tryInit(retries, delay){ retries = retries===undefined?15:retries; delay = delay===undefined?80:delay; if(document.getElementById('maintenance-table-head') && document.getElementById('maintenance-table-body')){ try{ initResizableColumnsMaintenance(); }catch(e){ console.warn('initResizableColumnsMaintenance failed', e); } return; } if(retries<=0){ console.warn('initResizableColumnsMaintenance: elements not found after retries'); return; } setTimeout(function(){ tryInit(retries-1, delay); }, delay); })();
+
+        // per-page dropdown is auto-initialized by static/js/per_page_dropdown.js
+    });
+    </script>
+
+{% endblock %}

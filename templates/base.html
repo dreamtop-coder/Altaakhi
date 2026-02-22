@@ -1,0 +1,652 @@
+{% load i18n static %}
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>{% trans "Workshop Dashboard" %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Tahoma, Arial, sans-serif; background: #f4f6fa; margin: 0; padding: 0; }
+        .dashboard-container { display: flex; min-height: 100vh; direction: ltr; }
+        .sidebar { width: 230px; background: #222e3c; color: #fff; padding: 0; display: flex; flex-direction: column; transition: right 0.3s; z-index: 1000; direction: ltr; position: fixed; top: 70px; left: 0; height: calc(100vh - 70px); overflow-y: auto; }
+        .sidebar h2 { text-align: left; margin: 24px 0 14px 0; font-size: 1.2em; letter-spacing: 1px; padding-left:16px; }
+        .sidebar ul { list-style: none; padding: 0; margin: 0; text-align: left; }
+        .sidebar ul li { padding: 12px 24px; border-bottom: 1px solid #2d3a4a; cursor: pointer; display: block; font-size: 0.95em; transition: background 0.2s; }
+        .sidebar ul li:hover { background: #1a2330; }
+        .sidebar ul li i { float: left; margin-right: 12px; margin-left: 0; font-size: 1.2em; }
+        .sidebar ul li:after { content: ""; display: block; clear: both; }
+        .sidebar ul li ul { display: none; padding-left: 54px; margin: 0; }
+        .sidebar ul li ul li { padding: 6px 0; font-size: 0.95em; }
+        .sidebar ul li ul li a { padding-left: 0 !important; display: block; }
+        .sidebar ul li .fa-chevron-down { margin-left: 7px; }
+        .main-content { flex: 1; padding: 70px 40px 40px 40px; }
+        .mobile-sidebar-toggle {
+            display: none;
+            position: absolute;
+            left: 20px;
+            top: 18px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #f6c23e;
+            z-index: 1100;
+            cursor: pointer;
+        }
+        .sidebar.mobile-hidden, .sidebar.mobile-visible { width: 230px; transition: right 0.3s; }
+        @media (min-width: 901px) {
+            /* Desktop: keep sidebar fixed and push main content to the right */
+            .sidebar { position: fixed !important; left: 0 !important; top: 70px !important; height: calc(100vh - 70px); box-shadow: none !important; }
+            .main-content { margin-left: 230px; padding-top: 70px; }
+            .mobile-sidebar-toggle { display: none !important; }
+        }
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 230px;
+                position: fixed;
+                left: -260px;
+                top: 70px;
+                height: calc(100vh - 70px);
+                flex-direction: column;
+                overflow-y: auto;
+                z-index: 1001;
+                display: block;
+                transition: left 0.3s;
+            }
+            .sidebar.mobile-hidden {
+                left: -260px !important;
+                display: block !important;
+            }
+            .sidebar.mobile-visible {
+                left: 0 !important;
+                display: block !important;
+            }
+        }
+        @media (max-width: 700px) {
+            .sidebar {
+                width: 230px;
+                position: fixed;
+                left: -260px;
+                top: 70px;
+                height: calc(100vh - 70px);
+                flex-direction: column;
+                overflow-y: auto;
+                z-index: 1001;
+                display: block;
+                transition: left 0.3s;
+            }
+            .sidebar.mobile-hidden {
+                left: -260px !important;
+                display: block !important;
+            }
+            .sidebar.mobile-visible {
+                left: 0 !important;
+                display: block !important;
+            }
+            .main-content {
+                padding: 12px 4px 24px 4px !important;
+            }
+            .topbar {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 0;
+            }
+            .mobile-sidebar-toggle {
+                display: block;
+                position: static;
+                margin-right: 0;
+                margin-left: 0;
+            }
+        }
+        /* Make topbar full-bleed (no left/right gaps) while keeping page content padded */
+        .topbar {
+            width: 100vw !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 1002 !important;
+            /* shift the full-bleed element so its left edge aligns with the viewport left */
+            margin-left: calc((100% - 100vw) / 2) !important;
+            margin-right: calc((100% - 100vw) / 2) !important;
+            box-sizing: border-box;
+            background: #32405a; /* ensure visible background when fixed */
+        }
+        /* Inner container aligns topbar content with main page padding */
+        .topbar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px 0 0; /* flush to the left edge */
+            box-sizing: border-box;
+            width: 100%;
+            max-width: none;
+        }
+        @media (max-width: 900px) {
+            .topbar-inner { padding: 0 20px 0 0; }
+        }
+        @media (max-width: 700px) {
+            .topbar-inner { padding: 0 8px 0 0; }
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 0 10px 0;
+            background: #32405a;
+            border-bottom: 1px solid #2d3a4a;
+            min-height: 60px;
+            width: 100%;
+            margin-right: 0;
+            margin-left: 0;
+            direction: ltr;
+            gap: 16px;
+        }
+        .topbar .workshop-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #f6c23e;
+            letter-spacing: 1px;
+        }
+        .topbar .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .mobile-sidebar-toggle {
+            display: none;
+            position: absolute;
+            right: 20px;
+            top: 18px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #f6c23e;
+            z-index: 1100;
+            cursor: pointer;
+        }
+        @media (max-width: 900px) {
+            .topbar {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 0;
+            }
+            .mobile-sidebar-toggle {
+                display: block;
+                position: static;
+                margin-right: 0;
+                margin-left: 0;
+            }
+        }
+        .topbar .user-info {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 1.1em;
+        }
+        .topbar .user-info .icon-btn {
+            background: #22304a;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: #f6c23e;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .topbar .user-info .icon-btn:hover { background: #1a2330; }
+        .topbar .user-info .admin-name {
+            font-weight: bold;
+            color: #fff;
+            margin-left: 8px;
+            letter-spacing: 1px;
+        }
+            .topbar {
+                width: 100%;
+                margin-right: 0;
+                margin-left: 0;
+                direction: rtl;
+            }
+        @media (max-width: 700px) {
+            .main-logo-title {
+                font-size: 15px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
+    <!-- Favicon: explicit static path + inline SVG fallback to avoid /favicon.ico 404 -->
+    <link rel="icon" href="{% static 'images/favicon.ico' %}" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='100%25' height='100%25' fill='%23f6c23e'/%3E%3Ctext x='50%25' y='50%25' font-size='10' dominant-baseline='middle' text-anchor='middle' fill='%23222e3c'%3EA%3C/text%3E%3C/svg%3E" />
+    
+</head>
+<body>
+    {% if not request.path == '/users/login/' %}
+    <div class="dashboard-container">
+        <div class="sidebar mobile-hidden" id="sidebarMenu">
+            <h2>Al-Takhi Auto Repair</h2>
+            <ul style="position:relative;">
+                <li onclick="location.href='{% url 'dashboard' %}'"><i class="fa fa-tachometer"></i>Dashboard</li>
+                <li><i class="fa fa-users"></i>User Management</li>
+                <li><i class="fa fa-cogs"></i>General Settings</li>
+                <li><a href="/inventory/" style="color:inherit;text-decoration:none;"><i class="fa fa-archive"></i> Items</a></li>
+                <li id="services-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-wrench"></i>Services
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="brands-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/brands/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Car Manufacturers</a></li>
+                    </ul>
+                </li>
+                <li id="clients-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-user"></i>Sales
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="clients-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/clients/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Customers</a></li>
+                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
+                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Received</a></li>
+                    </ul>
+                </li>
+
+                <li id="purchases-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-truck"></i>Purchases
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="purchases-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/suppliers/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Vendors</a></li>
+                        <li><a href="/bills/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Bills</a></li>
+                        <li><a href="/vendors/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Made</a></li>
+                    </ul>
+                </li>
+                <style>
+                /* show add button on hover for submenu items */
+                #cars-submenu li { position: relative; padding-right: 40px; }
+                    #cars-submenu li .submenu-add-btn { display: inline-flex; align-items: center; justify-content: center; position: absolute; right: -6px; top: 50%; transform: translateY(-50%); background: #1976d2; color: #fff; width: 30px; height: 30px; border-radius: 50%; text-decoration: none; font-weight: 800; font-size: 1.05em; line-height: 1; }
+                /* submenu link styles: hover = gray, active = blue, pointer cursor */
+                /* default submenu text is light for contrast (was yellow) */
+                /* default submenu text: white for best contrast */
+                #cars-submenu li .cars-submenu-link { color: #ffffff; text-decoration: none; display: block; padding: 8px 12px 8px 36px; font-size:0.95em; cursor: pointer; border-radius:8px; }
+                /* Hover: light rounded background + gray text and small indicator dot */
+                /* indicator moved to the left gutter so it doesn't cover text */
+                #cars-submenu li .cars-submenu-link { }
+                /* Hover: only show circular indicator in gutter; do not change text color or add background */
+                #cars-submenu li .cars-submenu-link:hover { background: transparent; color: #ffffff; }
+                /* indicator dot in gutter */
+                #cars-submenu li:hover::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
+                /* Active/selected: blue rounded background with white text */
+                #cars-submenu li .cars-submenu-link.active { background: #4b86ff; color: #fff; font-weight: 600; }
+                </style>
+
+                <li id="cars-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-car"></i>Maintenance
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="cars-submenu" style="display:{% if request.path|slice:':6' == '/cars/' or request.path|slice:':13' == '/maintenance/' or request.path|slice:':10' == '/bookings/' or request.path|slice:':10' == '/services/' %}block{% else %}none{% endif %};list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/cars/" class="cars-submenu-link {% if request.path|slice:':6' == '/cars/' %}active{% endif %}">Cars</a></li>
+                        <li style="position:relative;">
+                            <a href="/maintenance/" class="cars-submenu-link {% if request.path|slice:':13' == '/maintenance/' %}active{% endif %}">Maintenance</a>
+                            <a class="submenu-add-btn" href="/maintenance/add/">+</a>
+                        </li>
+                        <li><a href="/invoices/payments/" class="cars-submenu-link {% if request.path|slice:':17' == '/invoices/payments' %}active{% endif %}">Payments</a></li>
+                        <li><a href="/bookings/" class="cars-submenu-link {% if request.path|slice:':10' == '/bookings/' %}active{% endif %}">Bookings</a></li>
+                        <li><a href="/services/" class="cars-submenu-link {% if request.path|slice:':10' == '/services/' %}active{% endif %}">Services</a></li>
+                    </ul>
+                </li>
+                <li id="invoices-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-file-invoice-dollar"></i>Invoices & Payments
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="invoices-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Payments</a></li>
+                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
+                        <li><a href="/invoices/print/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Print Invoice</a></li>
+                        <li><a href="/invoices/account-statement/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Account Statement</a></li>
+                    </ul>
+                </li>
+                <li><i class="fa fa-chart-bar"></i>Financial Management</li>
+                <li><i class="fa fa-file-alt"></i>Reports</li>
+            </ul>
+        </div>
+        <div class="main-content">
+            <div class="topbar">
+                <button class="mobile-sidebar-toggle" id="sidebarToggle" aria-label="{% trans "Sidebar" %}"><i id="sidebarToggleIcon" class="fa fa-bars"></i></button>
+                <div class="workshop-logo">
+                    <img src="{% static 'altaakhi_logo.png' %}" alt="{% trans "Al-Takhi Auto Repair logo" %}" style="height:38px;width:38px;"/>
+                    <span class="main-logo-title">Al-Takhi Auto Repair</span>
+                </div>
+                <!-- Global Topbar Search (compact, opens dropdown on magnifier) -->
+                <div id="topbar-search" style="margin-left:18px;position:relative;flex:1;max-width:520px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <button id="global-search-toggle" title="Search" style="background:transparent;border:1px solid #ddd;padding:8px;border-radius:8px;display:flex;align-items:center;gap:6px;cursor:pointer;color:#666;">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        <input id="global-search-input" type="text" placeholder="Search customers / items / quotes / invoices / vendors" aria-label="Global search" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid #e6e6e6;display:none;min-width:180px;" />
+                    </div>
+                    <div id="global-search-results" style="display:none;position:absolute;left:0;top:44px;right:0;z-index:50;background:#fff;border:1px solid #e6e6e6;border-radius:8px;max-height:360px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.08);padding:8px;">
+                        <div id="global-search-loading" style="display:none;padding:18px;text-align:center;color:#666;">Searching...</div>
+                        <div id="global-search-empty" style="display:none;padding:12px;text-align:center;color:#666;">No results</div>
+                        <div id="global-search-defaults" style="display:none;padding:6px 4px;">
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <div class="search-default-wrap" data-type="customers" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="customers" data-url="/clients/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Customers</a>
+                                    <a href="{% url 'add_client' %}" class="search-default-plus" title="New customer" style="display:none;position:absolute;right:-6px;top:-6px;background:#007bff;color:#fff;border-radius:50%;width:26px;height:26px;align-items:center;justify-content:center;display:flex;text-decoration:none;">+</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="items" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="items" data-url="/inventory/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Items</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="quotes" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="quotes" data-url="/quotes/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Quotes</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="invoices" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="invoices" data-url="/invoices/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Invoices</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="vendors" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="vendors" data-url="/suppliers/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Vendors</a>
+                                </div>
+                            </div>
+                            <div style="margin-top:8px;color:#777;font-size:0.95em;">Press <strong>Enter</strong> to search, or click a category.</div>
+                        </div>
+                        <div id="global-search-groups" style="display:none;">
+                            <!-- Example group structure; populated by JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <button class="icon-btn" title="{% trans "Settings" %}"><i class="fa fa-cog"></i></button>
+                    <button class="icon-btn" title="{% trans "Notifications" %}"><i class="fa fa-bell"></i></button>
+                    <span class="admin-name">
+                        {% if request.user.is_authenticated %}
+                            <a href="{% url 'logout' %}" class="icon-btn" title="{% trans "Log out" %}" style="margin-right:8px;">
+                                <i class="fa fa-sign-out-alt"></i>
+                            </a>
+                        {% else %}
+                            {% trans "Guest" %}
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            {# تم نقل القائمة المنسدلة إلى الشريط الجانبي الرئيسي #}
+    {% endif %}
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var sidebar = document.getElementById('sidebarMenu');
+                var toggle = document.getElementById('sidebarToggle');
+                var toggleIcon = document.getElementById('sidebarToggleIcon');
+                var submenus = [
+                    {section: 'services-section', submenu: 'brands-submenu'},
+                    {section: 'clients-section', submenu: 'clients-submenu'},
+                    {section: 'purchases-section', submenu: 'purchases-submenu'},
+                    {section: 'cars-section', submenu: 'cars-submenu'},
+                    {section: 'invoices-section', submenu: 'invoices-submenu'}
+                ];
+                function openSidebar() {
+                    sidebar.classList.remove('mobile-hidden');
+                    sidebar.classList.add('mobile-visible');
+                    document.body.classList.add('sidebar-open');
+                    if(toggleIcon) {
+                        toggleIcon.classList.remove('fa-bars');
+                        toggleIcon.classList.add('fa-times');
+                    }
+                }
+                function closeSidebar() {
+                    sidebar.classList.remove('mobile-visible');
+                    sidebar.classList.add('mobile-hidden');
+                    document.body.classList.remove('sidebar-open');
+                    closeAllSubmenus();
+                    if(toggleIcon) {
+                        toggleIcon.classList.remove('fa-times');
+                        toggleIcon.classList.add('fa-bars');
+                    }
+                }
+                function closeAllSubmenus() {
+                    submenus.forEach(function(item){
+                        var submenu = document.getElementById(item.submenu);
+                        if(submenu) submenu.style.display = 'none';
+                    });
+                }
+                if(toggle && sidebar) {
+                    toggle.onclick = function(e) {
+                        e.stopPropagation();
+                        if(sidebar.classList.contains('mobile-visible')) {
+                            closeSidebar();
+                        } else {
+                            openSidebar();
+                        }
+                    };
+                }
+                sidebar.onclick = function(e) { e.stopPropagation(); };
+                submenus.forEach(function(item){
+                    var section = document.getElementById(item.section);
+                    var submenu = document.getElementById(item.submenu);
+                    if(section && submenu) {
+                        section.onclick = function(e) {
+                            e.stopPropagation();
+                            closeAllSubmenus();
+                            submenu.style.display = (submenu.style.display === 'block') ? 'none' : 'block';
+                        };
+                        submenu.onclick = function(e) { e.stopPropagation(); };
+                    }
+                });
+                document.body.onclick = function() {
+                    if(window.innerWidth <= 900) {
+                        closeSidebar();
+                    } else {
+                        closeAllSubmenus();
+                    }
+                };
+                // --- Global topbar search logic ---
+                (function(){
+                    const toggle = document.getElementById('global-search-toggle');
+                    const input = document.getElementById('global-search-input');
+                    const results = document.getElementById('global-search-results');
+                    const loading = document.getElementById('global-search-loading');
+                    const empty = document.getElementById('global-search-empty');
+                    const groups = document.getElementById('global-search-groups');
+                    const defaultsWrap = document.querySelectorAll('.search-default-wrap');
+                    const defaults = document.getElementById('global-search-defaults');
+                    if(!toggle || !input || !results) return;
+                    let open = false;
+                    let debounceTimer = null;
+                    toggle.addEventListener('click', function(e){
+                        e.stopPropagation();
+                        open = !open;
+                        if(open) {
+                            input.style.display = 'block';
+                            input.focus();
+                            results.style.display = 'block';
+                            // if input empty show default categories
+                            if(!input.value.trim()) {
+                                if(defaults) defaults.style.display = 'block';
+                                if(groups) groups.style.display = 'none';
+                                if(loading) loading.style.display = 'none';
+                                if(empty) empty.style.display = 'none';
+                            }
+                        } else {
+                            input.value = '';
+                            input.style.display = 'none';
+                            results.style.display = 'none';
+                            if(defaults) defaults.style.display = 'none';
+                        }
+                    });
+                    document.addEventListener('click', function(ev){
+                        if(!ev.target.closest('#topbar-search')) {
+                            input.style.display = 'none'; results.style.display = 'none'; open=false;
+                        }
+                    });
+                    input.addEventListener('keydown', function(e){
+                        if(e.key === 'Escape') { input.value=''; input.blur(); results.style.display='none'; }
+                    });
+                    input.addEventListener('input', function(e){
+                        const q = input.value.trim();
+                        clearTimeout(debounceTimer);
+                        if(!q) {
+                            // show default categories when query is empty
+                            if(defaults) defaults.style.display = 'block';
+                            if(groups) groups.style.display='none';
+                            if(empty) empty.style.display='none';
+                            if(loading) loading.style.display='none';
+                            return;
+                        }
+                        debounceTimer = setTimeout(function(){
+                            // show loading
+                            loading.style.display='block'; empty.style.display='none'; groups.style.display='none';
+                            // fetch results from API (implement server-side later)
+                            fetch('/global-search/?q=' + encodeURIComponent(q))
+                                .then(r => r.ok ? r.json() : Promise.reject())
+                                .then(data => {
+                                    loading.style.display='none';
+                                    // expected data: { customers: [...], items: [...], quotes: [...], invoices: [...], vendors: [...] }
+                                    const keys = ['customers','items','quotes','invoices','vendors'];
+                                    groups.innerHTML = '';
+                                    let any = false;
+                                    keys.forEach(function(key){
+                                        const arr = data[key] || [];
+                                        if(arr.length) {
+                                            any = true;
+                                            const div = document.createElement('div');
+                                            div.style.marginBottom = '8px';
+                                            const title = document.createElement('div');
+                                            title.style.fontWeight='bold'; title.style.marginBottom='6px'; title.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                                            div.appendChild(title);
+                                            arr.slice(0,6).forEach(function(item){
+                                                const a = document.createElement('a');
+                                                a.href = item.url || '#';
+                                                a.style.display='block'; a.style.padding='6px 8px'; a.style.borderRadius='6px'; a.style.color='#333'; a.style.textDecoration='none';
+                                                a.onmouseenter = function(){ a.style.background='#f6f7fb'; };
+                                                a.onmouseleave = function(){ a.style.background='transparent'; };
+                                                a.textContent = item.label || item.name || item.title || item.id;
+                                                div.appendChild(a);
+                                            });
+                                            groups.appendChild(div);
+                                        }
+                                    });
+                                    if(!any) { empty.style.display='block'; groups.style.display='none'; } else { groups.style.display='block'; empty.style.display='none'; }
+                                })
+                                .catch(function(){ loading.style.display='none'; empty.style.display='block'; groups.style.display='none'; });
+                        }, 300);
+                    });
+                    // --- category selection and enter-key behavior ---
+                    let currentCategory = null; // one of: customers, items, quotes, invoices, vendors
+                    function setCategory(cat) {
+                        currentCategory = cat;
+                        // update placeholder per category
+                        const placeholders = {
+                            customers: 'Search by car number, phone or customer name',
+                            items: 'Search items by name or SKU',
+                            quotes: 'Search quotes by number or customer',
+                            invoices: 'Enter invoice number',
+                            vendors: 'Search vendors by name or phone'
+                        };
+                        input.placeholder = placeholders[cat] || 'Search...';
+                        // highlight selected default
+                        document.querySelectorAll('.search-default').forEach(function(el){ el.style.background = '#f6f7fb'; });
+                        const sel = document.querySelector('.search-default[data-type="' + cat + '"]'); if(sel) sel.style.background = '#e8f0ff';
+                    }
+                    // wire default category clicks and hover-plus visibility
+                    defaultsWrap.forEach(function(wrap){
+                        const a = wrap.querySelector('.search-default');
+                        const plus = wrap.querySelector('.search-default-plus');
+                        if(plus) {
+                            wrap.addEventListener('mouseenter', function(){ plus.style.display = 'flex'; });
+                            wrap.addEventListener('mouseleave', function(){ plus.style.display = 'none'; });
+                        }
+                        if(a) {
+                            a.addEventListener('click', function(ev){
+                                ev.preventDefault();
+                                const cat = a.getAttribute('data-type');
+                                setCategory(cat);
+                                // build a small category menu with quick links
+                                groups.innerHTML = '';
+                                const div = document.createElement('div');
+                                div.style.display = 'flex'; div.style.flexDirection='column'; div.style.gap='6px';
+                                const openLink = document.createElement('a'); openLink.href = a.getAttribute('data-url') || '#'; openLink.textContent = 'Open ' + (cat.charAt(0).toUpperCase() + cat.slice(1)); openLink.style.padding='8px 10px'; openLink.style.borderRadius='6px'; openLink.style.background='#fff'; openLink.style.border='1px solid #eee'; openLink.style.color='#007bff'; openLink.style.textDecoration='none';
+                                div.appendChild(openLink);
+                                // create link (if known)
+                                const createMap = { customers: '{% url "add_client" %}', items: '/inventory/add/', quotes: '/quotes/add/', invoices: '/invoices/add/', vendors: '/suppliers/add/' };
+                                if(createMap[cat]){
+                                    const createLink = document.createElement('a'); createLink.href = createMap[cat]; createLink.textContent = 'Create new'; createLink.style.padding='8px 10px'; createLink.style.borderRadius='6px'; createLink.style.background='#007bff'; createLink.style.color='#fff'; createLink.style.textDecoration='none'; createLink.style.display='inline-block';
+                                    div.appendChild(createLink);
+                                }
+                                groups.appendChild(div);
+                                // show groups and hide defaults
+                                if(defaults) defaults.style.display='none';
+                                groups.style.display='block';
+                                empty.style.display='none'; loading.style.display='none'; results.style.display='block';
+                                // ensure input visible and focused
+                                input.style.display = 'block'; input.focus();
+                            });
+                        }
+                    });
+                    // Enter key: navigate according to currentCategory or perform generic global-search
+                    input.addEventListener('keydown', function(e){
+                        if(e.key === 'Enter') {
+                            e.preventDefault();
+                            const q = input.value.trim();
+                            if(!q) return;
+                            const map = {
+                                customers: function(q){ return '/clients/?q=' + encodeURIComponent(q); },
+                                items: function(q){ return '/inventory/?q=' + encodeURIComponent(q); },
+                                quotes: function(q){ return '/quotes/?q=' + encodeURIComponent(q); },
+                                invoices: function(q){
+                                    // if numeric, try direct invoice id
+                                    if(/^\d+$/.test(q)) return '/invoices/' + q + '/';
+                                    return '/invoices/?q=' + encodeURIComponent(q);
+                                },
+                                vendors: function(q){ return '/suppliers/?q=' + encodeURIComponent(q); }
+                            };
+                            if(currentCategory && map[currentCategory]) {
+                                window.location.href = map[currentCategory](q);
+                            } else {
+                                // fallback to global-search endpoint
+                                window.location.href = '/global-search/?q=' + encodeURIComponent(q);
+                            }
+                        }
+                    });
+                })();
+            });
+            </script>
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+<script>
+document.addEventListener('click', function (e) {
+    const form = e.target.closest('.booking-maintenance-form');
+    if (!form) return;
+
+    // لو ضغط على رابط (الهاتف) لا نرسل الفورم
+    if (e.target.tagName.toLowerCase() === 'a') {
+        return;
+    }
+
+    e.preventDefault();
+
+    // جلب CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    let csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (!csrfInput) {
+        csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        form.appendChild(csrfInput);
+    }
+    csrfInput.value = getCookie('csrftoken');
+
+    form.submit();
+});
+</script>
+</body>
+</html>

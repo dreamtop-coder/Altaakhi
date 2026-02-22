@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block content %}
+<div dir="ltr" style="direction:ltr;text-align:left">
+
+<h2>Client Details</h2>
+<div style="background:#f6f6f6;padding:18px 24px;border-radius:8px;margin-bottom:24px;">
+    <p><b>Name:</b> {{ client.first_name }}{% if client.last_name %} {{ client.last_name }}{% endif %}</p>
+    <p><b>Customer ID:</b> {{ client.customer_id }}</p>
+    <p><b>Phone:</b> {{ client.phone_number }}</p>
+    <p><b>Email:</b> {{ client.email }}</p>
+    <p><b>Address:</b> {{ client.address }}</p>
+    <p><b>Status:</b> {{ client.get_status_display }}</p>
+    <p><b>Added On:</b> {{ client.created_at|date:'Y-m-d' }}</p>
+    <a href="{% url 'edit_client' client.id %}" style="background:#28a745;color:#fff;padding:7px 18px;border-radius:5px;text-decoration:none;font-weight:bold;">Edit</a>
+    <a href="{% url 'clients_list' %}" style="background:#007bff;color:#fff;padding:7px 18px;border-radius:5px;text-decoration:none;font-weight:bold;">Back to list</a>
+</div>
+
+<h3>Client Vehicles</h3>
+<a href="{% url 'add_car_for_client' client.id %}" style="background:#007bff;color:#fff;padding:7px 18px;border-radius:5px;text-decoration:none;font-weight:bold;margin-bottom:10px;display:inline-block;">Add vehicle</a>
+<table style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;margin-bottom:30px;">
+    <thead>
+            <tr style="background:#e9ecef;color:#444;font-weight:bold;">
+            <th>Plate Number</th>
+            <th>Model</th>
+            <th>Brand</th>
+            <th>Year</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for car_data in cars_data %}
+        <tr>
+            <td>{{ car_data.car.plate_number }}</td>
+            <td>{{ car_data.car.model }}</td>
+            <td>{{ car_data.car.brand }}</td>
+            <td>{{ car_data.car.year }}</td>
+            <td style="width:1%;white-space:nowrap;">
+                <a href="{% url 'edit_car_for_client' client.id car_data.car.id %}" style="background:#ffc107;color:#000;padding:6px 10px;border-radius:6px;text-decoration:none;font-weight:bold;">Edit</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% for car_data in cars_data %}
+    <h4>Service & Invoice History for vehicle: {{ car_data.car.plate_number }}</h4>
+    <style>
+    @media (max-width: 900px) {
+        .service-invoice-table th:nth-child(2),
+        .service-invoice-table th:nth-child(3),
+        .service-invoice-table th:nth-child(7) {
+            display: none;
+        }
+        .service-invoice-table td:nth-child(2),
+        .service-invoice-table td:nth-child(3),
+        .service-invoice-table td:nth-child(7) {
+            display: none;
+        }
+    }
+    </style>
+    <table class="service-invoice-table" style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;margin-bottom:30px;">
+        <thead>
+                <tr style="background:#f8f9fa;color:#444;font-weight:bold;">
+                <th>Invoice #</th>
+                <th>Plate Number</th>
+                <th>Owner Name</th>
+                <th>Service Type</th>
+                <th>Price</th>
+                <th>Service Date</th>
+                <th>Delivery Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in car_data.maintenance_records %}
+            <tr>
+                <td>{% if item.record.invoice %}{{ item.record.invoice.invoice_number }}{% else %}-{% endif %}</td>
+                <td>{{ car_data.car.plate_number }}</td>
+                <td>{{ client.first_name }}{% if client.last_name %} {{ client.last_name }}{% endif %}</td>
+                <td>{{ item.record.service }}</td>
+                <td>{{ item.record.price }}</td>
+                <td>{{ item.record.created_at|date:'Y-m-d' }}</td>
+                <td>{% if item.record.delivery_date %}{{ item.record.delivery_date|date:'Y-m-d H:i' }}{% else %}-{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;">No maintenance records for this vehicle.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endfor %}
+
+</div>
+
+{% endblock %}

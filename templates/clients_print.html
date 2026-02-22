@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:900px;margin:auto;background:#fff;padding:20px;border-radius:8px;">
+    <h2 style="text-align:center;">Clients Print</h2>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+        <thead>
+            <tr style="background:#f3f6ff;color:#1a237e;">
+                <th style="padding:8px;border:1px solid #eee;text-align:left;">Name</th>
+                <th style="padding:8px;border:1px solid #eee;text-align:left;">Customer ID</th>
+                <th style="padding:8px;border:1px solid #eee;text-align:left;">Phone</th>
+                <th style="padding:8px;border:1px solid #eee;text-align:left;">Email</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in clients %}
+            <tr>
+                <td style="padding:8px;border:1px solid #eee;">{{ c.first_name }}{% if c.last_name %} {{ c.last_name }}{% endif %}</td>
+                <td style="padding:8px;border:1px solid #eee;">{{ c.customer_id }}</td>
+                <td style="padding:8px;border:1px solid #eee;">{{ c.phone_number }}</td>
+                <td style="padding:8px;border:1px solid #eee;">{{ c.email|default:'-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+window.addEventListener('DOMContentLoaded', function(){
+    window.print();
+});
+</script>
+{% endblock %}

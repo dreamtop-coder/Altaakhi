@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:500px;margin:auto;background:#fff3f3;padding:32px 36px 28px 36px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;">
+    <div style="text-align:center;margin-bottom:20px;">
+        <span style="font-size:22px;font-weight:bold;color:#c00;">تأكيد حذف الفاتورة</span>
+    </div>
+    <p style="text-align:center;font-size:17px;color:#444;">هل أنت متأكد أنك تريد حذف الفاتورة رقم:
+        <span style="color:#1976d2;font-weight:bold;">{{ invoice.invoice_number }}</span>؟
+    </p>
+    <form method="post" style="text-align:center;margin-top:28px;">
+        {% csrf_token %}
+        <button type="submit" style="background:#e53935;color:#fff;padding:10px 32px;border:none;border-radius:8px;font-weight:bold;font-size:16px;">تأكيد الحذف</button>
+        <a href="{% url 'cars:maintenance_list' %}" style="background:#fff;color:#1976d2;border:1px solid #1976d2;padding:10px 24px;border-radius:8px;font-weight:bold;font-size:15px;text-decoration:none;margin-right:8px;">إلغاء</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+{% load i18n static %}
+{% block content %}
+<div id="inventory-header-bar" style="position:sticky; top:70px; z-index:1000; background:#f4f6fa; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #e6e6e6; height:56px;">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <h2 style="margin:0; font-size:1.6em; font-weight:700; color:#222;">{% trans "Inventory" %}</h2>
+    </div>
+    <a href="/inventory/add/" class="add-part-pill" title="{% trans "Add Part" %}" aria-label="Add Part">
+        <span class="icon">+</span>
+        <span class="label">{% trans "New" %}</span>
+    </a>
+</div>
+<div style="height:6px;"></div>
+{% if debug_codes %}
+<div style="background:#fff3cd;padding:8px;border:1px solid #ffeeba;margin-bottom:12px;">Server order: {{ debug_codes }}</div>
+{% endif %}
+<style>
+/* Visible resize handle for inventory table (apply to head/body tables) */
+#inventory-table-head th, #inventory-table-body th { position: relative; }
+.resize-handle { position: absolute; right: 0; top: 0; width: 10px; height: 100%; cursor: col-resize; z-index: 5; }
+.resize-handle:hover { background: rgba(0,0,0,0.03); }
+.resize-handle:before { content: ''; position: absolute; left: 3px; top: 8px; width: 2px; height: calc(100% - 16px); background: rgba(0,0,0,0.06); border-radius: 1px; }
+/* Hide global topbar search on Inventory page (user requested) */
+</style>
+<style>
+/* Row cursor and background behavior:
+   - default: normal cursor
+   - on hover of clickable rows (have data-part-id): show pointer (hand)
+   - selected: no automatic background change (keeps visual minimal)
+*/
+#inventory-table tbody tr {
+    cursor: default;
+    background: transparent !important;
+}
+
+/* Pointer only for rows that are actually clickable */
+#inventory-table tbody tr[data-part-id]:hover,
+#inventory-table tbody tr[data-part-id].row-hover {
+    cursor: pointer;
+    background: #efefef !important; /* subtle gray highlight on hover */
+}
+
+#inventory-table tbody tr.row-selected {
+    background: transparent !important;
+}
+</style>
+<style>
+/* Blue pill 'New' button for Add Part */
+.add-part-pill {
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 14px;
+    background: linear-gradient(180deg,#4a7df5,#1976d2);
+    color:#fff;
+    border-radius:10px;
+    text-decoration:none;
+    font-weight:600;
+    box-shadow:0 2px 6px rgba(0,0,0,0.12);
+    border: none;
+}
+.add-part-pill .icon { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; font-size:18px; }
+.add-part-pill:active{ transform:translateY(1px); }
+.add-part-pill:focus{ outline:2px solid rgba(25,118,210,0.18); }
+.add-part-pill .label { font-size:14px; }
+</style>
+<!-- header bar above is sticky and holds the Add New pill; search was removed per request -->
+<div>
+    <div id="inventory-bulk-toolbar" style="display:none; position:relative; margin-bottom:8px; background:#fff; padding:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06); justify-content:space-between; align-items:center; gap:12px; width:100%;">
+    <div style="display:flex;align-items:center;gap:12px;"><span id="inventory-selected-count">0 Selected</span>
+        <button id="inventory-reset-columns" style="background:#f1f1f1;border:1px solid #e0e0e0;padding:6px 10px;border-radius:4px;cursor:pointer;color:#333;">Reset columns</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <button id="inventory-bulk-delete" style="background:#dc3545; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">Delete</button>
+    </div>
+</div>
+    <div class="table-wrapper">
+        <div class="table-head-wrap">
+            <table id="inventory-table-head" class="table" aria-hidden="false" style="direction:ltr; table-layout: fixed; width:100%;border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#f7f7f7;text-align:left;">
+                        <th style="padding:8px;border:1px solid #eee;width:36px;text-align:center;"><input type="checkbox" id="select-all-inventory"><div class="resize-handle" data-col="select"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">{% trans "Part Name" %}<div class="resize-handle" data-col="name"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">{% trans "Code" %}<div class="resize-handle" data-col="code"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">{% trans "Stock" %}<div class="resize-handle" data-col="stock"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">{% trans "Purchase Price" %}<div class="resize-handle" data-col="purchase"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">{% trans "Sale Price" %}<div class="resize-handle" data-col="sale"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">{% trans "Track Stock" %}<div class="resize-handle" data-col="track"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">{% trans "Purchase" %}<div class="resize-handle" data-col="purchase_flag"></div></th>
+                        <th style="padding:8px;border:1px solid #eee;">{% trans "Sale" %}<div class="resize-handle" data-col="sale_flag"></div></th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+        <div class="table-body-scroll" style="overflow:auto; max-height:60vh;">
+            <table id="inventory-table-body" class="table" data-server-order="{{ server_codes|default:'' }}" style="direction:ltr; table-layout: fixed; width:100%;border-collapse:collapse;">
+                <tbody>
+                {% for p in parts %}
+                    <tr data-part-id="{{ p.id }}">
+                        <td style="padding:8px;border:1px solid #eee;text-align:center;"><input class="inventory-row-checkbox" type="checkbox" data-id="{{ p.id }}"></td>
+                        <td style="padding:8px;border:1px solid #eee;">{{ p.name }}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{{ p.code }}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{{ p.quantity }}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{{ p.purchase_price|default_if_none:0|floatformat:3 }}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{{ p.sale_price|default_if_none:0|floatformat:3 }}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{% if p.track_stock %}✔{% else %}&ndash;{% endif %}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{% if p.is_purchase %}✔{% else %}&ndash;{% endif %}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{% if p.is_sale %}✔{% else %}&ndash;{% endif %}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="9" style="padding:12px;text-align:center;color:#666;">{% trans "No parts found" %}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- Include shared per-page pagination component -->
+<link rel="stylesheet" href="{% static 'css/components.css' %}">
+{% include 'partials/per_page_pagination.html' with per_page=per_page per_page_options=per_page_options page_obj=page_obj search=query %}
+<script src="{% static 'js/per_page_dropdown.js' %}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    // per-page dropdown is auto-initialized by static/js/per_page_dropdown.js
+    // Enforce tbody display and keep rows ordered to server-provided sequence.
+    // Uses a MutationObserver to re-apply the ordering if anything mutates the tbody.
+    (function enforceServerOrderWithWatcher(){
+        try{
+            const table = document.getElementById('inventory-table-body');
+            if(!table) return;
+            const server = (table.dataset.serverOrder || '').trim();
+            if(!server) return;
+            const order = server.split(',').map(s=>s.trim()).filter(Boolean);
+            if(order.length === 0) return;
+            const tbody = table.tBodies[0];
+            if(!tbody) return;
+
+            const applyOrder = function(){
+                try{
+                    // force normal table rendering
+                    try{ tbody.style.display = 'table-row-group'; }catch(e){}
+
+                    // build quick map of code -> row
+                    const rows = Array.from(tbody.querySelectorAll('tr[data-part-id]'));
+                    const rowsMap = {};
+                    rows.forEach(row=>{
+                        const codeCell = row.children[2];
+                        if(codeCell) rowsMap[codeCell.textContent.trim()] = row;
+                    });
+
+                    // temporarily stop observing while we reorder to avoid loops
+                    observer.disconnect();
+                    order.forEach(code=>{
+                        const row = rowsMap[code];
+                        if(row) tbody.appendChild(row);
+                    });
+                }catch(e){/* ignore */}
+                finally{
+                    // resume observing after DOM changes
+                    observer.observe(tbody, obsConfig);
+                }
+            };
+
+            // small debounce to batch rapid mutations
+            let scheduled = null;
+            const scheduleApply = function(){
+                if(scheduled) return;
+                scheduled = setTimeout(()=>{ scheduled = null; applyOrder(); }, 30);
+            };
+
+            const obsConfig = { childList: true, subtree: false, attributes: true, attributeFilter: ['class','style'] };
+            const observer = new MutationObserver(function(mutations){ scheduleApply(); });
+
+            // initial application and start observing
+            applyOrder();
+            observer.observe(tbody, obsConfig);
+        }catch(e){/* ignore */}
+    })();
+    
+    const selectAll = document.getElementById('select-all-inventory');
+    const rowCheckboxes = Array.from(document.querySelectorAll('.inventory-row-checkbox'));
+    const toolbar = document.getElementById('inventory-bulk-toolbar');
+    const selectedCount = document.getElementById('inventory-selected-count');
+    const deleteBtn = document.getElementById('inventory-bulk-delete');
+
+    function updateToolbar(){
+        const checked = rowCheckboxes.filter(cb => cb.checked).map(cb=>cb.dataset.id);
+        if(checked.length>0){
+            toolbar.style.display = 'flex';
+            selectedCount.textContent = checked.length + ' Selected';
+        } else {
+            toolbar.style.display = 'none';
+        }
+    }
+
+    if(selectAll){
+        selectAll.addEventListener('change', function(){
+            rowCheckboxes.forEach(cb=> cb.checked = selectAll.checked);
+            updateToolbar();
+        });
+    }
+
+    rowCheckboxes.forEach(cb=>{
+        cb.addEventListener('change', function(){
+            const tr = cb.closest('tr');
+            if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected');
+            updateToolbar();
+        });
+    });
+
+    // Row hover/selection and click -> edit (ignore clicks on checkbox)
+    const rows = Array.from(document.querySelectorAll('#inventory-table-body tbody tr[data-part-id]'));
+    rows.forEach(function(tr){
+        tr.addEventListener('mouseenter', () => tr.classList.add('row-hover'));
+        tr.addEventListener('mouseleave', () => tr.classList.remove('row-hover'));
+        const cb = tr.querySelector('.inventory-row-checkbox');
+        if(cb) cb.addEventListener('change', function(){
+            if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected');
+            updateToolbar();
+        });
+    });
+
+    // Row click -> edit (ignore clicks on checkbox)
+    const bodyTable = document.getElementById('inventory-table-body');
+    if (bodyTable) bodyTable.addEventListener('click', function(e){
+        const tr = e.target.closest('tr[data-part-id]');
+        if(!tr) return;
+        if(e.target.tagName.toLowerCase()==='input') return;
+        const id = tr.dataset.partId;
+        window.location = '/inventory/' + id + '/edit/';
+    });
+
+    deleteBtn.addEventListener('click', function(){
+        const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id);
+        if(ids.length===0) return;
+        if(!confirm('Delete '+ids.length+' selected items?')) return;
+        fetch('/inventory/bulk-delete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type':'application/json',
+                'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1]
+            },
+            body: JSON.stringify({ids: ids})
+        }).then(r=>r.json()).then(data=>{
+            if(data.ok){ location.reload(); }
+            else { alert('Delete failed'); }
+        }).catch(()=> alert('Delete error'));
+    });
+
+    const resetBtn = document.getElementById('inventory-reset-columns');
+    if(resetBtn){
+        resetBtn.addEventListener('click', function(){
+            if(!confirm('Reset saved column widths to defaults?')) return;
+            try{ localStorage.removeItem('inventory_table_col_widths_v1'); }catch(e){}
+            location.reload();
+        });
+    }
+
+    // --- Resizable columns for two-table inventory layout (sync head/body) ---
+    function initResizableColumnsInventory() {
+        const head = document.getElementById('inventory-table-head');
+        const body = document.getElementById('inventory-table-body');
+        if (!head || !body) return;
+        const STORAGE_KEY = 'inventory_table_col_widths_v1';
+        const ths = head.querySelectorAll('th');
+        const bodyRows = Array.from(body.querySelectorAll('tbody tr'));
+
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const map = JSON.parse(saved);
+                ths.forEach((th, i) => {
+                    const w = map[i] || (th.offsetWidth + 'px');
+                    th.style.width = w;
+                    bodyRows.forEach(r => { const c = r.children[i]; if (c) c.style.width = w; });
+                });
+            } else {
+                ths.forEach((th, i) => {
+                    const w = th.offsetWidth + 'px';
+                    th.style.width = w;
+                    bodyRows.forEach(r => { const c = r.children[i]; if (c) c.style.width = w; });
+                });
+            }
+            let total = 0; ths.forEach(th => { total += parseInt(th.style.width, 10) || th.offsetWidth; });
+            head.style.width = total + 'px';
+            body.style.width = total + 'px';
+        } catch (e) { }
+
+        const handles = head.querySelectorAll('.resize-handle');
+        handles.forEach(handle => {
+            const th = handle.closest('th');
+            if (!th) return;
+            handle.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                const startX = e.pageX;
+                const startWidth = th.offsetWidth;
+                function onMouseMove(ev) {
+                    const dx = ev.pageX - startX;
+                    const newWidth = Math.max(40, startWidth + dx);
+                    th.style.width = newWidth + 'px';
+                    bodyRows.forEach(r => { const c = r.children[Array.from(th.parentNode.children).indexOf(th)]; if (c) c.style.width = newWidth + 'px'; });
+                    let total = 0; ths.forEach(t => { total += parseInt(t.style.width, 10) || t.offsetWidth; });
+                    head.style.width = total + 'px';
+                    body.style.width = total + 'px';
+                }
+                function onMouseUp() {
+                    try { const widths = {}; ths.forEach((t, idx) => { widths[idx] = t.style.width || (t.offsetWidth + 'px'); }); localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); } catch (e) { }
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+    initResizableColumnsInventory();
+
+    // Note: ordering is now handled by the watcher above which reads server order from
+    // the table's `data-server-order` attribute and re-applies it on load and on mutations.
+
+});
+</script>
+{% endblock %}

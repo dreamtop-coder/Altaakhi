@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>إضافة موديل سيارة</h2>
+<form method="post" style="max-width:400px;background:#f9f9f9;padding:20px;border-radius:8px;">
+    {% csrf_token %}
+    {% if form.errors %}
+        <div style="background:#ffe0e0;color:#a11;padding:10px 18px;border-radius:7px;margin-bottom:10px;">
+            {% for field in form %}
+                {% for error in field.errors %}
+                    {{ error }}<br>
+                {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+                {{ error }}<br>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {{ form.as_p }}
+    <button type="submit" style="background:#007bff;color:#fff;padding:8px 22px;border:none;border-radius:6px;font-weight:bold;">حفظ</button>
+    <a href="{% url 'models_list' %}" style="margin-right:15px;">إلغاء</a>
+</form>
+{% endblock %}

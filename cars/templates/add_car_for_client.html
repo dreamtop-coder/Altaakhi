@@ -1,0 +1,11 @@
+{% if form.errors %}
+  <div style="color:red; margin-bottom: 16px;">
+    <ul>
+      {% for field, errors in form.errors.items %}
+        <li><strong>{{ form.fields[field].label }}:</strong> {{ errors|join:', ' }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+<!-- ...existing code for the form... -->

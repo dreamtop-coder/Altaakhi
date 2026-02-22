@@ -1,0 +1,1670 @@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>Workshop Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Tahoma, Arial, sans-serif; background: #f4f6fa; margin: 0; padding: 0; }
+        .dashboard-container { display: flex; min-height: 100vh; direction: ltr; }
+        .sidebar { width: 230px; background: #222e3c; color: #fff; padding: 0; display: flex; flex-direction: column; transition: right 0.3s; z-index: 1000; direction: ltr; position: fixed; top: 70px; left: 0; height: calc(100vh - 70px); overflow-y: auto; }
+        .sidebar h2 { text-align: left; margin: 30px 0 20px 0; font-size: 1.5em; letter-spacing: 1px; padding-left:16px; }
+        .sidebar ul { list-style: none; padding: 0; margin: 0; text-align: left; }
+        .sidebar ul li { padding: 15px 30px; border-bottom: 1px solid #2d3a4a; cursor: pointer; display: block; font-size: 1.1em; transition: background 0.2s; }
+        .sidebar ul li:hover { background: #1a2330; }
+        .sidebar ul li i { float: left; margin-right: 12px; margin-left: 0; font-size: 1.2em; }
+        .sidebar ul li:after { content: ""; display: block; clear: both; }
+        .sidebar ul li ul { display: none; padding-left: 54px; margin: 0; }
+        .sidebar ul li ul li { padding: 6px 0; }
+        .sidebar ul li ul li a { padding-left: 0 !important; display: block; }
+        .sidebar ul li .fa-chevron-down { margin-left: 7px; }
+        .main-content { flex: 1; padding: 70px 40px 40px 40px; }
+        .mobile-sidebar-toggle {
+            display: none;
+            position: absolute;
+            left: 20px;
+            top: 18px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #f6c23e;
+            z-index: 1100;
+            cursor: pointer;
+        }
+        .sidebar.mobile-hidden, .sidebar.mobile-visible { width: 230px; transition: right 0.3s; }
+        @media (min-width: 901px) {
+            /* Desktop: keep sidebar fixed and push main content to the right */
+            .sidebar { position: fixed !important; left: 0 !important; top: 70px !important; height: calc(100vh - 70px); box-shadow: none !important; }
+            .main-content { margin-left: 230px; padding-top: 70px; }
+            .mobile-sidebar-toggle { display: none !important; }
+        }
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 230px;
+                position: fixed;
+                left: -260px;
+                top: 70px;
+                height: calc(100vh - 70px);
+                flex-direction: column;
+                overflow-y: auto;
+                z-index: 1001;
+                display: block;
+                transition: left 0.3s;
+            }
+            .sidebar.mobile-hidden {
+                left: -260px !important;
+                display: block !important;
+            }
+            .sidebar.mobile-visible {
+                left: 0 !important;
+                display: block !important;
+            }
+        }
+        @media (max-width: 700px) {
+            .sidebar {
+                width: 230px;
+                position: fixed;
+                left: -260px;
+                top: 70px;
+                height: calc(100vh - 70px);
+                flex-direction: column;
+                overflow-y: auto;
+                z-index: 1001;
+                display: block;
+                transition: left 0.3s;
+            }
+            .sidebar.mobile-hidden {
+                left: -260px !important;
+                display: block !important;
+            }
+            .sidebar.mobile-visible {
+                left: 0 !important;
+                display: block !important;
+            }
+            .main-content {
+                padding: 12px 4px 24px 4px !important;
+            }
+            .topbar {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 0;
+            }
+            .mobile-sidebar-toggle {
+                display: block;
+                position: static;
+                margin-right: 0;
+                margin-left: 0;
+            }
+        }
+        /* Make topbar full-bleed (no left/right gaps) while keeping page content padded */
+        .topbar {
+            width: 100vw !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 1002 !important;
+            /* shift the full-bleed element so its left edge aligns with the viewport left */
+            margin-left: calc((100% - 100vw) / 2) !important;
+            margin-right: calc((100% - 100vw) / 2) !important;
+            box-sizing: border-box;
+            background: #32405a; /* ensure visible background when fixed */
+        }
+        /* Inner container aligns topbar content with main page padding */
+        .topbar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px 0 0; /* flush to the left edge */
+            box-sizing: border-box;
+            width: 100%;
+            max-width: none;
+        }
+        @media (max-width: 900px) {
+            .topbar-inner { padding: 0 20px 0 0; }
+        }
+        @media (max-width: 700px) {
+            .topbar-inner { padding: 0 8px 0 0; }
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 0 10px 0;
+            background: #32405a;
+            border-bottom: 1px solid #2d3a4a;
+            min-height: 60px;
+            width: 100%;
+            margin-right: 0;
+            margin-left: 0;
+            direction: ltr;
+            gap: 16px;
+        }
+        .topbar .workshop-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #f6c23e;
+            letter-spacing: 1px;
+        }
+        .topbar .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .mobile-sidebar-toggle {
+            display: none;
+            position: absolute;
+            right: 20px;
+            top: 18px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #f6c23e;
+            z-index: 1100;
+            cursor: pointer;
+        }
+        @media (max-width: 900px) {
+            .topbar {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 0;
+            }
+            .mobile-sidebar-toggle {
+                display: block;
+                position: static;
+                margin-right: 0;
+                margin-left: 0;
+            }
+        }
+        .topbar .user-info {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 1.1em;
+        }
+        .topbar .user-info .icon-btn {
+            background: #22304a;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: #f6c23e;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .topbar .user-info .icon-btn:hover { background: #1a2330; }
+        .topbar .user-info .admin-name {
+            font-weight: bold;
+            color: #fff;
+            margin-left: 8px;
+            letter-spacing: 1px;
+        }
+            .topbar {
+                width: 100%;
+                margin-right: 0;
+                margin-left: 0;
+                direction: rtl;
+            }
+        @media (max-width: 700px) {
+            .main-logo-title {
+                font-size: 15px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="/static/fontawesome/css/all.min.css" />
+    <!-- Favicon: explicit static path + inline SVG fallback to avoid /favicon.ico 404 -->
+    <link rel="icon" href="/static/images/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='100%25' height='100%25' fill='%23f6c23e'/%3E%3Ctext x='50%25' y='50%25' font-size='10' dominant-baseline='middle' text-anchor='middle' fill='%23222e3c'%3EA%3C/text%3E%3C/svg%3E" />
+    
+</head>
+<body>
+    
+    <div class="dashboard-container">
+        <div class="sidebar mobile-hidden" id="sidebarMenu">
+            <h2>Al-Takhi Auto Repair</h2>
+            <ul style="position:relative;">
+                <li onclick="location.href='/dashboard/'"><i class="fa fa-tachometer"></i>Dashboard</li>
+                <li><i class="fa fa-users"></i>User Management</li>
+                <li><i class="fa fa-cogs"></i>General Settings</li>
+                <li><a href="/inventory/" style="color:inherit;text-decoration:none;"><i class="fa fa-archive"></i> Items</a></li>
+                <li id="services-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-wrench"></i>Departments & Services
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="brands-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/brands/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Car Manufacturers</a></li>
+                    </ul>
+                </li>
+                <li id="clients-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-user"></i>Clients & Suppliers
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="clients-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li style="padding:6px 0 0 0;color:#fff;font-weight:bold;">Customers</li>
+                        <li><a href="/clients/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Customers</a></li>
+                        <li><a href="/quotes/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Quotes</a></li>
+                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
+                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Received</a></li>
+                        <li style="height:8px;"></li>
+                        <li style="padding:6px 0 0 0;color:#fff;font-weight:bold;">Vendors</li>
+                        <li><a href="/suppliers/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Vendors</a></li>
+                        <li><a href="/bills/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Bills</a></li>
+                        <li><a href="/vendors/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Made</a></li>
+                    </ul>
+                </li>
+                <li id="cars-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-car"></i>Cars & Maintenance
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="cars-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/cars/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Cars</a></li>
+                        <li><a href="/maintenance/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Maintenance Records</a></li>
+                        <li><a href="/bookings/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Bookings</a></li>
+                        <li><a href="/services/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Services</a></li>
+                    </ul>
+                </li>
+                <li id="invoices-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-file-invoice-dollar"></i>Invoices & Payments
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="invoices-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Payments</a></li>
+                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
+                        <li><a href="/invoices/print/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Print Invoice</a></li>
+                        <li><a href="/invoices/account-statement/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Account Statement</a></li>
+                    </ul>
+                </li>
+                <li><i class="fa fa-chart-bar"></i>Financial Management</li>
+                <li><i class="fa fa-file-alt"></i>Reports</li>
+            </ul>
+        </div>
+        <div class="main-content">
+            <div class="topbar">
+                <button class="mobile-sidebar-toggle" id="sidebarToggle" aria-label="Sidebar"><i id="sidebarToggleIcon" class="fa fa-bars"></i></button>
+                <div class="workshop-logo">
+                    <img src="/static/altaakhi_logo.png" alt="Al-Takhi Auto Repair logo" style="height:38px;width:38px;"/>
+                    <span class="main-logo-title">Al-Takhi Auto Repair</span>
+                </div>
+                <!-- Global Topbar Search (compact, opens dropdown on magnifier) -->
+                <div id="topbar-search" style="margin-left:18px;position:relative;flex:1;max-width:520px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <button id="global-search-toggle" title="Search" style="background:transparent;border:1px solid #ddd;padding:8px;border-radius:8px;display:flex;align-items:center;gap:6px;cursor:pointer;color:#666;">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        <input id="global-search-input" type="text" placeholder="Search customers / items / quotes / invoices / vendors" aria-label="Global search" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid #e6e6e6;display:none;min-width:180px;" />
+                    </div>
+                    <div id="global-search-results" style="display:none;position:absolute;left:0;top:44px;right:0;z-index:50;background:#fff;border:1px solid #e6e6e6;border-radius:8px;max-height:360px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.08);padding:8px;">
+                        <div id="global-search-loading" style="display:none;padding:18px;text-align:center;color:#666;">Searching...</div>
+                        <div id="global-search-empty" style="display:none;padding:12px;text-align:center;color:#666;">No results</div>
+                        <div id="global-search-defaults" style="display:none;padding:6px 4px;">
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <div class="search-default-wrap" data-type="customers" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="customers" data-url="/clients/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Customers</a>
+                                    <a href="/clients/add/" class="search-default-plus" title="New customer" style="display:none;position:absolute;right:-6px;top:-6px;background:#007bff;color:#fff;border-radius:50%;width:26px;height:26px;align-items:center;justify-content:center;display:flex;text-decoration:none;">+</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="items" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="items" data-url="/inventory/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Items</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="quotes" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="quotes" data-url="/quotes/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Quotes</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="invoices" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="invoices" data-url="/invoices/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Invoices</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="vendors" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="vendors" data-url="/suppliers/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Vendors</a>
+                                </div>
+                            </div>
+                            <div style="margin-top:8px;color:#777;font-size:0.95em;">Press <strong>Enter</strong> to search, or click a category.</div>
+                        </div>
+                        <div id="global-search-groups" style="display:none;">
+                            <!-- Example group structure; populated by JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <button class="icon-btn" title="Settings"><i class="fa fa-cog"></i></button>
+                    <button class="icon-btn" title="Notifications"><i class="fa fa-bell"></i></button>
+                    <span class="admin-name">
+                        
+                            Guest
+                        
+                    </span>
+                </div>
+            </div>
+            
+    
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var sidebar = document.getElementById('sidebarMenu');
+                var toggle = document.getElementById('sidebarToggle');
+                var toggleIcon = document.getElementById('sidebarToggleIcon');
+                var submenus = [
+                    {section: 'services-section', submenu: 'brands-submenu'},
+                    {section: 'cars-section', submenu: 'cars-submenu'},
+                    {section: 'invoices-section', submenu: 'invoices-submenu'},
+                    {section: 'clients-section', submenu: 'clients-submenu'}
+                ];
+                function openSidebar() {
+                    sidebar.classList.remove('mobile-hidden');
+                    sidebar.classList.add('mobile-visible');
+                    document.body.classList.add('sidebar-open');
+                    if(toggleIcon) {
+                        toggleIcon.classList.remove('fa-bars');
+                        toggleIcon.classList.add('fa-times');
+                    }
+                }
+                function closeSidebar() {
+                    sidebar.classList.remove('mobile-visible');
+                    sidebar.classList.add('mobile-hidden');
+                    document.body.classList.remove('sidebar-open');
+                    closeAllSubmenus();
+                    if(toggleIcon) {
+                        toggleIcon.classList.remove('fa-times');
+                        toggleIcon.classList.add('fa-bars');
+                    }
+                }
+                function closeAllSubmenus() {
+                    submenus.forEach(function(item){
+                        var submenu = document.getElementById(item.submenu);
+                        if(submenu) submenu.style.display = 'none';
+                    });
+                }
+                if(toggle && sidebar) {
+                    toggle.onclick = function(e) {
+                        e.stopPropagation();
+                        if(sidebar.classList.contains('mobile-visible')) {
+                            closeSidebar();
+                        } else {
+                            openSidebar();
+                        }
+                    };
+                }
+                sidebar.onclick = function(e) { e.stopPropagation(); };
+                submenus.forEach(function(item){
+                    var section = document.getElementById(item.section);
+                    var submenu = document.getElementById(item.submenu);
+                    if(section && submenu) {
+                        section.onclick = function(e) {
+                            e.stopPropagation();
+                            closeAllSubmenus();
+                            submenu.style.display = (submenu.style.display === 'block') ? 'none' : 'block';
+                        };
+                        submenu.onclick = function(e) { e.stopPropagation(); };
+                    }
+                });
+                document.body.onclick = function() {
+                    if(window.innerWidth <= 900) {
+                        closeSidebar();
+                    } else {
+                        closeAllSubmenus();
+                    }
+                };
+                // --- Global topbar search logic ---
+                (function(){
+                    const toggle = document.getElementById('global-search-toggle');
+                    const input = document.getElementById('global-search-input');
+                    const results = document.getElementById('global-search-results');
+                    const loading = document.getElementById('global-search-loading');
+                    const empty = document.getElementById('global-search-empty');
+                    const groups = document.getElementById('global-search-groups');
+                    const defaultsWrap = document.querySelectorAll('.search-default-wrap');
+                    const defaults = document.getElementById('global-search-defaults');
+                    if(!toggle || !input || !results) return;
+                    let open = false;
+                    let debounceTimer = null;
+                    toggle.addEventListener('click', function(e){
+                        e.stopPropagation();
+                        open = !open;
+                        if(open) {
+                            input.style.display = 'block';
+                            input.focus();
+                            results.style.display = 'block';
+                            // if input empty show default categories
+                            if(!input.value.trim()) {
+                                if(defaults) defaults.style.display = 'block';
+                                if(groups) groups.style.display = 'none';
+                                if(loading) loading.style.display = 'none';
+                                if(empty) empty.style.display = 'none';
+                            }
+                        } else {
+                            input.value = '';
+                            input.style.display = 'none';
+                            results.style.display = 'none';
+                            if(defaults) defaults.style.display = 'none';
+                        }
+                    });
+                    document.addEventListener('click', function(ev){
+                        if(!ev.target.closest('#topbar-search')) {
+                            input.style.display = 'none'; results.style.display = 'none'; open=false;
+                        }
+                    });
+                    input.addEventListener('keydown', function(e){
+                        if(e.key === 'Escape') { input.value=''; input.blur(); results.style.display='none'; }
+                    });
+                    input.addEventListener('input', function(e){
+                        const q = input.value.trim();
+                        clearTimeout(debounceTimer);
+                        if(!q) {
+                            // show default categories when query is empty
+                            if(defaults) defaults.style.display = 'block';
+                            if(groups) groups.style.display='none';
+                            if(empty) empty.style.display='none';
+                            if(loading) loading.style.display='none';
+                            return;
+                        }
+                        debounceTimer = setTimeout(function(){
+                            // show loading
+                            loading.style.display='block'; empty.style.display='none'; groups.style.display='none';
+                            // fetch results from API (implement server-side later)
+                            fetch('/global-search/?q=' + encodeURIComponent(q))
+                                .then(r => r.ok ? r.json() : Promise.reject())
+                                .then(data => {
+                                    loading.style.display='none';
+                                    // expected data: { customers: [...], items: [...], quotes: [...], invoices: [...], vendors: [...] }
+                                    const keys = ['customers','items','quotes','invoices','vendors'];
+                                    groups.innerHTML = '';
+                                    let any = false;
+                                    keys.forEach(function(key){
+                                        const arr = data[key] || [];
+                                        if(arr.length) {
+                                            any = true;
+                                            const div = document.createElement('div');
+                                            div.style.marginBottom = '8px';
+                                            const title = document.createElement('div');
+                                            title.style.fontWeight='bold'; title.style.marginBottom='6px'; title.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                                            div.appendChild(title);
+                                            arr.slice(0,6).forEach(function(item){
+                                                const a = document.createElement('a');
+                                                a.href = item.url || '#';
+                                                a.style.display='block'; a.style.padding='6px 8px'; a.style.borderRadius='6px'; a.style.color='#333'; a.style.textDecoration='none';
+                                                a.onmouseenter = function(){ a.style.background='#f6f7fb'; };
+                                                a.onmouseleave = function(){ a.style.background='transparent'; };
+                                                a.textContent = item.label || item.name || item.title || item.id;
+                                                div.appendChild(a);
+                                            });
+                                            groups.appendChild(div);
+                                        }
+                                    });
+                                    if(!any) { empty.style.display='block'; groups.style.display='none'; } else { groups.style.display='block'; empty.style.display='none'; }
+                                })
+                                .catch(function(){ loading.style.display='none'; empty.style.display='block'; groups.style.display='none'; });
+                        }, 300);
+                    });
+                    // --- category selection and enter-key behavior ---
+                    let currentCategory = null; // one of: customers, items, quotes, invoices, vendors
+                    function setCategory(cat) {
+                        currentCategory = cat;
+                        // update placeholder per category
+                        const placeholders = {
+                            customers: 'Search by car number, phone or customer name',
+                            items: 'Search items by name or SKU',
+                            quotes: 'Search quotes by number or customer',
+                            invoices: 'Enter invoice number',
+                            vendors: 'Search vendors by name or phone'
+                        };
+                        input.placeholder = placeholders[cat] || 'Search...';
+                        // highlight selected default
+                        document.querySelectorAll('.search-default').forEach(function(el){ el.style.background = '#f6f7fb'; });
+                        const sel = document.querySelector('.search-default[data-type="' + cat + '"]'); if(sel) sel.style.background = '#e8f0ff';
+                    }
+                    // wire default category clicks and hover-plus visibility
+                    defaultsWrap.forEach(function(wrap){
+                        const a = wrap.querySelector('.search-default');
+                        const plus = wrap.querySelector('.search-default-plus');
+                        if(plus) {
+                            wrap.addEventListener('mouseenter', function(){ plus.style.display = 'flex'; });
+                            wrap.addEventListener('mouseleave', function(){ plus.style.display = 'none'; });
+                        }
+                        if(a) {
+                            a.addEventListener('click', function(ev){
+                                ev.preventDefault();
+                                const cat = a.getAttribute('data-type');
+                                setCategory(cat);
+                                // build a small category menu with quick links
+                                groups.innerHTML = '';
+                                const div = document.createElement('div');
+                                div.style.display = 'flex'; div.style.flexDirection='column'; div.style.gap='6px';
+                                const openLink = document.createElement('a'); openLink.href = a.getAttribute('data-url') || '#'; openLink.textContent = 'Open ' + (cat.charAt(0).toUpperCase() + cat.slice(1)); openLink.style.padding='8px 10px'; openLink.style.borderRadius='6px'; openLink.style.background='#fff'; openLink.style.border='1px solid #eee'; openLink.style.color='#007bff'; openLink.style.textDecoration='none';
+                                div.appendChild(openLink);
+                                // create link (if known)
+                                const createMap = { customers: '/clients/add/', items: '/inventory/add/', quotes: '/quotes/add/', invoices: '/invoices/add/', vendors: '/suppliers/add/' };
+                                if(createMap[cat]){
+                                    const createLink = document.createElement('a'); createLink.href = createMap[cat]; createLink.textContent = 'Create new'; createLink.style.padding='8px 10px'; createLink.style.borderRadius='6px'; createLink.style.background='#007bff'; createLink.style.color='#fff'; createLink.style.textDecoration='none'; createLink.style.display='inline-block';
+                                    div.appendChild(createLink);
+                                }
+                                groups.appendChild(div);
+                                // show groups and hide defaults
+                                if(defaults) defaults.style.display='none';
+                                groups.style.display='block';
+                                empty.style.display='none'; loading.style.display='none'; results.style.display='block';
+                                // ensure input visible and focused
+                                input.style.display = 'block'; input.focus();
+                            });
+                        }
+                    });
+                    // Enter key: navigate according to currentCategory or perform generic global-search
+                    input.addEventListener('keydown', function(e){
+                        if(e.key === 'Enter') {
+                            e.preventDefault();
+                            const q = input.value.trim();
+                            if(!q) return;
+                            const map = {
+                                customers: function(q){ return '/clients/?q=' + encodeURIComponent(q); },
+                                items: function(q){ return '/inventory/?q=' + encodeURIComponent(q); },
+                                quotes: function(q){ return '/quotes/?q=' + encodeURIComponent(q); },
+                                invoices: function(q){
+                                    // if numeric, try direct invoice id
+                                    if(/^\d+$/.test(q)) return '/invoices/' + q + '/';
+                                    return '/invoices/?q=' + encodeURIComponent(q);
+                                },
+                                vendors: function(q){ return '/suppliers/?q=' + encodeURIComponent(q); }
+                            };
+                            if(currentCategory && map[currentCategory]) {
+                                window.location.href = map[currentCategory](q);
+                            } else {
+                                // fallback to global-search endpoint
+                                window.location.href = '/global-search/?q=' + encodeURIComponent(q);
+                            }
+                        }
+                    });
+                })();
+            });
+            </script>
+            
+<style>
+@media (max-width: 900px) {
+    .responsive-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .responsive-table td, .responsive-table th {
+        font-size: 1.08em;
+        padding: 13px 6px;
+        min-width: 90px;
+    }
+    .responsive-table .action-btn {
+        font-size: 1.1em;
+        padding: 10px 0;
+        width: 100%;
+        margin: 4px 0;
+        display: block;
+    }
+    .responsive-table th, .responsive-table td {
+        text-align: center;
+    }
+}
+</style>
+<div style="height:6px;"></div>
+<div id="clients-header-bar" style="position:sticky; top:70px; z-index:1000; background:#f4f6fa; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #e6e6e6; height:56px;">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <h2 style="margin:0; font-size:1.6em; font-weight:700; color:#222;">Clients</h2>
+    </div>
+    <a href="/clients/add/" class="add-client-pill" title="Add Client" aria-label="Add Client">
+        <span class="icon">+</span>
+        <span class="label">New</span>
+    </a>
+</div>
+<style>
+@media (max-width: 600px) {
+    div[style*="display:flex"][style*="gap:12px"] { flex-direction: column; align-items: flex-start; gap:8px; }
+    div[style*="display:flex"][style*="gap:12px"] h2 { font-size: 1.25em; }
+}
+</style>
+
+<div class="responsive-table-wrapper clients-table-mobile-conditional">
+    <div id="bulk-actions-bar" style="display:none;position:sticky;top:70px;z-index:1001;background:#fff;border:1px solid #e0e0e0;padding:10px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+        <div id="selected-count" style="font-weight:bold;">0 Selected</div>
+        <div>
+            <button id="bulk-print" style="background:#6c757d;color:#fff;padding:6px 12px;border-radius:5px;border:none;margin-right:8px;">Print</button>
+            <button id="bulk-delete" style="background:#dc3545;color:#fff;padding:6px 12px;border-radius:5px;border:none;">Delete</button>
+        </div>
+    </div>
+    
+    
+    <style>
+    /* pill-style New button to match inventory look */
+    .add-client-pill {
+        display:inline-flex;
+        align-items:center;
+        gap:10px;
+        padding:8px 14px;
+        background: linear-gradient(180deg,#4a7df5,#1976d2);
+        color:#fff;
+        border-radius:10px;
+        text-decoration:none;
+        font-weight:600;
+        box-shadow:0 2px 6px rgba(0,0,0,0.12);
+        border: none;
+    }
+    .add-client-pill .icon { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; font-size:18px; }
+    .add-client-pill .label { font-size:14px; }
+    .add-client-pill:active{ transform:translateY(1px); }
+    .add-client-pill:focus{ outline:2px solid rgba(25,118,210,0.18); }
+    </style>
+    <style>
+        /* Match inventory table layout: subtle cell borders, header color, and hover */
+        #clients-table { direction: ltr; table-layout: fixed; width:100%; border-collapse: collapse; }
+        #clients-table th, #clients-table td { text-align: left !important; border: 1px solid #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px !important; }
+        #clients-table th { position: relative; }
+        /* resize handle */
+        .resize-handle { position: absolute; right: 0; top: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 5; }
+        .resize-handle:hover { background: rgba(0,0,0,0.03); }
+        #clients-table th:first-child, #clients-table td:first-child { width:36px; }
+        /* Align specific columns similarly to before */
+        #clients-table th.customer-id, #clients-table td.customer-id { text-align: center !important; }
+        #clients-table th.col-name, #clients-table td.col-name { text-align: right !important; direction: rtl; }
+        #clients-table th.email, #clients-table td.email { text-align: left !important; }
+        #clients-table th.amount-paid, #clients-table td.amount-paid, #clients-table th.amount-remaining, #clients-table td.amount-remaining { text-align: right !important; }
+        #clients-table th.col-name, #clients-table td.col-name { font-weight: normal !important; color: #000 !important; }
+        #clients-table td.col-name a { color: #000 !important; text-decoration: none !important; font-weight: normal !important; }
+        /* Header background matches inventory */
+        #clients-table thead tr { background: #f7f7f7 !important; color: #333 !important; }
+        /* Row hover and pointer */
+        #clients-table tbody tr:hover, #clients-table tr.row-hover { background: #efefef !important; cursor: pointer; }
+        #clients-table tr.row-selected { background: #e0e0e0 !important; }
+    </style>
+    <table id="clients-table" class="responsive-table" style="direction:ltr;width:100%;background:transparent;border-radius:0;overflow:hidden;border:none;box-shadow:none;">
+        <thead>
+            <tr style="background:#e9ecef;color:#444;font-weight:bold;text-align:center;">
+                <th style="padding:12px 0;border-left:1.5px solid #c2c7d0;"><input type="checkbox" id="select-all" /><div class="resize-handle" data-col="select"></div></th>
+                <th class="col-name" style="padding:12px 0;border-left:1.5px solid #c2c7d0;">Name<div class="resize-handle" data-col="name"></div></th>
+                <th class="customer-id" style="padding:12px 0;border-left:1.5px solid #c2c7d0;">Customer ID<div class="resize-handle" data-col="customer-id"></div></th>
+                <th style="padding:12px 0;border-left:1.5px solid #c2c7d0;">Phone<div class="resize-handle" data-col="phone"></div></th>
+                <th class="email" style="padding:12px 0;">Email<div class="resize-handle" data-col="email"></div></th>
+                <th style="padding:12px 0;">Status<div class="resize-handle" data-col="status"></div></th>
+                <th style="padding:12px 0;">Created At<div class="resize-handle" data-col="created"></div></th>
+                <th class="amount-paid" style="padding:12px 0;">Amount Paid<div class="resize-handle" data-col="paid"></div></th>
+                <th class="amount-remaining" style="padding:12px 0;">Amount Remaining<div class="resize-handle" data-col="remaining"></div></th>
+                
+            </tr>
+        </thead>
+        <tbody>
+            
+            <tr data-url="/clients/1/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="1" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/1/" style="color:#007bff;text-decoration:underline;font-weight:bold;">علي محمد شكيب</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">660105721</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33455696</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-08-08</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/2/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="2" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/2/" style="color:#007bff;text-decoration:underline;font-weight:bold;">شكري أحمد جاسم عاشور</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">610008374</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">37797797</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-10</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/3/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="3" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/3/" style="color:#007bff;text-decoration:underline;font-weight:bold;">مهى حورى خالد الصغير</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">780410254</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">37779957</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-10</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">110.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/4/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="4" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/4/" style="color:#007bff;text-decoration:underline;font-weight:bold;">اسامة مبارك الدوسري</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">740603663</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">35681080</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-10</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">50.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/5/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="5" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/5/" style="color:#007bff;text-decoration:underline;font-weight:bold;">محمد صالح محسن ال ضيف</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">781209285</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36648886</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-11</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">150.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/6/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="6" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/6/" style="color:#007bff;text-decoration:underline;font-weight:bold;">خالد عبدالله احمد حسن</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">620202750</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39873789</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-18</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/7/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="7" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/7/" style="color:#007bff;text-decoration:underline;font-weight:bold;">علي احمد علي محمد القطان</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">611101513</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36410106</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-19</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/8/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="8" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/8/" style="color:#007bff;text-decoration:underline;font-weight:bold;">أسامة ضيف</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">37332211</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">37332211</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-21</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">15.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/9/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="9" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/9/" style="color:#007bff;text-decoration:underline;font-weight:bold;">علي جعفر علي الزين</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">660112957</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33591915</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-22</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">100.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/10/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="10" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/10/" style="color:#007bff;text-decoration:underline;font-weight:bold;">نضال علي احمد سلمان</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">750401621</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39212097</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-24</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">20.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/11/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="11" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/11/" style="color:#007bff;text-decoration:underline;font-weight:bold;">راشد المهزه</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">33669339</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33669339</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-09-24</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">18.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/12/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="12" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/12/" style="color:#007bff;text-decoration:underline;font-weight:bold;">خليل إبراهيم علي</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">750905239</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33336124</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-10-08</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/13/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="13" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/13/" style="color:#007bff;text-decoration:underline;font-weight:bold;">زكي علي فردان</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">1008364174</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39474149</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-10-23</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/14/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="14" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/14/" style="color:#007bff;text-decoration:underline;font-weight:bold;">حسن يوسف أحمد محمد</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">700504613</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36277533</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-10-24</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/15/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="15" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/15/" style="color:#007bff;text-decoration:underline;font-weight:bold;">ياسر علي الجاسم</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">700502327</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33222606</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-11-09</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">111.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/16/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="16" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/16/" style="color:#007bff;text-decoration:underline;font-weight:bold;">صالح محمد</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">720036070</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33308015</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-11-11</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/17/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="17" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/17/" style="color:#007bff;text-decoration:underline;font-weight:bold;">جلال جاسم سلمان السندي</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">800605829</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39546446</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-12-12</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/18/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="18" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/18/" style="color:#007bff;text-decoration:underline;font-weight:bold;">عبدالله خالد الجودر</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">940101157</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39944464</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-12-13</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/19/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="19" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/19/" style="color:#007bff;text-decoration:underline;font-weight:bold;">جعفر محمد الدمستاني</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">660119072</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33228241</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-12-16</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">90.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/20/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="20" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/20/" style="color:#007bff;text-decoration:underline;font-weight:bold;">حمد عيسى محمد ال محمود</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">800107179</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39462909</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2023-12-27</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">100.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/21/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="21" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/21/" style="color:#007bff;text-decoration:underline;font-weight:bold;">ابراهيم مخلوق</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">711000565</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39050266</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-01-06</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">5.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/22/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="22" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/22/" style="color:#007bff;text-decoration:underline;font-weight:bold;">فضيلة حبيب عبدالعال</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">690503890</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39829000</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-01-31</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">1.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/23/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="23" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/23/" style="color:#007bff;text-decoration:underline;font-weight:bold;">خالد حسين  موسي</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">770111270</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39050123</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-02-14</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">110.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/24/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="24" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/24/" style="color:#007bff;text-decoration:underline;font-weight:bold;">حسان محمد حسون الشيخ</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">721012825</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36988388</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-03-12</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">130.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/25/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="25" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/25/" style="color:#007bff;text-decoration:underline;font-weight:bold;">عقيل يوسف عبدالله</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">620029510</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36436436</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-04-15</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">170.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/26/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="26" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/26/" style="color:#007bff;text-decoration:underline;font-weight:bold;">محمد هاشم الساده</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">700930135</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39449911</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-05-25</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/27/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="27" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/27/" style="color:#007bff;text-decoration:underline;font-weight:bold;">حسين أحمد العرادي</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">770508200</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39776119</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-05-27</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">100.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/28/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="28" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/28/" style="color:#007bff;text-decoration:underline;font-weight:bold;">محمد عبد الله عيسى</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">33566999</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33566999</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-07-21</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/29/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="29" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/29/" style="color:#007bff;text-decoration:underline;font-weight:bold;">السيد صالح كاظم الوداعي</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">630065055</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39950123</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-09-14</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">110.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/30/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="30" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/30/" style="color:#007bff;text-decoration:underline;font-weight:bold;">علي جبر</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">33708585</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33708585</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-09-25</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">60.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/31/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="31" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/31/" style="color:#007bff;text-decoration:underline;font-weight:bold;">حسين عباس حسين ادرج</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">880200243</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33443220</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-09-26</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/32/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="32" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/32/" style="color:#007bff;text-decoration:underline;font-weight:bold;">قاسم ترك</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">770909507</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36257255</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-11-12</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">80.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/33/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="33" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/33/" style="color:#007bff;text-decoration:underline;font-weight:bold;">مشعل الحسيني</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">760305200</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39448008</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2024-11-16</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">100.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/34/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="34" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/34/" style="color:#007bff;text-decoration:underline;font-weight:bold;">عبدالجليل ابراهيم حسن</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">640103146</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39467931</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-01-07</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">60.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/35/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="35" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/35/" style="color:#007bff;text-decoration:underline;font-weight:bold;">سميرة احمد بوعلاي</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">760800553</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">34065665</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-02-14</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">110.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/36/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="36" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/36/" style="color:#007bff;text-decoration:underline;font-weight:bold;">عبدالحيم علي بوجيري</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">710804032</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33229947</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-05-19</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/37/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="37" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/37/" style="color:#007bff;text-decoration:underline;font-weight:bold;">محمد عبدالله محمد كنجي</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">840203411</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">37437373</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-07-21</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">100.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/38/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="38" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/38/" style="color:#007bff;text-decoration:underline;font-weight:bold;">ناجي عبدالحسن الصائغ</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">700903291</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39731711</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-09-02</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">110.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/39/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="39" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/39/" style="color:#007bff;text-decoration:underline;font-weight:bold;">ابراهيم حبيب الدوسري</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">680403140</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33494055</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-10-01</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">100.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/40/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="40" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/40/" style="color:#007bff;text-decoration:underline;font-weight:bold;">حسين احمد مرهون</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">920401376</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39888485</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-10-02</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">110.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/41/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="41" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/41/" style="color:#007bff;text-decoration:underline;font-weight:bold;">فيصل ابراهيم عبدالرحيم</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">33117332</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33117332</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-10-06</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">110.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/42/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="42" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/42/" style="color:#007bff;text-decoration:underline;font-weight:bold;">علي عبدالنبي علي</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">650107683</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39242252</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-10-07</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">110.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/43/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="43" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/43/" style="color:#007bff;text-decoration:underline;font-weight:bold;">عقيل علي عبداللطيف</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">791002497</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39114466</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-11-02</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/44/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="44" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/44/" style="color:#007bff;text-decoration:underline;font-weight:bold;">مشغل</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">36363560</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36363560</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-11-19</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">12.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/45/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="45" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/45/" style="color:#007bff;text-decoration:underline;font-weight:bold;">علاء محمد عيسى صالح</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">771100094</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36440008</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2025-11-19</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/46/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="46" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/46/" style="color:#007bff;text-decoration:underline;font-weight:bold;">وحيد صالح احمد</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">670501697</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">3659951</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2026-01-11</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/47/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="47" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/47/" style="color:#007bff;text-decoration:underline;font-weight:bold;">عبد العزيز عيسى علي</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">620119039</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39775776</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2026-01-11</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">100.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/48/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="48" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/48/" style="color:#007bff;text-decoration:underline;font-weight:bold;">خالد عبدالله السعد</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">600115607</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">39453989</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2026-01-11</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">180.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/49/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="49" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/49/" style="color:#007bff;text-decoration:underline;font-weight:bold;">خليل ابراهيم حسن جمشير</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">770504680</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">37772226</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2026-01-16</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">100.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/50/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="50" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/50/" style="color:#007bff;text-decoration:underline;font-weight:bold;">كريمة عبدالصمد علمان</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">880119322</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33117332</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2026-01-20</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/51/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="51" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/51/" style="color:#007bff;text-decoration:underline;font-weight:bold;">سلمى جلال عثمان</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">841011354</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">35050329</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2026-01-21</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/52/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="52" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/52/" style="color:#007bff;text-decoration:underline;font-weight:bold;">هدى السيد عدنان سلمان</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">880200626</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36436436</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2026-01-27</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">110.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/53/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="53" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/53/" style="color:#007bff;text-decoration:underline;font-weight:bold;">إبراهيم جمعة ملا عبدالله</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">630201994</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">36686684</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2026-02-01</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">120.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+            <tr data-url="/clients/65/">
+                <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="client-checkbox" value="65" /></td>
+                <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="/clients/65/" style="color:#007bff;text-decoration:underline;font-weight:bold;">أنور بخيت سيف</a></td>
+                <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">720802903</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">33488833</td>
+                <td class="email" style="padding:10px 0 10px 0;">-</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">نشط</td>
+                <td style="padding:10px 0 10px 0;text-align:center;">2026-02-02</td>
+                <td class="amount-paid" style="padding:10px 0 10px 0;">85.000</td>
+                <td class="amount-remaining" style="padding:10px 0 10px 0;">0.000</td>
+                
+            </tr>
+            
+        </tbody>
+    </table>
+    <style>
+        /* Disable native sticky thead to avoid mid-table duplication; we'll render a fixed cloned header */
+        #clients-table thead th { position: static !important; top: auto !important; z-index: auto !important; }
+        #clients-table-fixed-header { display: none; }
+        /* when clone-active, hide original thead to avoid duplicates */
+        #clients-table.clone-active thead { visibility: hidden; }
+    </style>
+    
+    
+</div>
+<style>
+@media (max-width: 600px) {
+    /* لا تخفي جدول النتائج على الجوال، فقط حسن التنسيق */
+    .clients-table-mobile-conditional {
+        display: block !important;
+    }
+    .responsive-table td, .responsive-table th {
+        font-size: 1em;
+        padding: 10px 4px;
+        min-width: 80px;
+    }
+}
+</style>
+<!-- Pagination removed per user request. -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const checkboxes = Array.from(document.querySelectorAll('.client-checkbox'));
+    const selectAll = document.getElementById('select-all');
+    const bar = document.getElementById('bulk-actions-bar');
+    const selectedCount = document.getElementById('selected-count');
+    const btnDelete = document.getElementById('bulk-delete');
+    const btnPrint = document.getElementById('bulk-print');
+
+    function updateBar() {
+        const selected = checkboxes.filter(c => c.checked).map(c => c.value);
+        if (selected.length > 0) {
+            bar.style.display = 'flex';
+            selectedCount.textContent = selected.length + ' Selected';
+        } else {
+            bar.style.display = 'none';
+            selectedCount.textContent = '0 Selected';
+        }
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function(){
+            checkboxes.forEach(c => c.checked = selectAll.checked);
+            updateBar();
+        });
+    }
+    checkboxes.forEach(c => c.addEventListener('change', updateBar));
+
+    if (btnDelete) {
+        btnDelete.addEventListener('click', function(){
+            const selected = checkboxes.filter(c => c.checked).map(c => c.value);
+            if (!selected.length) return;
+            if (!confirm('Delete selected clients?')) return;
+            const csrftoken = getCookie('csrftoken');
+            const form = new FormData();
+            selected.forEach(id => form.append('client_ids[]', id));
+            fetch('/clients/bulk-delete/', {
+                method: 'POST',
+                headers: {'X-CSRFToken': csrftoken},
+                body: form
+            }).then(r => {
+                if (r.ok) window.location.reload(); else alert('Delete failed');
+            }).catch(e => alert('Delete failed'));
+        });
+    }
+
+    if (btnPrint) {
+        btnPrint.addEventListener('click', function(){
+            const selected = checkboxes.filter(c => c.checked).map(c => c.value);
+            if (!selected.length) return;
+            const url = '/clients/print/?ids=' + selected.join(',');
+            window.open(url, '_blank');
+        });
+    }
+    // row-level hover and click selection (toggle checkbox)
+    const rows = Array.from(document.querySelectorAll('#clients-table tbody tr'));
+    rows.forEach(function(tr){
+        tr.addEventListener('mouseenter', () => tr.classList.add('row-hover'));
+        tr.addEventListener('mouseleave', () => tr.classList.remove('row-hover'));
+        tr.addEventListener('click', function(e){
+            // if clicking on a link or checkbox, let default behavior happen
+            if (e.target.closest('a') || e.target.tagName === 'A') return;
+            if (e.target.tagName === 'INPUT') return;
+            const url = tr.dataset.url;
+            if (url) window.location.href = url;
+        });
+        // keep selected class in sync with checkbox changes (for bulk actions)
+        const cb = tr.querySelector('.client-checkbox');
+        if (cb) cb.addEventListener('change', function(){
+            if (cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected');
+            updateBar();
+        });
+    });
+
+    // --- Resizable columns ---
+    function initResizableColumns() {
+        const table = document.getElementById('clients-table');
+        if (!table) return;
+        const STORAGE_KEY = 'clients_table_col_widths_v1';
+        const ths = table.querySelectorAll('th');
+        // apply stored widths or set explicit widths to current sizes
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const map = JSON.parse(saved);
+                ths.forEach((th, i) => {
+                    if (map[i]) th.style.width = map[i]; else th.style.width = th.offsetWidth + 'px';
+                });
+            } else {
+                ths.forEach(th => th.style.width = th.offsetWidth + 'px');
+            }
+            // set table width to the sum of column widths so other columns won't collapse
+            let total = 0;
+            ths.forEach(th => { total += parseInt(th.style.width, 10) || th.offsetWidth; });
+            table.style.width = total + 'px';
+        } catch (e) { /* ignore */ }
+
+        const handles = table.querySelectorAll('.resize-handle');
+        handles.forEach(handle => {
+            const th = handle.closest('th');
+            if (!th) return;
+            handle.addEventListener('mousedown', function(e){
+                e.preventDefault();
+                const startX = e.pageX;
+                const startWidth = th.offsetWidth;
+                function onMouseMove(ev) {
+                    const dx = ev.pageX - startX;
+                    const newWidth = Math.max(40, startWidth + dx);
+                    th.style.width = newWidth + 'px';
+                    // recompute and lock table width so other cols do not auto-resize
+                    let total = 0;
+                    ths.forEach(t => { total += parseInt(t.style.width, 10) || t.offsetWidth; });
+                    table.style.width = total + 'px';
+                }
+                function onMouseUp() {
+                    // save widths
+                    try {
+                        const widths = {};
+                        ths.forEach((t, idx) => { widths[idx] = t.style.width || (t.offsetWidth + 'px'); });
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+                    } catch (e) { }
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+    initResizableColumns();
+    // --- Fixed cloned header ---
+    (function(){
+        const table = document.getElementById('clients-table');
+        if (!table) return;
+        function computeHeaderOffset(){
+            const topbar = document.querySelector('.topbar');
+            const clientsBar = document.getElementById('clients-header-bar');
+            const topbarH = topbar ? Math.ceil(topbar.getBoundingClientRect().height) : 70;
+            const clientsBarH = clientsBar ? Math.ceil(clientsBar.getBoundingClientRect().height) : 56;
+            return topbarH + clientsBarH;
+        }
+        let headerBarOffset = computeHeaderOffset();
+        const fixedWrap = document.createElement('div');
+        fixedWrap.id = 'clients-table-fixed-header';
+        fixedWrap.style.position = 'fixed';
+        fixedWrap.style.top = headerBarOffset + 'px';
+        fixedWrap.style.zIndex = '996';
+        fixedWrap.style.background = '#f4f6fa';
+        fixedWrap.style.overflow = 'hidden';
+        fixedWrap.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+        fixedWrap.style.display = 'none';
+        const cloneTable = document.createElement('table');
+        cloneTable.className = table.className;
+        cloneTable.style.borderCollapse = 'collapse';
+        const theadClone = table.querySelector('thead').cloneNode(true);
+        cloneTable.appendChild(theadClone);
+        fixedWrap.appendChild(cloneTable);
+        document.body.appendChild(fixedWrap);
+
+        function syncWidths(){
+            const rect = table.getBoundingClientRect();
+            cloneTable.style.width = rect.width + 'px';
+            // account for page scroll when positioning fixed clone
+            fixedWrap.style.left = (rect.left + window.scrollX) + 'px';
+            const srcThs = table.querySelectorAll('thead th');
+            const dstThs = cloneTable.querySelectorAll('thead th');
+            dstThs.forEach((th, i) => {
+                const src = srcThs[i];
+                if (!src) return;
+                th.style.width = (src.getBoundingClientRect().width) + 'px';
+            });
+        }
+
+        function onScroll(){
+            headerBarOffset = computeHeaderOffset();
+            const rect = table.getBoundingClientRect();
+            const thead = table.querySelector('thead');
+            // show cloned header only when table is scrolled under the header area
+            if (rect.top < headerBarOffset && rect.bottom > headerBarOffset + 10) {
+                fixedWrap.style.display = 'block';
+                if (table) table.classList.add('clone-active');
+                syncWidths();
+            } else {
+                fixedWrap.style.display = 'none';
+                if (table) table.classList.remove('clone-active');
+            }
+        }
+
+        window.addEventListener('scroll', onScroll);
+        window.addEventListener('resize', function(){ syncWidths(); headerBarOffset = computeHeaderOffset(); });
+        // initial sync in case page already scrolled
+        syncWidths();
+        onScroll();
+    })();
+});
+</script>
+
+        </div>
+    </div>
+<script>
+document.addEventListener('click', function (e) {
+    const form = e.target.closest('.booking-maintenance-form');
+    if (!form) return;
+
+    // لو ضغط على رابط (الهاتف) لا نرسل الفورم
+    if (e.target.tagName.toLowerCase() === 'a') {
+        return;
+    }
+
+    e.preventDefault();
+
+    // جلب CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    let csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (!csrfInput) {
+        csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        form.appendChild(csrfInput);
+    }
+    csrfInput.value = getCookie('csrftoken');
+
+    form.submit();
+});
+</script>
+</body>
+</html>

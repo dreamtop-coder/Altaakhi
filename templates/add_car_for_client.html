@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<h2>Add vehicle</h2>
+<form method="post">
+    {% csrf_token %}
+    <div style="max-width:600px;direction:ltr;">
+        {% for field in form %}
+            <div style="margin-bottom:12px;">
+                {% if field.name == 'model' %}
+                    <label style="display:block;font-weight:bold;margin-bottom:6px;">Model</label>
+                {% else %}
+                    <label style="display:block;font-weight:bold;margin-bottom:6px;">{{ field.label_tag }}</label>
+                {% endif %}
+                {{ field }}
+                {% if field.help_text %}<div class="text-muted">{{ field.help_text }}</div>{% endif %}
+                {% for err in field.errors %}<div style="color:#c00;">{{ err }}</div>{% endfor %}
+            </div>
+        {% endfor %}
+        <div style="margin-top:8px;color:#666;font-size:0.95em;margin-bottom:10px;">Client: <strong>{{ client.first_name }}{% if client.last_name %} {{ client.last_name }}{% endif %}</strong></div>
+        <button class="btn btn-primary" type="submit" style="background:#007bff;color:#fff;padding:8px 14px;border:none;border-radius:6px;">Save</button>
+        <a href="{% url 'client_detail' client.id %}" class="btn" style="margin-left:8px;text-decoration:none;padding:8px 14px;border-radius:6px;background:#eee;color:#222;">Cancel</a>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var brandSelect = document.getElementById('id_brand');
+    var modelSelect = document.getElementById('id_model');
+    if (brandSelect) {
+        brandSelect.addEventListener('change', function() {
+            var brandId = this.value;
+            fetch('/get-models-for-brand/?brand_id=' + brandId)
+                .then(response => response.json())
+                .then(data => {
+                    if (!modelSelect) return;
+                    modelSelect.innerHTML = '';
+                    data.models.forEach(function(model) {
+                        var option = document.createElement('option');
+                        option.value = model.id;
+                        option.text = model.name;
+                        modelSelect.appendChild(option);
+                    });
+                });
+        });
+    }
+    // Force LTR for inputs inside this form to override page RTL
+    var inputs = document.querySelectorAll('form input, form select, form textarea');
+    inputs.forEach(function(i){ i.style.direction = 'ltr'; i.style.textAlign = 'left'; });
+});
+</script>
+
+<script>
+// Inline +Add model button + modal for faster model creation
+document.addEventListener('DOMContentLoaded', function(){
+    const modelSelect = document.getElementById('id_model');
+    const brandSelect = document.getElementById('id_brand');
+    if(!modelSelect) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.id = 'btnAddModelInline'; btn.textContent = '+ Add';
+    btn.style.marginLeft = '8px'; btn.style.padding = '6px 8px'; btn.style.borderRadius = '6px';
+    btn.style.background = '#007bff'; btn.style.color = '#fff'; btn.style.border = 'none';
+    modelSelect.parentNode.insertBefore(btn, modelSelect.nextSibling);
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop'; modal.id = 'modelModalInline'; modal.style.display = 'none';
+    modal.style.position='fixed'; modal.style.inset='0'; modal.style.alignItems='center'; modal.style.justifyContent='center';
+    modal.style.background='rgba(0,0,0,0.35)'; modal.style.zIndex='9999';
+    modal.innerHTML = `
+        <div class="modal">
+            <h3>Add Model</h3>
+            <form id="modelFormInline" method="post" action="/models/add/">
+                <input type="hidden" name="csrfmiddlewaretoken" value="${(document.cookie.match(/csrftoken=([^;]+)/)||[])[1]||''}">
+                <input type="hidden" name="brand" id="modelBrandInputInline" value="">
+                <div id="modelFormMsgInline" style="display:none;margin-bottom:8px;padding:8px;border-radius:6px;color:#a11;background:#ffecec"></div>
+                <input type="text" name="name" id="modelNameInputInline" placeholder="Model name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:8px">
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                    <button type="button" id="modelCancelInline" style="background:#6c757d;color:#fff;padding:8px 12px;border-radius:6px;border:none">Cancel</button>
+                    <button type="submit" id="modelSaveBtnInline" style="background:#007bff;color:#fff;padding:8px 12px;border-radius:6px;border:none">Save</button>
+                </div>
+            </form>
+        </div>`;
+    document.body.appendChild(modal);
+
+    const showInline = ()=> document.getElementById('modelModalInline').style.display = 'flex';
+    const hideInline = ()=> document.getElementById('modelModalInline').style.display = 'none';
+
+    btn.addEventListener('click', function(){
+        document.getElementById('modelNameInputInline').value = '';
+        document.getElementById('modelFormMsgInline').style.display = 'none';
+        // set brand id to current brand select
+        const b = brandSelect ? brandSelect.value : '';
+        document.getElementById('modelBrandInputInline').value = b;
+        showInline();
+    });
+    document.getElementById('modelCancelInline').addEventListener('click', hideInline);
+
+    document.getElementById('modelFormInline').addEventListener('submit', function(e){
+        e.preventDefault();
+        const url = this.action; const fd = new FormData(this);
+        const msg = document.getElementById('modelFormMsgInline'); const saveBtn = document.getElementById('modelSaveBtnInline');
+        saveBtn.disabled = true;
+        fetch(url, { method:'POST', body: fd, headers: { 'X-Requested-With':'XMLHttpRequest','X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] } })
+            .then(r=>r.json()).then(data=>{
+                saveBtn.disabled = false;
+                if(data.success){
+                    const opt = document.createElement('option'); opt.value = data.id; opt.text = data.name; modelSelect.appendChild(opt); modelSelect.value = data.id; hideInline();
+                } else { msg.innerText = (data.errors && data.errors.length) ? data.errors.join('\n') : 'Error'; msg.style.display='block'; }
+            }).catch(()=>{ saveBtn.disabled = false; msg.innerText = 'Network error'; msg.style.display='block'; });
+    });
+    modal.addEventListener('click', function(ev){ if(ev.target===modal) hideInline(); });
+});
+</script>
+
+<script>
+// Inline +Add brand button + modal for faster brand creation
+document.addEventListener('DOMContentLoaded', function(){
+    const brand = document.getElementById('id_brand');
+    if(!brand) return;
+
+    // create small +Add button
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'btnAddBrandInline';
+    btn.textContent = '+ Add';
+    btn.style.marginLeft = '8px';
+    btn.style.padding = '6px 8px';
+    btn.style.borderRadius = '6px';
+    btn.style.background = '#007bff';
+    btn.style.color = '#fff';
+    btn.style.border = 'none';
+    brand.parentNode.insertBefore(btn, brand.nextSibling);
+
+    // build modal HTML and append to body
+    const modal = document.createElement('div');
+    modal.className = 'modal-backdrop';
+    modal.id = 'brandModalInline';
+    modal.style.display = 'none';
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.background = 'rgba(0,0,0,0.35)';
+    modal.style.zIndex = '9999';
+    modal.innerHTML = `
+        <div class="modal">
+            <h3 id="brandModalTitleInline">Add Brand</h3>
+            <form id="brandFormInline" method="post" action="/brands/add/">
+                <input type="hidden" name="csrfmiddlewaretoken" value="${(document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || ''}">
+                <div id="brandFormMsgInline" style="display:none;margin-bottom:8px;padding:8px;border-radius:6px;color:#a11;background:#ffecec"></div>
+                <input type="text" name="name" id="brandNameInputInline" placeholder="Brand name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:8px">
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                    <button type="button" id="brandCancelInline" style="background:#6c757d;color:#fff;padding:8px 12px;border-radius:6px;border:none">Cancel</button>
+                    <button type="submit" id="brandSaveBtnInline" style="background:#007bff;color:#fff;padding:8px 12px;border-radius:6px;border:none">Save</button>
+                </div>
+            </form>
+        </div>`;
+    document.body.appendChild(modal);
+
+    const showInline = ()=> document.getElementById('brandModalInline').style.display = 'flex';
+    const hideInline = ()=> document.getElementById('brandModalInline').style.display = 'none';
+
+    btn.addEventListener('click', function(){
+        document.getElementById('brandModalTitleInline').textContent = 'Add Brand';
+        document.getElementById('brandNameInputInline').value = '';
+        document.getElementById('brandFormMsgInline').style.display = 'none';
+        showInline();
+    });
+    document.getElementById('brandCancelInline').addEventListener('click', hideInline);
+
+    // submit via AJAX
+    document.getElementById('brandFormInline').addEventListener('submit', function(e){
+        e.preventDefault();
+        const url = this.action;
+        const fd = new FormData(this);
+        const msg = document.getElementById('brandFormMsgInline');
+        const saveBtn = document.getElementById('brandSaveBtnInline');
+        saveBtn.disabled = true;
+        fetch(url, { method: 'POST', body: fd, headers: { 'X-Requested-With':'XMLHttpRequest','X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] } })
+            .then(r=>r.json()).then(data=>{
+                saveBtn.disabled = false;
+                if(data.success){
+                    const opt = document.createElement('option'); opt.value = data.id; opt.text = data.name; brand.appendChild(opt); brand.value = data.id; hideInline();
+                } else {
+                    msg.innerText = (data.errors && data.errors.length) ? data.errors.join('\n') : 'Error'; msg.style.display = 'block';
+                }
+            }).catch(()=>{ saveBtn.disabled = false; msg.innerText = 'Network error'; msg.style.display = 'block'; });
+    });
+    // close when clicking backdrop
+    modal.addEventListener('click', function(ev){ if(ev.target===modal) hideInline(); });
+});
+</script>
+
+{% endblock %}

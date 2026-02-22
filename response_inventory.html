@@ -1,0 +1,805 @@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>Workshop Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Tahoma, Arial, sans-serif; background: #f4f6fa; margin: 0; padding: 0; }
+        .dashboard-container { display: flex; min-height: 100vh; direction: ltr; }
+        .sidebar { width: 230px; background: #222e3c; color: #fff; padding: 0; display: flex; flex-direction: column; transition: right 0.3s; z-index: 1001; direction: ltr; }
+        .sidebar h2 { text-align: left; margin: 30px 0 20px 0; font-size: 1.5em; letter-spacing: 1px; padding-left:16px; }
+        .sidebar ul { list-style: none; padding: 0; margin: 0; text-align: left; }
+        .sidebar ul li { padding: 15px 30px; border-bottom: 1px solid #2d3a4a; cursor: pointer; display: block; font-size: 1.1em; transition: background 0.2s; }
+        .sidebar ul li:hover { background: #1a2330; }
+        .sidebar ul li i { float: left; margin-right: 12px; margin-left: 0; font-size: 1.2em; }
+        .sidebar ul li:after { content: ""; display: block; clear: both; }
+        .sidebar ul li ul { display: none; padding-left: 54px; margin: 0; }
+        .sidebar ul li ul li { padding: 6px 0; }
+        .sidebar ul li ul li a { padding-left: 0 !important; display: block; }
+        .sidebar ul li .fa-chevron-down { margin-left: 7px; }
+        .main-content { flex: 1; padding: 0 40px 40px 40px; }
+        .mobile-sidebar-toggle {
+            display: none;
+            position: absolute;
+            left: 20px;
+            top: 18px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #f6c23e;
+            z-index: 1100;
+            cursor: pointer;
+        }
+        .sidebar.mobile-hidden, .sidebar.mobile-visible { width: 230px; transition: right 0.3s; }
+        @media (min-width: 901px) {
+            .sidebar { position: static !important; left: 0 !important; height: 100vh; box-shadow: none !important; }
+            .main-content { margin-left: 0; }
+            .mobile-sidebar-toggle { display: none !important; }
+        }
+        @media (max-width: 900px) {
+            .sidebar {
+                width: 230px;
+                position: fixed;
+                left: -260px;
+                top: 0;
+                height: 100vh;
+                flex-direction: column;
+                overflow-y: auto;
+                z-index: 1001;
+                display: block;
+                transition: left 0.3s;
+            }
+            .sidebar.mobile-hidden {
+                left: -260px !important;
+                display: block !important;
+            }
+            .sidebar.mobile-visible {
+                left: 0 !important;
+                display: block !important;
+            }
+        }
+        @media (max-width: 700px) {
+            .sidebar {
+                width: 230px;
+                position: fixed;
+                left: -260px;
+                top: 0;
+                height: 100vh;
+                flex-direction: column;
+                overflow-y: auto;
+                z-index: 1001;
+                display: block;
+                transition: left 0.3s;
+            }
+            .sidebar.mobile-hidden {
+                left: -260px !important;
+                display: block !important;
+            }
+            .sidebar.mobile-visible {
+                left: 0 !important;
+                display: block !important;
+            }
+            .main-content {
+                padding: 12px 4px 24px 4px !important;
+            }
+            .topbar {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 0;
+            }
+            .mobile-sidebar-toggle {
+                display: block;
+                position: static;
+                margin-right: 0;
+                margin-left: 0;
+            }
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 0 10px 0;
+            background: #32405a;
+            border-bottom: 1px solid #2d3a4a;
+            min-height: 60px;
+            width: 100%;
+            margin-right: 0;
+            margin-left: 0;
+            direction: ltr;
+            gap: 16px;
+        }
+        .topbar .workshop-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #f6c23e;
+            letter-spacing: 1px;
+        }
+        .topbar .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .mobile-sidebar-toggle {
+            display: none;
+            position: absolute;
+            right: 20px;
+            top: 18px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #f6c23e;
+            z-index: 1100;
+            cursor: pointer;
+        }
+        @media (max-width: 900px) {
+            .topbar {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 0;
+            }
+            .mobile-sidebar-toggle {
+                display: block;
+                position: static;
+                margin-right: 0;
+                margin-left: 0;
+            }
+        }
+        .topbar .user-info {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 1.1em;
+        }
+        .topbar .user-info .icon-btn {
+            background: #22304a;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: #f6c23e;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .topbar .user-info .icon-btn:hover { background: #1a2330; }
+        .topbar .user-info .admin-name {
+            font-weight: bold;
+            color: #fff;
+            margin-left: 8px;
+            letter-spacing: 1px;
+        }
+            .topbar {
+                width: 100%;
+                margin-right: 0;
+                margin-left: 0;
+                direction: rtl;
+            }
+        @media (max-width: 700px) {
+            .main-logo-title {
+                font-size: 15px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="/static/fontawesome/css/all.min.css" />
+</head>
+<body>
+    
+    <div class="dashboard-container">
+        <div class="sidebar mobile-hidden" id="sidebarMenu">
+            <h2>Al-Takhi Auto Repair</h2>
+            <ul style="position:relative;">
+                <li onclick="location.href='/dashboard/'"><i class="fa fa-tachometer"></i>Dashboard</li>
+                <li><i class="fa fa-users"></i>User Management</li>
+                <li><i class="fa fa-cogs"></i>General Settings</li>
+                <li><a href="/inventory/" style="color:inherit;text-decoration:none;"><i class="fa fa-archive"></i> Items</a></li>
+                <li id="services-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-wrench"></i>Departments & Services
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="brands-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/brands/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Car Manufacturers</a></li>
+                    </ul>
+                </li>
+                <li id="clients-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-user"></i>Clients & Suppliers
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="clients-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li style="padding:6px 0 0 0;color:#fff;font-weight:bold;">Customers</li>
+                        <li><a href="/clients/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Customers</a></li>
+                        <li><a href="/quotes/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Quotes</a></li>
+                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
+                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Received</a></li>
+                        <li style="height:8px;"></li>
+                        <li style="padding:6px 0 0 0;color:#fff;font-weight:bold;">Vendors</li>
+                        <li><a href="/suppliers/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Vendors</a></li>
+                        <li><a href="/bills/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Bills</a></li>
+                        <li><a href="/vendors/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Made</a></li>
+                    </ul>
+                </li>
+                <li id="cars-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-car"></i>Cars & Maintenance
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="cars-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/cars/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Cars</a></li>
+                        <li><a href="/maintenance/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Maintenance Records</a></li>
+                        <li><a href="/bookings/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Bookings</a></li>
+                        <li><a href="/services/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Services</a></li>
+                    </ul>
+                </li>
+                <li id="invoices-section" style="position:relative;cursor:pointer;">
+                    <i class="fa fa-file-invoice-dollar"></i>Invoices & Payments
+                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
+                    <ul id="invoices-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Payments</a></li>
+                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
+                        <li><a href="/invoices/print/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Print Invoice</a></li>
+                        <li><a href="/invoices/account-statement/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Account Statement</a></li>
+                    </ul>
+                </li>
+                <li><i class="fa fa-chart-bar"></i>Financial Management</li>
+                <li><i class="fa fa-file-alt"></i>Reports</li>
+            </ul>
+        </div>
+        <div class="main-content">
+            <div class="topbar" style="position:relative;">
+                <button class="mobile-sidebar-toggle" id="sidebarToggle" aria-label="Sidebar"><i id="sidebarToggleIcon" class="fa fa-bars"></i></button>
+                <div class="workshop-logo">
+                    <img src="/static/altaakhi_logo.png" alt="Al-Takhi Auto Repair logo" style="height:38px;width:38px;"/>
+                    <span class="main-logo-title">Al-Takhi Auto Repair</span>
+                </div>
+                <!-- Global Topbar Search (compact, opens dropdown on magnifier) -->
+                <div id="topbar-search" style="margin-left:18px;position:relative;flex:1;max-width:520px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <button id="global-search-toggle" title="Search" style="background:transparent;border:1px solid #ddd;padding:8px;border-radius:8px;display:flex;align-items:center;gap:6px;cursor:pointer;color:#666;">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        <input id="global-search-input" type="text" placeholder="Search customers / items / quotes / invoices / vendors" aria-label="Global search" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid #e6e6e6;display:none;min-width:180px;" />
+                    </div>
+                    <div id="global-search-results" style="display:none;position:absolute;left:0;top:44px;right:0;z-index:50;background:#fff;border:1px solid #e6e6e6;border-radius:8px;max-height:360px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.08);padding:8px;">
+                        <div id="global-search-loading" style="display:none;padding:18px;text-align:center;color:#666;">Searching...</div>
+                        <div id="global-search-empty" style="display:none;padding:12px;text-align:center;color:#666;">No results</div>
+                        <div id="global-search-defaults" style="display:none;padding:6px 4px;">
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <div class="search-default-wrap" data-type="customers" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="customers" data-url="/clients/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Customers</a>
+                                    <a href="/clients/add/" class="search-default-plus" title="New customer" style="display:none;position:absolute;right:-6px;top:-6px;background:#007bff;color:#fff;border-radius:50%;width:26px;height:26px;align-items:center;justify-content:center;display:flex;text-decoration:none;">+</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="items" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="items" data-url="/inventory/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Items</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="quotes" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="quotes" data-url="/quotes/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Quotes</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="invoices" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="invoices" data-url="/invoices/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Invoices</a>
+                                </div>
+                                <div class="search-default-wrap" data-type="vendors" style="position:relative;">
+                                    <a href="#" class="search-default" data-type="vendors" data-url="/suppliers/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Vendors</a>
+                                </div>
+                            </div>
+                            <div style="margin-top:8px;color:#777;font-size:0.95em;">Press <strong>Enter</strong> to search, or click a category.</div>
+                        </div>
+                        <div id="global-search-groups" style="display:none;">
+                            <!-- Example group structure; populated by JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <button class="icon-btn" title="Settings"><i class="fa fa-cog"></i></button>
+                    <button class="icon-btn" title="Notifications"><i class="fa fa-bell"></i></button>
+                    <span class="admin-name">
+                        
+                            Guest
+                        
+                    </span>
+                </div>
+            </div>
+            
+    
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var sidebar = document.getElementById('sidebarMenu');
+                var toggle = document.getElementById('sidebarToggle');
+                var toggleIcon = document.getElementById('sidebarToggleIcon');
+                var submenus = [
+                    {section: 'services-section', submenu: 'brands-submenu'},
+                    {section: 'cars-section', submenu: 'cars-submenu'},
+                    {section: 'invoices-section', submenu: 'invoices-submenu'},
+                    {section: 'clients-section', submenu: 'clients-submenu'}
+                ];
+                function openSidebar() {
+                    sidebar.classList.remove('mobile-hidden');
+                    sidebar.classList.add('mobile-visible');
+                    document.body.classList.add('sidebar-open');
+                    if(toggleIcon) {
+                        toggleIcon.classList.remove('fa-bars');
+                        toggleIcon.classList.add('fa-times');
+                    }
+                }
+                function closeSidebar() {
+                    sidebar.classList.remove('mobile-visible');
+                    sidebar.classList.add('mobile-hidden');
+                    document.body.classList.remove('sidebar-open');
+                    closeAllSubmenus();
+                    if(toggleIcon) {
+                        toggleIcon.classList.remove('fa-times');
+                        toggleIcon.classList.add('fa-bars');
+                    }
+                }
+                function closeAllSubmenus() {
+                    submenus.forEach(function(item){
+                        var submenu = document.getElementById(item.submenu);
+                        if(submenu) submenu.style.display = 'none';
+                    });
+                }
+                if(toggle && sidebar) {
+                    toggle.onclick = function(e) {
+                        e.stopPropagation();
+                        if(sidebar.classList.contains('mobile-visible')) {
+                            closeSidebar();
+                        } else {
+                            openSidebar();
+                        }
+                    };
+                }
+                sidebar.onclick = function(e) { e.stopPropagation(); };
+                submenus.forEach(function(item){
+                    var section = document.getElementById(item.section);
+                    var submenu = document.getElementById(item.submenu);
+                    if(section && submenu) {
+                        section.onclick = function(e) {
+                            e.stopPropagation();
+                            closeAllSubmenus();
+                            submenu.style.display = (submenu.style.display === 'block') ? 'none' : 'block';
+                        };
+                        submenu.onclick = function(e) { e.stopPropagation(); };
+                    }
+                });
+                document.body.onclick = function() {
+                    if(window.innerWidth <= 900) {
+                        closeSidebar();
+                    } else {
+                        closeAllSubmenus();
+                    }
+                };
+                // --- Global topbar search logic ---
+                (function(){
+                    const toggle = document.getElementById('global-search-toggle');
+                    const input = document.getElementById('global-search-input');
+                    const results = document.getElementById('global-search-results');
+                    const loading = document.getElementById('global-search-loading');
+                    const empty = document.getElementById('global-search-empty');
+                    const groups = document.getElementById('global-search-groups');
+                    const defaultsWrap = document.querySelectorAll('.search-default-wrap');
+                    const defaults = document.getElementById('global-search-defaults');
+                    if(!toggle || !input || !results) return;
+                    let open = false;
+                    let debounceTimer = null;
+                    toggle.addEventListener('click', function(e){
+                        e.stopPropagation();
+                        open = !open;
+                        if(open) {
+                            input.style.display = 'block';
+                            input.focus();
+                            results.style.display = 'block';
+                            // if input empty show default categories
+                            if(!input.value.trim()) {
+                                if(defaults) defaults.style.display = 'block';
+                                if(groups) groups.style.display = 'none';
+                                if(loading) loading.style.display = 'none';
+                                if(empty) empty.style.display = 'none';
+                            }
+                        } else {
+                            input.value = '';
+                            input.style.display = 'none';
+                            results.style.display = 'none';
+                            if(defaults) defaults.style.display = 'none';
+                        }
+                    });
+                    document.addEventListener('click', function(ev){
+                        if(!ev.target.closest('#topbar-search')) {
+                            input.style.display = 'none'; results.style.display = 'none'; open=false;
+                        }
+                    });
+                    input.addEventListener('keydown', function(e){
+                        if(e.key === 'Escape') { input.value=''; input.blur(); results.style.display='none'; }
+                    });
+                    input.addEventListener('input', function(e){
+                        const q = input.value.trim();
+                        clearTimeout(debounceTimer);
+                        if(!q) {
+                            // show default categories when query is empty
+                            if(defaults) defaults.style.display = 'block';
+                            if(groups) groups.style.display='none';
+                            if(empty) empty.style.display='none';
+                            if(loading) loading.style.display='none';
+                            return;
+                        }
+                        debounceTimer = setTimeout(function(){
+                            // show loading
+                            loading.style.display='block'; empty.style.display='none'; groups.style.display='none';
+                            // fetch results from API (implement server-side later)
+                            fetch('/global-search/?q=' + encodeURIComponent(q))
+                                .then(r => r.ok ? r.json() : Promise.reject())
+                                .then(data => {
+                                    loading.style.display='none';
+                                    // expected data: { customers: [...], items: [...], quotes: [...], invoices: [...], vendors: [...] }
+                                    const keys = ['customers','items','quotes','invoices','vendors'];
+                                    groups.innerHTML = '';
+                                    let any = false;
+                                    keys.forEach(function(key){
+                                        const arr = data[key] || [];
+                                        if(arr.length) {
+                                            any = true;
+                                            const div = document.createElement('div');
+                                            div.style.marginBottom = '8px';
+                                            const title = document.createElement('div');
+                                            title.style.fontWeight='bold'; title.style.marginBottom='6px'; title.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                                            div.appendChild(title);
+                                            arr.slice(0,6).forEach(function(item){
+                                                const a = document.createElement('a');
+                                                a.href = item.url || '#';
+                                                a.style.display='block'; a.style.padding='6px 8px'; a.style.borderRadius='6px'; a.style.color='#333'; a.style.textDecoration='none';
+                                                a.onmouseenter = function(){ a.style.background='#f6f7fb'; };
+                                                a.onmouseleave = function(){ a.style.background='transparent'; };
+                                                a.textContent = item.label || item.name || item.title || item.id;
+                                                div.appendChild(a);
+                                            });
+                                            groups.appendChild(div);
+                                        }
+                                    });
+                                    if(!any) { empty.style.display='block'; groups.style.display='none'; } else { groups.style.display='block'; empty.style.display='none'; }
+                                })
+                                .catch(function(){ loading.style.display='none'; empty.style.display='block'; groups.style.display='none'; });
+                        }, 300);
+                    });
+                    // --- category selection and enter-key behavior ---
+                    let currentCategory = null; // one of: customers, items, quotes, invoices, vendors
+                    function setCategory(cat) {
+                        currentCategory = cat;
+                        // update placeholder per category
+                        const placeholders = {
+                            customers: 'Search by car number, phone or customer name',
+                            items: 'Search items by name or SKU',
+                            quotes: 'Search quotes by number or customer',
+                            invoices: 'Enter invoice number',
+                            vendors: 'Search vendors by name or phone'
+                        };
+                        input.placeholder = placeholders[cat] || 'Search...';
+                        // highlight selected default
+                        document.querySelectorAll('.search-default').forEach(function(el){ el.style.background = '#f6f7fb'; });
+                        const sel = document.querySelector('.search-default[data-type="' + cat + '"]'); if(sel) sel.style.background = '#e8f0ff';
+                    }
+                    // wire default category clicks and hover-plus visibility
+                    defaultsWrap.forEach(function(wrap){
+                        const a = wrap.querySelector('.search-default');
+                        const plus = wrap.querySelector('.search-default-plus');
+                        if(plus) {
+                            wrap.addEventListener('mouseenter', function(){ plus.style.display = 'flex'; });
+                            wrap.addEventListener('mouseleave', function(){ plus.style.display = 'none'; });
+                        }
+                        if(a) {
+                            a.addEventListener('click', function(ev){
+                                ev.preventDefault();
+                                const cat = a.getAttribute('data-type');
+                                setCategory(cat);
+                                // build a small category menu with quick links
+                                groups.innerHTML = '';
+                                const div = document.createElement('div');
+                                div.style.display = 'flex'; div.style.flexDirection='column'; div.style.gap='6px';
+                                const openLink = document.createElement('a'); openLink.href = a.getAttribute('data-url') || '#'; openLink.textContent = 'Open ' + (cat.charAt(0).toUpperCase() + cat.slice(1)); openLink.style.padding='8px 10px'; openLink.style.borderRadius='6px'; openLink.style.background='#fff'; openLink.style.border='1px solid #eee'; openLink.style.color='#007bff'; openLink.style.textDecoration='none';
+                                div.appendChild(openLink);
+                                // create link (if known)
+                                const createMap = { customers: '/clients/add/', items: '/inventory/add/', quotes: '/quotes/add/', invoices: '/invoices/add/', vendors: '/suppliers/add/' };
+                                if(createMap[cat]){
+                                    const createLink = document.createElement('a'); createLink.href = createMap[cat]; createLink.textContent = 'Create new'; createLink.style.padding='8px 10px'; createLink.style.borderRadius='6px'; createLink.style.background='#007bff'; createLink.style.color='#fff'; createLink.style.textDecoration='none'; createLink.style.display='inline-block';
+                                    div.appendChild(createLink);
+                                }
+                                groups.appendChild(div);
+                                // show groups and hide defaults
+                                if(defaults) defaults.style.display='none';
+                                groups.style.display='block';
+                                empty.style.display='none'; loading.style.display='none'; results.style.display='block';
+                                // ensure input visible and focused
+                                input.style.display = 'block'; input.focus();
+                            });
+                        }
+                    });
+                    // Enter key: navigate according to currentCategory or perform generic global-search
+                    input.addEventListener('keydown', function(e){
+                        if(e.key === 'Enter') {
+                            e.preventDefault();
+                            const q = input.value.trim();
+                            if(!q) return;
+                            const map = {
+                                customers: function(q){ return '/clients/?q=' + encodeURIComponent(q); },
+                                items: function(q){ return '/inventory/?q=' + encodeURIComponent(q); },
+                                quotes: function(q){ return '/quotes/?q=' + encodeURIComponent(q); },
+                                invoices: function(q){
+                                    // if numeric, try direct invoice id
+                                    if(/^\d+$/.test(q)) return '/invoices/' + q + '/';
+                                    return '/invoices/?q=' + encodeURIComponent(q);
+                                },
+                                vendors: function(q){ return '/suppliers/?q=' + encodeURIComponent(q); }
+                            };
+                            if(currentCategory && map[currentCategory]) {
+                                window.location.href = map[currentCategory](q);
+                            } else {
+                                // fallback to global-search endpoint
+                                window.location.href = '/global-search/?q=' + encodeURIComponent(q);
+                            }
+                        }
+                    });
+                })();
+            });
+            </script>
+            
+<h2>Inventory</h2>
+<style>
+/* Visible resize handle for inventory table */
+#inventory-table th { position: relative; }
+.resize-handle { position: absolute; right: 0; top: 0; width: 10px; height: 100%; cursor: col-resize; z-index: 5; }
+.resize-handle:hover { background: rgba(0,0,0,0.03); }
+.resize-handle:before { content: ''; position: absolute; left: 3px; top: 8px; width: 2px; height: calc(100% - 16px); background: rgba(0,0,0,0.06); border-radius: 1px; }
+</style>
+<div style="margin:12px 0 18px 0; display:flex; gap:8px; align-items:center;">
+    <a href="/inventory/add/" class="btn btn-primary">Add Part</a>
+    <form method="get" style="margin-left:8px;">
+        <input type="text" name="q" value="" placeholder="Search parts" style="padding:6px;border-radius:6px;border:1px solid #ddd;">
+        <button class="btn" type="submit">Search</button>
+    </form>
+</div>
+<div style="overflow:auto; position:relative;">
+<div id="inventory-bulk-toolbar" style="display:none; position:relative; margin-bottom:8px; background:#fff; padding:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06); justify-content:space-between; align-items:center; gap:12px; width:100%;">
+    <div style="display:flex;align-items:center;gap:12px;"><span id="inventory-selected-count">0 Selected</span>
+        <button id="inventory-reset-columns" style="background:#f1f1f1;border:1px solid #e0e0e0;padding:6px 10px;border-radius:4px;cursor:pointer;color:#333;">Reset columns</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <button id="inventory-bulk-delete" style="background:#dc3545; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">Delete</button>
+    </div>
+</div>
+<table id="inventory-table" class="table" style="direction:ltr; table-layout: fixed; width:100%;border-collapse:collapse;">
+    <thead>
+        <tr style="background:#f7f7f7;text-align:left;">
+            <th style="padding:8px;border:1px solid #eee;width:36px;text-align:center;"><input type="checkbox" id="select-all-inventory"><div class="resize-handle" data-col="select"></div></th>
+            <th style="padding:8px;border:1px solid #eee;">Part Name<div class="resize-handle" data-col="name"></div></th>
+            <th style="padding:8px;border:1px solid #eee;">Code<div class="resize-handle" data-col="code"></div></th>
+            <th style="padding:8px;border:1px solid #eee;">Stock<div class="resize-handle" data-col="stock"></div></th>
+            <th style="padding:8px;border:1px solid #eee;">Purchase Price<div class="resize-handle" data-col="purchase"></div></th>
+            <th style="padding:8px;border:1px solid #eee;">Sale Price<div class="resize-handle" data-col="sale"></div></th>
+            <th style="padding:8px;border:1px solid #eee;">Track Stock<div class="resize-handle" data-col="track"></div></th>
+            <th style="padding:8px;border:1px solid #eee;">Purchase<div class="resize-handle" data-col="purchase_flag"></div></th>
+            <th style="padding:8px;border:1px solid #eee;">Sale<div class="resize-handle" data-col="sale_flag"></div></th>
+        </tr>
+    </thead>
+    <tbody>
+    
+        <tr data-part-id="15">
+            <td style="padding:8px;border:1px solid #eee;text-align:center;"><input class="inventory-row-checkbox" type="checkbox" data-id="15"></td>
+            <td style="padding:8px;border:1px solid #eee;">Brake Adjustments</td>
+            <td style="padding:8px;border:1px solid #eee;">0004</td>
+            <td style="padding:8px;border:1px solid #eee;">0</td>
+            <td style="padding:8px;border:1px solid #eee;">0.000</td>
+            <td style="padding:8px;border:1px solid #eee;">20.000</td>
+            <td style="padding:8px;border:1px solid #eee;">&ndash;</td>
+            <td style="padding:8px;border:1px solid #eee;">✔</td>
+            <td style="padding:8px;border:1px solid #eee;">✔</td>
+        </tr>
+    
+        <tr data-part-id="16">
+            <td style="padding:8px;border:1px solid #eee;text-align:center;"><input class="inventory-row-checkbox" type="checkbox" data-id="16"></td>
+            <td style="padding:8px;border:1px solid #eee;">Brake removal</td>
+            <td style="padding:8px;border:1px solid #eee;">0003</td>
+            <td style="padding:8px;border:1px solid #eee;">0</td>
+            <td style="padding:8px;border:1px solid #eee;">0.000</td>
+            <td style="padding:8px;border:1px solid #eee;">10.000</td>
+            <td style="padding:8px;border:1px solid #eee;">&ndash;</td>
+            <td style="padding:8px;border:1px solid #eee;">✔</td>
+            <td style="padding:8px;border:1px solid #eee;">✔</td>
+        </tr>
+    
+        <tr data-part-id="14">
+            <td style="padding:8px;border:1px solid #eee;text-align:center;"><input class="inventory-row-checkbox" type="checkbox" data-id="14"></td>
+            <td style="padding:8px;border:1px solid #eee;">Installing Items on it</td>
+            <td style="padding:8px;border:1px solid #eee;">0002</td>
+            <td style="padding:8px;border:1px solid #eee;">0</td>
+            <td style="padding:8px;border:1px solid #eee;">0.000</td>
+            <td style="padding:8px;border:1px solid #eee;">110.000</td>
+            <td style="padding:8px;border:1px solid #eee;">&ndash;</td>
+            <td style="padding:8px;border:1px solid #eee;">✔</td>
+            <td style="padding:8px;border:1px solid #eee;">✔</td>
+        </tr>
+    
+        <tr data-part-id="13">
+            <td style="padding:8px;border:1px solid #eee;text-align:center;"><input class="inventory-row-checkbox" type="checkbox" data-id="13"></td>
+            <td style="padding:8px;border:1px solid #eee;">New installation</td>
+            <td style="padding:8px;border:1px solid #eee;">0001</td>
+            <td style="padding:8px;border:1px solid #eee;">0</td>
+            <td style="padding:8px;border:1px solid #eee;">0.000</td>
+            <td style="padding:8px;border:1px solid #eee;">120.000</td>
+            <td style="padding:8px;border:1px solid #eee;">&ndash;</td>
+            <td style="padding:8px;border:1px solid #eee;">✔</td>
+            <td style="padding:8px;border:1px solid #eee;">✔</td>
+        </tr>
+    
+    </tbody>
+</table>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const selectAll = document.getElementById('select-all-inventory');
+    const rowCheckboxes = Array.from(document.querySelectorAll('.inventory-row-checkbox'));
+    const toolbar = document.getElementById('inventory-bulk-toolbar');
+    const selectedCount = document.getElementById('inventory-selected-count');
+    const deleteBtn = document.getElementById('inventory-bulk-delete');
+
+    function updateToolbar(){
+        const checked = rowCheckboxes.filter(cb => cb.checked).map(cb=>cb.dataset.id);
+        if(checked.length>0){
+            toolbar.style.display = 'flex';
+            selectedCount.textContent = checked.length + ' Selected';
+        } else {
+            toolbar.style.display = 'none';
+        }
+    }
+
+    if(selectAll){
+        selectAll.addEventListener('change', function(){
+            rowCheckboxes.forEach(cb=> cb.checked = selectAll.checked);
+            updateToolbar();
+        });
+    }
+
+    rowCheckboxes.forEach(cb=>{
+        cb.addEventListener('change', function(){
+            const tr = cb.closest('tr');
+            if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected');
+            updateToolbar();
+        });
+    });
+
+    // Row hover/selection and click -> edit (ignore clicks on checkbox)
+    const rows = Array.from(document.querySelectorAll('#inventory-table tbody tr[data-part-id]'));
+    rows.forEach(function(tr){
+        tr.addEventListener('mouseenter', () => tr.classList.add('row-hover'));
+        tr.addEventListener('mouseleave', () => tr.classList.remove('row-hover'));
+        const cb = tr.querySelector('.inventory-row-checkbox');
+        if(cb) cb.addEventListener('change', function(){
+            if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected');
+            updateToolbar();
+        });
+    });
+
+    // Row click -> edit (ignore clicks on checkbox)
+    document.getElementById('inventory-table').addEventListener('click', function(e){
+        const tr = e.target.closest('tr[data-part-id]');
+        if(!tr) return;
+        if(e.target.tagName.toLowerCase()==='input') return;
+        const id = tr.dataset.partId;
+        window.location = '/inventory/' + id + '/edit/';
+    });
+
+    deleteBtn.addEventListener('click', function(){
+        const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id);
+        if(ids.length===0) return;
+        if(!confirm('Delete '+ids.length+' selected items?')) return;
+        fetch('/inventory/bulk-delete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type':'application/json',
+                'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1]
+            },
+            body: JSON.stringify({ids: ids})
+        }).then(r=>r.json()).then(data=>{
+            if(data.ok){ location.reload(); }
+            else { alert('Delete failed'); }
+        }).catch(()=> alert('Delete error'));
+    });
+
+    const resetBtn = document.getElementById('inventory-reset-columns');
+    if(resetBtn){
+        resetBtn.addEventListener('click', function(){
+            if(!confirm('Reset saved column widths to defaults?')) return;
+            try{ localStorage.removeItem('inventory_table_col_widths_v1'); }catch(e){}
+            location.reload();
+        });
+    }
+
+    // --- Resizable columns ---
+    function initResizableColumnsInventory() {
+        const table = document.getElementById('inventory-table');
+        if(!table) return;
+        const STORAGE_KEY = 'inventory_table_col_widths_v1';
+        const ths = table.querySelectorAll('th');
+        try{
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if(saved){
+                const map = JSON.parse(saved);
+                ths.forEach((th,i)=>{ if(map[i]) th.style.width = map[i]; else th.style.width = th.offsetWidth + 'px'; });
+            } else {
+                ths.forEach(th=> th.style.width = th.offsetWidth + 'px');
+            }
+            let total = 0; ths.forEach(th=>{ total += parseInt(th.style.width,10) || th.offsetWidth; });
+            table.style.width = total + 'px';
+        }catch(e){}
+
+        const handles = table.querySelectorAll('.resize-handle');
+        handles.forEach(handle=>{
+            const th = handle.closest('th');
+            if(!th) return;
+            handle.addEventListener('mousedown', function(e){
+                e.preventDefault();
+                const startX = e.pageX;
+                const startWidth = th.offsetWidth;
+                function onMouseMove(ev){
+                    const dx = ev.pageX - startX;
+                    const newWidth = Math.max(40, startWidth + dx);
+                    th.style.width = newWidth + 'px';
+                    let total = 0; ths.forEach(t=>{ total += parseInt(t.style.width,10) || t.offsetWidth; });
+                    table.style.width = total + 'px';
+                }
+                function onMouseUp(){
+                    try{ const widths = {}; ths.forEach((t,idx)=>{ widths[idx] = t.style.width || (t.offsetWidth + 'px'); }); localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); }catch(e){}
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+    initResizableColumnsInventory();
+});
+</script>
+
+        </div>
+    </div>
+<script>
+document.addEventListener('click', function (e) {
+    const form = e.target.closest('.booking-maintenance-form');
+    if (!form) return;
+
+    // لو ضغط على رابط (الهاتف) لا نرسل الفورم
+    if (e.target.tagName.toLowerCase() === 'a') {
+        return;
+    }
+
+    e.preventDefault();
+
+    // جلب CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    let csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (!csrfInput) {
+        csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        form.appendChild(csrfInput);
+    }
+    csrfInput.value = getCookie('csrftoken');
+
+    form.submit();
+});
+</script>
+</body>
+</html>

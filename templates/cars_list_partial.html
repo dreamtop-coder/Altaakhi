@@ -1,0 +1,338 @@
+<style>
+.cars-mobile-wrapper {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+/* Ensure all cards (waiting, done, pending, etc.) share identical card sizing and padding */
+.cars-mobile-wrapper > * {
+  width: 240px !important;
+  max-width: 260px !important;
+  min-width: 220px !important;
+  box-sizing: border-box !important;
+  padding: 12px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  min-height: 140px !important; /* ensure landscape-like minimum height but allow content to expand */
+}
+
+/* ensure car-card participates as a flex item and avoids overlap; use flex-basis sizing */
+.cars-mobile-wrapper .car-card {
+  display:flex;
+  flex-direction:column;
+  flex: 0 0 240px !important;
+  box-sizing: border-box !important;
+}
+
+.cars-mobile-wrapper .car-card.small-card {
+  flex: 0 0 160px !important;
+  max-width: 170px !important;
+}
+/* add spacing between cards to prevent touching */
+.cars-mobile-wrapper .car-card { margin: 8px; }
+
+/* smaller variant for specific plates (e.g., 70016) to reduce card footprint */
+.cars-mobile-wrapper .car-card.small-card {
+  width: 160px !important;
+  max-width: 170px !important;
+  min-width: 140px !important;
+}
+.cars-mobile-wrapper .car-card.small-card img {
+  width:32px !important;
+  height:32px !important;
+  margin-bottom:6px !important;
+}
+.cars-mobile-wrapper .car-card.small-card div{ }
+.cars-mobile-wrapper .car-card.small-card .plate-number { font-size:0.95em !important; font-weight:700; }
+.cars-mobile-wrapper .car-card.small-card .client-name { font-size:0.85em !important; color:#444; }
+.cars-mobile-wrapper .car-card.small-card .status-label { font-size:0.82em !important; margin-top:6px !important; }
+.cars-mobile-wrapper .car-card.small-card .plate-number,
+.cars-mobile-wrapper .car-card.small-card .client-name,
+.cars-mobile-wrapper .car-card.small-card .status-label { text-align:center !important; }
+.cars-mobile-wrapper .car-card.small-card .work-days { display:none !important; }
+
+@media (max-width: 700px) {
+    .cars-mobile-wrapper > * {
+        width: calc(50% - 8px); /* بطاقتين */
+        max-width: 50%;
+        min-width: 140px;
+        box-sizing: border-box;
+    }
+}
+</style>
+{% load static %}
+{% load custom_filters %}
+{% if cars and cars|length > 0 %}
+  <div class="cars-mobile-wrapper">
+    {% load static %}
+    {% for car in cars %}
+      <div class="car-card {% if car.plate_number == '70016' %}small-card{% endif %}" data-car-id="{{ car.id }}" data-status="{{ car.derived_status|default:car.status }}">
+      {# أيقونة وعدد الحجوزات وتواريخها حسب رقم الهاتف فقط #}
+      {% with phone=car.client.phone_number %}
+        {% with bookings=bookings_per_phone|get_item:phone %}
+          {% if bookings %}
+            {% with car_bookings=bookings|dictsort:'-service_date' %}
+              {% with filtered=car_bookings|dictfilterbycar:car.id %}
+                {% if filtered and filtered|length > 0 %}
+                  <div style="width:100%;display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-bottom:6px;">
+                    <a href="/bookings/?phone={{ phone }}"
+                       title="استعراض الحجوزات"
+                       style="color:#007bff;font-size:1.3em;display:flex;align-items:center;gap:4px;">
+                      <i class="fa fa-calendar-plus"></i>
+                      <span style="background:#dc3545;color:#fff;font-size:0.75em;padding:2px 6px;border-radius:12px;font-weight:bold;">{{ filtered|length }}</span>
+                    </a>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                      {% for booking in filtered %}
+                        <a href="/bookings/?phone={{ phone }}"
+                           title="{{ booking.service_type }}"
+                           style="color:#007bff;font-size:0.95em;padding:2px 6px;border:1px solid #e0e0e0;border-radius:6px;background:#f6faff;">
+                          {{ booking.service_date|date:"d/m/Y" }}
+                        </a>
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endif %}
+              {% endwith %}
+            {% endwith %}
+          {% endif %}
+        {% endwith %}
+      {% endwith %}
+      {# شرط: إذا كنا في فلتر جاري التنفيذ (in_progress)، لا تعرض البطاقة إلا إذا كان هناك سجل صيانة نشط فعلاً #}
+      {% if request.GET.status != 'in_progress' %}
+        {# باقي منطق البطاقة كما هو لجميع الفلاتر الأخرى #}
+        
+      {% else %}
+        {% with active_maintenance=car.maintenance_records.all|dictsortreversed:"created_at"|first %}
+          {% if active_maintenance and not active_maintenance.is_finished %}
+            {# فقط إذا كان هناك سجل صيانة نشط، اعرض البطاقة #}
+                
+          {% endif %}
+        {% endwith %}
+      {% endif %}
+      {% if car.derived_status == 'ready' or car.status == 'ready' %}
+        <form method="post" action="/cars/deliver/{{ car.id }}/" style="width:100%;">
+          {% csrf_token %}
+          <div style="border:1px solid #28a745;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#eaffea;transition:box-shadow 0.2s;">
+            <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
+            <a href="/cars/?plate_number={{ car.plate_number }}" class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;text-decoration:underline;color:#222;">{{ car.plate_number }}</a>
+            <div class="client-name" style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
+            {% if car.work_days and car.derived_status != 'waiting' or car.work_days and car.status != 'waiting' %}
+              <div style="color:#007bff;font-size:0.95em;">
+                مدة العمل: 
+                {% if car.work_days == 1 %}يوم واحد
+                {% elif car.work_days == 2 %}يومين
+                {% else %}{{ car.work_days }} أيام
+                {% endif %}
+              </div>
+            {% else %}
+              <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
+            {% endif %}
+            <button type="submit" style="margin-top:14px;padding:8px 18px;background:#28a745;color:#fff;border:none;border-radius:6px;font-weight:bold;font-size:1.05em;cursor:pointer;box-shadow:0 2px 8px #28a74533;">تسليم السيارة</button>
+            <div style="margin-top:8px;color:#28a745;font-weight:bold;">جاهزة للتسليم</div>
+          </div>
+        </form>
+      {% elif car.derived_status == 'pending_payment' and car.unpaid_invoice_id or car.status == 'pending_payment' and car.unpaid_invoice_id %}
+        <a href="/invoices/pay/invoice/{{ car.unpaid_invoice_id }}/" style="text-decoration:none;">
+          <div style="border:1.5px solid #e67e22;padding:18px 24px;border-radius:12px;min-width:180px;max-width:250px;width:220px;display:flex;flex-direction:column;align-items:center;background:#fffbe6;transition:box-shadow 0.2s;cursor:pointer;">
+            <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
+            <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
+            <div class="client-name" style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
+            {% if car.work_days and car.derived_status != 'waiting' or car.work_days and car.status != 'waiting' %}
+              <div style="color:#007bff;font-size:0.95em;">
+                مدة العمل: 
+                {% if car.work_days == 1 %}يوم واحد
+                {% elif car.work_days == 2 %}يومين
+                {% else %}{{ car.work_days }} أيام
+                {% endif %}
+              </div>
+            {% else %}
+              <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
+            {% endif %}
+            <div style="margin-top:10px;color:#e67e22;font-weight:bold;">معلق للدفع</div>
+          </div>
+        </a>
+            {% elif car.status == 'paid_waiting_collection' %}
+            <div style="border:1.5px solid #6f42c1;padding:18px 24px;border-radius:12px;min-width:180px;max-width:250px;width:220px;display:flex;flex-direction:column;align-items:center;background:#f5f0ff;transition:box-shadow 0.2s;cursor:pointer;">
+              <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
+              <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
+              <div class="client-name" style="color:#555;font-size:1em;margin-bottom:8px;text-align:center;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
+              <div class="status-label" style="margin-top:auto;margin-bottom:auto;color:#6f42c1;font-weight:bold;text-align:center;">مدفوعة - بانتظار الاستلام</div>
+              {# show a visible Collect button so users can mark collected directly #}
+              <form method="post" action="{% url 'cars:mark_collected' car.id %}" style="margin-top:10px;display:block;width:100%;">
+                {% csrf_token %}
+                <button type="submit" class="collect-btn" style="padding:8px 12px;background:#28a745;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;width:100%;">تم الاستلام</button>
+              </form>
+            </div>
+      {% elif car.derived_status == 'pending_payment' and not car.unpaid_invoice_id or car.status == 'pending_payment' and not car.unpaid_invoice_id %}
+        <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;opacity:0.5;cursor:not-allowed;">
+          <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
+          <div style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
+          <div style="color:#c00;font-size:1em;margin-bottom:2px;">لا توجد فاتورة غير مدفوعة</div>
+        </div>
+      {% elif car.status == 'delivered' or car.status == 'done' or car.derived_status == 'done' %}
+          <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;transition:box-shadow 0.2s;cursor:default;">
+            <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
+            <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
+            <div class="client-name" style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
+            {% if car.work_days and car.derived_status != 'waiting' or car.work_days and car.status != 'waiting' %}
+              <div style="color:#007bff;font-size:0.95em;">
+                مدة العمل: 
+                {% if car.work_days == 1 %}يوم واحد
+                {% elif car.work_days == 2 %}يومين
+                {% else %}{{ car.work_days }} أيام
+                {% endif %}
+              </div>
+            {% else %}
+              <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
+            {% endif %}
+            {# Allow delivering the car from the 'done' card for convenience. #}
+            <form method="post" action="/cars/deliver/{{ car.id }}/" style="margin-top:12px;width:100%;">
+              {% csrf_token %}
+              <button type="submit" style="padding:8px 12px;background:#28a745;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;width:100%;">تسليم السيارة</button>
+            </form>
+          </div>
+      {% else %}
+        <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;transition:box-shadow 0.2s;cursor:pointer;">
+            <a href="/cars/?plate_number={{ car.plate_number }}" style="text-decoration:none;">
+            <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
+            <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
+          </a>
+          <div style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
+          {% if car.work_days and car.status != 'waiting' %}
+            <div style="color:#007bff;font-size:0.95em;">
+              مدة العمل: 
+              {% if car.work_days == 1 %}يوم واحد
+              {% elif car.work_days == 2 %}يومين
+              {% else %}{{ car.work_days }} أيام
+              {% endif %}
+            </div>
+          {% else %}
+            <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
+          {% endif %}
+            {% if car.status == 'active' or car.derived_status == 'waiting' or car.status == 'waiting' %}
+              {% with active_maintenance=car.maintenance_records.all|dictsortreversed:"created_at"|first %}
+                {% if not active_maintenance or active_maintenance.is_finished %}
+                  <a href="/maintenance/add/?car_id={{ car.id }}" class="btn btn-primary btn-sm" style="margin-top:10px;">إضافة سجل صيانة</a>
+                {% endif %}
+              {% endwith %}
+            {% endif %}
+            {% with active_maintenance=car.maintenance_records.all|dictsortreversed:"created_at"|first %}
+              {% if car.derived_status == 'in_progress' or car.status == 'in_progress' or active_maintenance and not active_maintenance.is_finished %}
+                <form method="post" action="{% url 'cars:finish_maintenance' car.id %}" style="margin-top:10px;">
+                  {% csrf_token %}
+                  <button type="submit" class="finish-service-btn" data-car-id="{{ car.id }}" style="padding:8px 14px;background:#ffc107;border:none;border-radius:6px;color:#111;font-weight:bold;cursor:pointer;">إنهاء الخدمة</button>
+                </form>
+              {% endif %}
+            {% endwith %}
+            {# لا تعرض زر تسليم السيارة إلا إذا كانت الحالة ready فقط (تم إنهاء الصيانة) #}
+        </div>
+      {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <script>
+  document.addEventListener('click', function(e){
+    try{
+      var card = e.target.closest('.car-card');
+      // Avoid triggering when clicking links or buttons inside the card
+      if(e.target.closest('a') || e.target.tagName === 'A' || e.target.closest('button')) return;
+      var status = (card.dataset.status||'').toLowerCase();
+      // Only allow click-to-collect for these statuses
+      if(!(status === 'paid_waiting_collection' || status === 'ready')) return;
+      if(!confirm('هل تؤكد استلام السيارة؟')) return;
+      var carId = card.dataset.carId;
+      try{
+        // Create and submit a form to ensure CSRF token is sent and compatibility across browsers
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/cars/collect/' + carId + '/';
+        // append csrf token from cookie
+        var v = (document.cookie.match('(^|;)\\s*' + 'csrftoken' + '\\s*=\\s*([^;]+)')||[]).pop();
+        var csrf = document.createElement('input');
+        csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken'; csrf.value = v || '';
+        form.appendChild(csrf);
+        document.body.appendChild(form);
+        form.submit();
+      }catch(err){
+        alert('حدث خطأ أثناء إرسال طلب الاستلام. حاول إعادة تحميل الصفحة.');
+      }
+    }catch(err){console.error(err);}    
+  });
+  </script>
+{% else %}
+  <div class="empty-state-placeholder" style="padding:30px;text-align:center;color:#666;">
+    {% with status=request.GET.status|default:'' %}
+      {% if status == 'waiting' %}
+        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات قيد الانتظار.</div>
+      {% elif status == 'in_progress' %}
+        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات جاري تنفيذها حالياً.</div>
+      {% elif status == 'done' %}
+        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات منتهية للعرض.</div>
+      {% elif status == 'pending_payment' %}
+        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات معفّرة للدفع الآن.</div>
+      {% elif status == 'follow' %}
+        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات ضمن حالة المتابعة.</div>
+      {% elif status == 'bookings' %}
+        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد حجوزات أو سيارات مرتبطة بالحجوزات.</div>
+      {% else %}
+        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات في هذا التصنيف.</div>
+      {% endif %}
+    {% endwith %}
+    {% if not ajax %}
+      <div style="margin-top:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <a href="/cars/" style="background:#007bff;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-weight:bold;">عرض جميع السيارات</a>
+        <a href="/clients/" style="background:#28a745;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-weight:bold;">قائمة العملاء</a>
+      </div>
+      <div style="margin-top:12px;color:#999;font-size:0.95em;">يمكنك إضافة سيارة عبر صفحة العميل.</div>
+    {% endif %}
+  </div>
+{% endif %}
+<script>
+  (function(){
+    function getCookie(name) {
+      let v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+      return v ? v.pop() : '';
+    }
+    function attachFinishHandlers(){
+      document.querySelectorAll('.finish-service-btn').forEach(function(btn){
+        if (btn._attached) return; btn._attached = true;
+        btn.addEventListener('click', function(e){
+          e.preventDefault();
+          var carId = this.dataset.carId;
+          if(!confirm('هل أنت متأكد من إنهاء جميع سجلات الصيانة لهذه المركبة؟')) return;
+          // Fallback to POST via dynamically created form to ensure CSRF and compatibility
+          try {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/cars/finish/' + carId + '/';
+            var csrf = document.createElement('input');
+            csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken'; csrf.value = getCookie('csrftoken');
+            form.appendChild(csrf);
+            document.body.appendChild(form);
+            form.submit();
+          } catch (err) {
+            alert('خطأ أثناء إرسال الطلب: ' + err);
+          }
+        });
+      });
+    }
+    // attach on initial render
+    attachFinishHandlers();
+    // re-attach after AJAX updates (simple polling hook)
+    document.addEventListener('ajaxContentReplaced', attachFinishHandlers);
+  })();
+</script>
+
+ 
+
+

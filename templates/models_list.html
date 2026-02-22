@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>موديلات السيارات</h2>
+<a href="{% url 'add_model' %}" style="background:#007bff;color:#fff;padding:7px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">إضافة موديل</a>
+<table style="width:100%;margin-top:20px;">
+    <thead>
+        <tr style="background:#f2f3f5;color:#555;font-weight:bold;">
+            <th>الشركة</th>
+            <th>الموديل</th>
+            <th>العمليات</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for model in models %}
+        <tr>
+            <td>{{ model.brand.name }}</td>
+            <td>{{ model.name }}</td>
+            <td>
+                <a href="{% url 'edit_model' model.id %}">تعديل</a> |
+                <a href="{% url 'delete_model' model.id %}" onclick="return confirm('تأكيد الحذف؟');">حذف</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

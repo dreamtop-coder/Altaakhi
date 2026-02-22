@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:500px;margin:60px auto;background:#fff;padding:32px 28px;border-radius:10px;text-align:center;box-shadow:0 2px 8px #eee;">
+    <h2 style="color:#28a745;margin-bottom:18px;">تم دفع الفاتورة بالفعل</h2>
+    <p style="font-size:18px;margin-bottom:24px;">الفاتورة رقم <b>{{ invoice.invoice_number }}</b> لهذه السيارة تم دفعها مسبقاً.</p>
+    <a href="{% url 'cars:cars_list' %}" style="background:#1976d2;color:#fff;padding:10px 28px;border-radius:6px;font-size:1.1em;text-decoration:none;">العودة لقائمة السيارات</a>
+</div>
+{% endblock %}

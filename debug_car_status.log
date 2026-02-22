@@ -1,0 +1,127 @@
+BEFORE: car_id=75 status=active
+AFTER: car_id=75 status=active
+BEFORE: car_id=75 status=active
+AFTER: car_id=75 status=active
+BEFORE: car_id=75 status=active
+AFTER: car_id=75 status=active
+BEFORE: car_id=75 status=active
+AFTER: car_id=75 status=active
+BEFORE: car_id=75 status=active
+AFTER: car_id=75 status=active
+BEFORE: car_id=75 status=active
+AFTER: car_id=75 status=active
+BEFORE: car_id=75 status=active
+AFTER: car_id=75 status=active
+BEFORE: car_id=75 status=active
+AFTER: car_id=75 status=active
+BEFORE: car_id=1 status=sold
+AFTER: car_id=1 status=active
+BEFORE: car_id=76 status=active
+AFTER: car_id=76 status=active
+BEFORE: car_id=76 status=active
+AFTER: car_id=76 status=active
+BEFORE: car_id=76 status=pending_payment
+AFTER: car_id=76 status=active
+BEFORE: car_id=76 status=active
+AFTER: car_id=76 status=active
+BEFORE: car_id=77 status=active
+AFTER: car_id=77 status=active
+BEFORE: car_id=77 status=active
+AFTER: car_id=77 status=active
+BEFORE: car_id=78 status=active
+AFTER: car_id=78 status=active
+BEFORE: car_id=79 status=active
+AFTER: car_id=79 status=active
+BEFORE: car_id=79 status=active
+AFTER: car_id=79 status=active
+BEFORE: car_id=80 status=active
+AFTER: car_id=80 status=active
+BEFORE: car_id=80 status=active
+AFTER: car_id=80 status=active
+BEFORE: car_id=80 status=active
+AFTER: car_id=80 status=active
+BEFORE: car_id=80 status=active
+AFTER: car_id=80 status=active
+BEFORE: car_id=59 status=sold
+AFTER: car_id=59 status=active
+BEFORE: car_id=59 status=pending_payment
+AFTER: car_id=59 status=active
+BEFORE: car_id=83 status=active
+AFTER: car_id=83 status=active
+BEFORE: car_id=84 status=waiting
+STATUS-TRANSITION: car_id=84 -> in_progress
+BEFORE: car_id=85 status=waiting
+STATUS-TRANSITION: car_id=85 -> in_progress
+BEFORE: car_id=86 status=waiting
+STATUS-TRANSITION: car_id=86 -> in_progress
+BEFORE: car_id=86 status=waiting
+STATUS-TRANSITION: car_id=86 -> in_progress
+BEFORE: car_id=87 status=waiting
+STATUS-TRANSITION: car_id=87 -> in_progress
+BEFORE: car_id=88 status=waiting
+STATUS-TRANSITION: car_id=88 -> in_progress
+BEFORE: car_id=89 status=waiting
+STATUS-TRANSITION: car_id=89 -> in_progress
+BEFORE: car_id=90 status=waiting
+STATUS-TRANSITION: car_id=90 -> in_progress
+BEFORE: car_id=91 status=waiting
+STATUS-TRANSITION: car_id=91 -> in_progress
+BEFORE: car_id=92 status=waiting
+STATUS-TRANSITION: car_id=92 -> in_progress
+AFTER: no car instance
+BEFORE: car_id=93 status=waiting
+STATUS-TRANSITION: car_id=93 -> in_progress
+AFTER: car_id=93 status=in_progress invoice_id=101 items=1
+BEFORE: car_id=94 status=waiting
+STATUS-TRANSITION: car_id=94 -> in_progress
+BEFORE: car_id=95 status=waiting
+STATUS-TRANSITION: car_id=95 -> in_progress
+BEFORE: car_id=96 status=waiting
+STATUS-TRANSITION: car_id=96 -> in_progress
+BEFORE: car_id=97 status=waiting
+STATUS-TRANSITION: car_id=97 -> in_progress
+BEFORE: car_id=98 status=waiting
+STATUS-TRANSITION: car_id=98 -> in_progress
+BEFORE: car_id=99 status=waiting
+STATUS-TRANSITION: car_id=99 -> in_progress
+BEFORE: car_id=100 status=waiting
+STATUS-TRANSITION: car_id=100 -> in_progress
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=2 status=waiting
+STATUS-TRANSITION: car_id=2 -> in_progress
+BEFORE: car_id=3 status=waiting
+STATUS-TRANSITION: car_id=3 -> in_progress
+BEFORE: car_id=4 status=waiting
+STATUS-TRANSITION: car_id=4 -> in_progress
+BEFORE: car_id=5 status=waiting
+STATUS-TRANSITION: car_id=5 -> in_progress
+BEFORE: car_id=6 status=waiting
+STATUS-TRANSITION: car_id=6 -> in_progress
+BEFORE: car_id=7 status=waiting
+STATUS-TRANSITION: car_id=7 -> in_progress
+BEFORE: car_id=8 status=waiting
+STATUS-TRANSITION: car_id=8 -> in_progress
+BEFORE: car_id=9 status=waiting
+STATUS-TRANSITION: car_id=9 -> in_progress
+BEFORE: car_id=10 status=waiting
+STATUS-TRANSITION: car_id=10 -> in_progress
+BEFORE: car_id=11 status=done
+BEFORE: car_id=15 status=waiting
+STATUS-TRANSITION: car_id=15 -> in_progress
+BEFORE: car_id=16 status=waiting
+STATUS-TRANSITION: car_id=16 -> in_progress
+BEFORE: car_id=17 status=waiting
+STATUS-TRANSITION: car_id=17 -> in_progress
+BEFORE: car_id=21 status=waiting
+STATUS-TRANSITION: car_id=21 -> in_progress
+BEFORE: car_id=22 status=waiting
+STATUS-TRANSITION: car_id=22 -> in_progress
+BEFORE: car_id=25 status=waiting
+STATUS-TRANSITION: car_id=25 -> in_progress
+BEFORE: car_id=27 status=waiting
+STATUS-TRANSITION: car_id=27 -> in_progress
+BEFORE: car_id=30 status=waiting
+STATUS-TRANSITION: car_id=30 -> in_progress
+BEFORE: car_id=33 status=waiting
+STATUS-TRANSITION: car_id=33 -> in_progress

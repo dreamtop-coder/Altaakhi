@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ورشة التآخي - للسيارات</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Cairo', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f4f6f8;
+            color: #333;
+        }
+
+        /* الهيدر */
+        header {
+            background:
+                linear-gradient(90deg, rgba(26,35,126,0.85), rgba(57,73,171,0.85)),
+                url('/static/images/garage.jpg') center center/cover no-repeat;
+            color: #fff;
+            padding: 60px 20px;
+            text-align: center;
+        }
+        header h1 {
+            font-size: 3em;
+            margin: 0 0 10px 0;
+        }
+        header p {
+            font-size: 1.3em;
+        }
+
+        /* زر التسجيل */
+        .btn-primary {
+            display: inline-block;
+            padding: 15px 40px;
+            background: #ff6f00;
+            color: #fff;
+            font-size: 1.2em;
+            border-radius: 8px;
+            text-decoration: none;
+            margin-top: 20px;
+            transition: 0.3s;
+        }
+        .btn-primary:hover {
+            background: #e65100;
+        }
+
+        /* الأقسام */
+        section {
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+        section h2 {
+            text-align:center;
+            color:#1a237e;
+            margin-bottom:40px;
+        }
+
+        /* الشبكة للبطاقات */
+        .services, .offers {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        /* البطاقات */
+        .card {
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .card img {
+            width: 80px;
+            margin-bottom: 15px;
+        }
+        .card h3 {
+            margin: 15px 0 10px 0;
+            color: #1a237e;
+        }
+        .card p {
+            font-size: 1em;
+            color: #555;
+        }
+
+        /* الفوتر */
+        footer {
+            background: #1a237e;
+            color: #fff;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        footer a {
+            color: #ffca28;
+            text-decoration: none;
+        }
+
+        /* التحسين للهواتف */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+            header p {
+                font-size: 1em;
+            }
+            .card {
+                padding: 15px;
+            }
+            .card img {
+                width: 60px;
+            }
+            .btn-primary {
+                padding: 12px 25px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- الهيدر -->
+    <header>
+        <h1>ورشة التآخي</h1>
+        <p>أفضل خدمات صيانة السيارات الحديثة بأيدي خبراء متخصصين</p>
+        <p>العنوان: البحرين - المالكية - شارع زيد بن عميرة</p>
+        <a href="/users/login/" class="btn-primary">تسجيل الدخول</a>
+    </header>
+
+    <!-- قسم الخدمات -->
+    <section>
+        <h2>خدماتنا</h2>
+        <div class="services">
+            <div class="card">
+                <img src="/static/images/brake-disc.png" alt="فرامل مزدوجة">
+                <h3>تركيب الفرامل المزدوجة لتعليم السياقة</h3>
+                <p>تركيب فرامل مزدوجة لتوفير الأمان أثناء تعليم القيادة.</p>
+            </div>
+            <div class="card">
+                <img src="/static/images/oil.png" alt="تغيير زيت">
+                <h3>تغيير الزيوت والفلاتر</h3>
+                <p>نوفر أفضل الزيوت والفلاتر لجميع أنواع السيارات لضمان أداء مثالي.</p>
+            </div>
+            <div class="card">
+                <img src="/static/images/car-repair.png" alt="الصيانة">
+                <h3>الصيانة الشاملة</h3>
+                <p>تشمل الصيانة الدورية والفحص الكامل لجميع أجزاء السيارة لضمان سلامتها.</p>
+            </div>
+            <div class="card">
+                <img src="/static/images/mechanic.png" alt="إصلاح الأعطال">
+                <h3>إصلاح الأعطال الكهربائية والميكانيكية</h3>
+                <p>فريق متخصص للتعامل مع جميع الأعطال بدقة وسرعة.</p>
+            </div>
+            <div class="card">
+                <img src="/static/images/wheel.png" alt="الإطارات">
+                <h3>تغيير وفحص الإطارات</h3>
+                <p>فحص شامل للإطارات وضبط الضغط وتغيير الإطارات حسب الحاجة.</p>
+            </div>
+            <div class="card">
+                <img src="/static/images/air-conditioning.png" alt="التكييف">
+                <h3>صيانة التكييف</h3>
+                <p>تنظيف وفحص وإصلاح جميع أعطال التكييف لتبريد مثالي داخل السيارة.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- قسم العروض -->
+    <section>
+        <h2>عروضنا الحالية</h2>
+        <div class="offers">
+            <div class="card">
+                <h3>خصم 20% على الزيوت والفلاتر</h3>
+                <p>استفد من العرض عند زيارة الورشة قبل نهاية الشهر.</p>
+            </div>
+            <div class="card">
+                <h3>فحص مجاني لأول زيارة</h3>
+                <p>تأكد من سلامة سيارتك بدون أي تكلفة.</p>
+            </div>
+            <div class="card">
+                <h3>خصومات للشركات والأساطيل</h3>
+                <p>توفير خاص للزبائن التجاريين مع عقود صيانة دورية.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- الفوتر -->
+    <footer>
+        <p>العنوان: البحرين - المالكية - شارع زيد بن عميرة</p>
+        <p>أوقات العمل: من 8 صباحاً حتى 8 مساءً (ما عدا الجمعة)</p>
+        <p>جميع الحقوق محفوظة &copy; 2026 <a href="/">ورشة التآخي</a></p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:500px;margin:40px auto;background:#fff;padding:32px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;">
+    <h2 style="margin-bottom:24px;">تأكيد حذف الخدمة</h2>
+    <p>هل أنت متأكد أنك تريد حذف الخدمة: <strong>{{ service.name }}</strong>؟</p>
+    <form method="post">{% csrf_token %}
+        <button type="submit" style="background:#dc3545;color:#fff;padding:10px 28px;border-radius:6px;font-weight:bold;border:none;">تأكيد الحذف</button>
+        <a href="{% url 'services_list' %}" style="background:#888;color:#fff;padding:10px 28px;border-radius:6px;font-weight:bold;text-decoration:none;margin-right:10px;">إلغاء</a>
+    </form>
+</div>
+{% endblock %}

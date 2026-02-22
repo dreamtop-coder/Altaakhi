@@ -1,0 +1,37 @@
+<div id="dashboard-header-toggle" style="margin: 2rem 0 1rem 0; text-align: center;">
+    <button id="toggle-header-btn" style="font-size: 1.2rem; display: inline-block;">&gt;</button>
+    <div id="dashboard-header-bar" style="display: block; margin-top: 1rem;">
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;">
+            <button class="header-filter-btn" data-status="waiting">قيد الانتظار</button>
+            <button class="header-filter-btn" data-status="in_progress">جاري التنفيذ</button>
+            <button class="header-filter-btn" data-status="ready">جاهزة للتسليم</button>
+            <button class="header-filter-btn" data-status="done">منتهية</button>
+            <button class="header-filter-btn" data-status="follow">متابعة</button>
+            <button class="header-filter-btn" data-status="pending_payment">معلق للدفع</button>
+            <!-- تم حذف زر حجز -->
+        </div>
+        <div id="dashboard-header-search" style="margin-top: 1rem; display: none;">
+            <input type="text" placeholder="ابحث..." style="padding: 0.5rem; width: 250px;">
+        </div>
+    </div>
+</div>
+<script>
+    const toggleBtn = document.getElementById('toggle-header-btn');
+    const headerBar = document.getElementById('dashboard-header-bar');
+    let headerVisible = true;
+    toggleBtn.onclick = function() {
+        if (headerBar.style.display === 'block') {
+            headerBar.style.display = 'none';
+            toggleBtn.innerHTML = '&lt;';
+        } else {
+            headerBar.style.display = 'block';
+            toggleBtn.innerHTML = '&gt;';
+        }
+    };
+    // إظهار شريط البحث عند الضغط على أي فلتر
+    document.querySelectorAll('.header-filter-btn').forEach(btn => {
+        btn.onclick = function() {
+            document.getElementById('dashboard-header-search').style.display = 'block';
+        };
+    });
+</script>

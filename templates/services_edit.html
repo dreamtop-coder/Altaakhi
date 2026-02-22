@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .service-form-field input,
+    .service-form-field select,
+    .service-form-field textarea {
+        width: 100%;
+        max-width: 100%;
+        padding: 8px 10px;
+        border: 1.2px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+        text-align: right;
+    }
+</style>
+<div style="max-width:600px;margin:40px 0 40px auto;background:#fff;padding:32px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;">
+    <h2 style="margin-bottom:24px;text-align:right;">تعديل الخدمة: {{ service.name }}</h2>
+    <form method="post" style="text-align:right;">{% csrf_token %}
+        <div style="display:flex;flex-direction:column;gap:18px;">
+            {% for field in form %}
+                <div class="service-form-field" style="display:flex;flex-direction:column;align-items:flex-end;width:100%;">
+                    <label style="font-weight:bold;margin-bottom:4px;text-align:right;width:100%;">{{ field.label_tag }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<small style="color:#888;">{{ field.help_text }}</small>{% endif %}
+                    {% for error in field.errors %}<div style="color:#dc3545;font-size:0.95em;">{{ error }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+        <div style="margin-top:24px;text-align:right;">
+            <button type="submit" style="background:#007bff;color:#fff;padding:10px 28px;border-radius:6px;font-weight:bold;border:none;">حفظ التعديلات</button>
+            <a href="{% url 'services_list' %}" style="background:#888;color:#fff;padding:10px 28px;border-radius:6px;font-weight:bold;text-decoration:none;margin-right:10px;">إلغاء</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

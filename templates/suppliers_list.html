@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% load i18n static %}
+{% block content %}
+<style>
+@media (max-width: 900px) {
+    .responsive-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .responsive-table td, .responsive-table th { font-size: 1.08em; padding: 13px 6px; min-width: 90px; }
+    .responsive-table .action-btn { font-size: 1.1em; padding: 10px 0; width: 100%; margin: 4px 0; display: block; }
+    .responsive-table th, .responsive-table td { text-align: center; }
+}
+</style>
+<div style="height:6px;"></div>
+<div id="suppliers-header-bar" style="position:sticky; top:70px; z-index:1000; background:#f4f6fa; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #e6e6e6; height:56px;">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <h2 style="margin:0; font-size:1.6em; font-weight:700; color:#222;">Suppliers</h2>
+    </div>
+    <a href="{% url 'add_supplier' %}" class="add-supplier-pill" title="{% trans "Add Supplier" %}" aria-label="Add Supplier">
+        <span class="icon">+</span>
+        <span class="label">{% trans "New" %}</span>
+    </a>
+</div>
+<style>
+    .add-supplier-pill { display:inline-flex; align-items:center; gap:10px; padding:8px 14px; background: linear-gradient(180deg,#4a7df5,#1976d2); color:#fff; border-radius:10px; text-decoration:none; font-weight:600; box-shadow:0 2px 6px rgba(0,0,0,0.12); }
+    .add-supplier-pill .icon { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; font-size:18px; }
+    .add-supplier-pill .label { font-size:14px; }
+</style>
+
+<div class="responsive-table-wrapper suppliers-table-mobile-conditional">
+    <style>
+        /* remove left padding so table sits flush with header/bulk bar */
+        .responsive-table-wrapper { padding-left: 0; padding-right: 12px; }
+        /* ensure head/body tables share the same left offset */
+        .table-head-wrap, .table-body-scroll { padding-left: 0; }
+    </style>
+    <div id="bulk-actions-bar" style="display:none;position:sticky;top:70px;z-index:1001;background:#fff;border:1px solid #e0e0e0;padding:10px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+        <div id="selected-count" style="font-weight:bold;">0 Selected</div>
+        <div>
+            <button id="bulk-delete" style="background:#dc3545;color:#fff;padding:6px 12px;border-radius:5px;border:none;">Delete</button>
+        </div>
+    </div>
+
+    <style>
+        .suppliers-table, .suppliers-table-body { direction: ltr; table-layout: fixed; width:100%; border-collapse: collapse; }
+        .suppliers-table th, .suppliers-table td, .suppliers-table-body th, .suppliers-table-body td { text-align: left !important; border: 1px solid #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px !important; }
+        /* Match clients header styling: background, color, weight, centering */
+        .suppliers-table thead tr { background: #e9ecef !important; color: #444 !important; font-weight:700; text-align:center; }
+        .suppliers-table td.amount, .suppliers-table th.amount { text-align: right !important; }
+        .suppliers-table td.col-name { font-weight: normal !important; color: #000 !important; }
+        /* resize handle (same behaviour as clients table) */
+        .resize-handle { position: absolute; right: 0; top: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 5; }
+        .table-head-wrap th { position: relative; }
+    </style>
+
+    <div class="table-wrapper">
+        <div class="table-head-wrap">
+            <table id="suppliers-table-head" class="responsive-table suppliers-table" aria-hidden="false">
+                <thead>
+                    <tr>
+                        <th style="padding:12px 0;border-left:1.5px solid #c2c7d0;"><input type="checkbox" id="select-all" /><div class="resize-handle" data-col="select"></div></th>
+                        <th class="customer-id col-id" style="padding:12px 0;border-left:1.5px solid #c2c7d0;">ID<div class="resize-handle" data-col="id"></div></th>
+                        <th class="col-name" style="padding:12px 0;border-left:1.5px solid #c2c7d0;">Name<div class="resize-handle" data-col="name"></div></th>
+                        <th class="col-phone" style="padding:12px 0;border-left:1.5px solid #c2c7d0;">Phone<div class="resize-handle" data-col="phone"></div></th>
+                        <th class="col-email" style="padding:12px 0;">Email<div class="resize-handle" data-col="email"></div></th>
+                        <th class="col-address" style="padding:12px 0;">Address<div class="resize-handle" data-col="address"></div></th>
+                        <th class="amount" style="padding:12px 0;">Amount<div class="resize-handle" data-col="amount"></div></th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+
+        <div class="table-body-scroll">
+            <table id="suppliers-table-body" class="responsive-table suppliers-table-body" aria-hidden="false">
+                <tbody>
+                    {% for s in suppliers %}
+                    <tr data-url="{% url 'edit_supplier' s.id %}">
+                        <td style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="supplier-checkbox" value="{{ s.id }}" /></td>
+                        <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;">{{ s.supplier_code|default:"" }}</td>
+                        <td class="col-name" style="padding:10px 0 10px 0;border-left:1.5px solid #c2c7d0;"><a href="{% url 'edit_supplier' s.id %}">{{ s.name }}</a></td>
+                        <td style="padding:10px 0 10px 0;text-align:center;">{{ s.phone|default:'-' }}</td>
+                        <td style="padding:10px 0 10px 0;">{{ s.email|default:'-' }}</td>
+                        <td style="padding:10px 0 10px 0;">{{ s.address|default:'-' }}</td>
+                        <td class="amount" style="padding:10px 0 10px 0;">{{ s.amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if not suppliers %}
+        <div style="padding:12px;text-align:center;color:#777;">{% trans "No suppliers found." %}</div>
+    {% endif %}
+    
+</div>
+
+<style>
+/* Make suppliers table header sticky under page header */
+#suppliers-table-head th { position: sticky; top: 132px; background: #e9ecef; z-index: 900; }
+.table-body-scroll { overflow: auto; max-height: 60vh; }
+
+/* per-page menu item hover + checkmark styles */
+#perPageMenu li[role="option"] { padding:8px 10px; cursor:pointer; border-radius:6px; color:#222; }
+#perPageMenu li[role="option"]:hover { background:#f2f4f8; }
+#perPageMenu li .check { float:right; color: #6c757d; font-weight:700; }
+#perPageMenu { transition: opacity 120ms ease; }
+/* pagination link hover/focus to match clients page */
+.pagination-controls .page-link { color:#444; text-decoration:none; padding:6px 10px; border-radius:6px; }
+.pagination-controls .page-link:hover { background:#f2f4f8; color:#1976d2; }
+.pagination-controls span:hover { color: #1976d2; }
+.pagination-controls .page-link:focus { outline: none; box-shadow: 0 0 0 4px rgba(25,118,210,0.12); }
+
+/* per-page button focus/hover */
+#perPageBtn:hover { color:#222; }
+#perPageBtn:focus { outline: none; box-shadow: 0 0 0 4px rgba(25,118,210,0.12); border-radius:8px; }
+
+/* table row hover/selection to match clients */
+.suppliers-table-body tbody tr:hover { background: #efefef !important; cursor: pointer; }
+.suppliers-table-body tr.row-selected { background: #e0e0e0 !important; }
+
+.suppliers-table th.amount, .suppliers-table-body td.amount { min-width: 110px; max-width: 220px; white-space: nowrap; }
+
+/* Ensure the table head/body total width accounts for column widths (helps avoid clipping) */
+.table-wrapper { overflow: visible; padding-left: 0; padding-right: 12px; }
+
+/* Force head and body tables to share exact left offset and width
+    (fixes visual misalignment where header appears shifted) */
+#suppliers-table-head, #suppliers-table-body { margin: 0 !important; box-sizing: border-box; }
+.table-head-wrap, .table-body-scroll { margin: 0; }
+.table-head-wrap table, .table-body-scroll table { width: 100%; table-layout: fixed; }
+.table-body-scroll { overflow: auto; }
+
+/* make column gutters align with clients table: add left/right padding for cells */
+.suppliers-table th, .suppliers-table td, .suppliers-table-body th, .suppliers-table-body td { padding-left: 12px !important; padding-right: 12px !important; }
+.suppliers-table th:first-child, .suppliers-table td:first-child { width:36px; padding-left:8px !important; padding-right:8px !important; }
+</style>
+
+<link rel="stylesheet" href="{% static 'css/components.css' %}">
+{% include 'partials/per_page_pagination.html' with per_page=per_page per_page_options=per_page_options page_obj=page_obj search=None %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const checkboxes = Array.from(document.querySelectorAll('.supplier-checkbox'));
+    const selectAll = document.getElementById('select-all');
+    const bar = document.getElementById('bulk-actions-bar');
+    const selectedCount = document.getElementById('selected-count');
+    const btnDelete = document.getElementById('bulk-delete');
+
+    function updateBar() {
+        const selected = checkboxes.filter(c => c.checked).map(c => c.value);
+        if (selected.length > 0) {
+            bar.style.display = 'flex';
+            selectedCount.textContent = selected.length + ' Selected';
+        } else {
+            bar.style.display = 'none';
+            selectedCount.textContent = '0 Selected';
+        }
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function(){ checkboxes.forEach(c => c.checked = selectAll.checked); updateBar(); });
+    }
+    checkboxes.forEach(c => c.addEventListener('change', updateBar));
+
+    if (btnDelete) {
+        btnDelete.addEventListener('click', function(){
+            const selected = checkboxes.filter(c => c.checked).map(c => c.value);
+            if (!selected.length) return;
+            if (!confirm('Delete selected suppliers?')) return;
+            // delete each supplier via its delete URL then reload when done
+            Promise.all(selected.map(id => fetch('/suppliers/' + id + '/delete/', { method: 'POST', headers: {'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1]} }))).then(()=> window.location.reload()).catch(()=> alert('Delete failed'));
+        });
+    }
+
+    // row click navigates to edit
+    const rows = Array.from(document.querySelectorAll('#suppliers-table-body tbody tr'));
+    rows.forEach(function(tr){
+        tr.addEventListener('click', function(e){ if(e.target.closest('a') || e.target.tagName === 'INPUT') return; const url = tr.dataset.url; if(url) window.location.href = url; });
+        const cb = tr.querySelector('.supplier-checkbox'); if(cb) cb.addEventListener('change', function(){ if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected'); updateBar(); });
+    });
+});
+</script>
+
+<script src="{% static 'js/per_page_dropdown.js' %}"></script>
+<script>
+// initialize per-page dropdown if available
+    document.addEventListener('DOMContentLoaded', function(){
+    // per-page dropdown is auto-initialized by static/js/per_page_dropdown.js
+    // fallback: ensure page-link anchors navigate even if other handlers block
+    document.querySelectorAll('.page-link').forEach(function(a){
+        a.addEventListener('click', function(ev){
+            // if href present, navigate explicitly
+            var href = a.getAttribute('href');
+            if(href){ window.location.href = href; }
+        });
+    });
+});
+</script>
+
+<script>
+// Resizable columns for suppliers table (sync head/body widths)
+document.addEventListener('DOMContentLoaded', function(){
+    function initResizableColumns() {
+        const head = document.getElementById('suppliers-table-head');
+        const body = document.getElementById('suppliers-table-body');
+        if (!head || !body) return;
+        const STORAGE_KEY = 'suppliers_table_col_widths_v1';
+        const ths = head.querySelectorAll('th');
+        const bodyRows = Array.from(body.querySelectorAll('tbody tr'));
+
+        // apply stored widths or set explicit widths to current sizes
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const map = JSON.parse(saved);
+                ths.forEach((th, i) => {
+                    const w = map[i] || (th.offsetWidth + 'px');
+                    th.style.width = w;
+                    bodyRows.forEach(r => { const c = r.children[i]; if (c) c.style.width = w; });
+                });
+            } else {
+                ths.forEach((th, i) => {
+                    const w = th.offsetWidth + 'px';
+                    th.style.width = w;
+                    bodyRows.forEach(r => { const c = r.children[i]; if (c) c.style.width = w; });
+                });
+            }
+            let total = 0;
+            ths.forEach(th => { total += parseInt(th.style.width, 10) || th.offsetWidth; });
+            head.style.width = total + 'px';
+            body.style.width = total + 'px';
+        } catch (e) { /* ignore */ }
+
+        const handles = head.querySelectorAll('.resize-handle');
+        handles.forEach(handle => {
+            const th = handle.closest('th');
+            if (!th) return;
+            handle.addEventListener('mousedown', function(e){
+                e.preventDefault();
+                const startX = e.pageX;
+                const startWidth = th.offsetWidth;
+                function onMouseMove(ev) {
+                    const dx = ev.pageX - startX;
+                    const newWidth = Math.max(40, startWidth + dx);
+                    th.style.width = newWidth + 'px';
+                    bodyRows.forEach(r => { const c = r.children[Array.from(th.parentNode.children).indexOf(th)]; if (c) c.style.width = newWidth + 'px'; });
+                    let total = 0; ths.forEach(t => { total += parseInt(t.style.width, 10) || t.offsetWidth; });
+                    head.style.width = total + 'px'; body.style.width = total + 'px';
+                }
+                function onMouseUp() {
+                    try { const widths = {}; ths.forEach((t, idx) => { widths[idx] = t.style.width || (t.offsetWidth + 'px'); }); localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); } catch(e) {}
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+    initResizableColumns();
+});
+</script>
+
+<script>
+// header alignment logic removed to use the clients two-table layout behavior
+
+{% endblock %}

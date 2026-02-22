@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>تعديل تاريخ الدفع</h2>
+<form method="post" style="max-width:400px;margin:auto;">
+    {% csrf_token %}
+    <div style="margin-bottom:15px;">
+        <label>تاريخ الدفع:</label>
+        <input type="date" name="payment_date" value="{{ payment.payment_date|date:'Y-m-d' }}" required>
+    </div>
+    <button type="submit" style="background:#28a745;color:#fff;padding:7px 18px;border-radius:5px;font-weight:bold;">حفظ التعديل</button>
+    <a href="{% url 'payments_list' %}" style="margin-right:10px;">إلغاء</a>
+</form>
+{% endblock %}

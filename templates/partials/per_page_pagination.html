@@ -1,0 +1,39 @@
+{% load i18n %}
+<div class="table-footer" style="display:flex;align-items:center;justify-content:flex-end;padding-top:8px;gap:12px;">
+    <div style="display:inline-block;">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 8px;border:none;border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+            <div id="per-page-dropdown" style="position:relative;display:inline-block;">
+                <button id="perPageBtn" aria-haspopup="listbox" aria-expanded="false" type="button" style="display:inline-flex;align-items:center;border:none;background:transparent;padding:0;margin:0;cursor:pointer;font-weight:600;">
+                    <span style="color:#6c757d;display:inline-flex;align-items:center;padding-right:6px;">⚙</span>
+                    <span id="perPageLabel">{% if per_page == 0 %}All{% else %}{{ per_page }} per page{% endif %}</span>
+                </button>
+                <ul id="perPageMenu" role="listbox" aria-labelledby="perPageBtn" style="display:none;position:fixed;left:0;top:0;background:#fff;border-radius:10px;box-shadow:0 6px 24px rgba(15,22,39,0.08);padding:6px;list-style:none;margin:0;z-index:99999;overflow:hidden;">
+                    {% for opt in per_page_options %}
+                        {% if opt == 'all' %}
+                            <li role="option" data-value="all" aria-selected="{% if per_page == 0 %}true{% else %}false{% endif %}">All <span class="check">{% if per_page == 0 %}✓{% endif %}</span></li>
+                        {% else %}
+                            <li role="option" data-value="{{ opt }}" aria-selected="{% if per_page|stringformat:'s' == opt|stringformat:'s' %}true{% else %}false{% endif %}">{{ opt }} per page <span class="check">{% if per_page|stringformat:'s' == opt|stringformat:'s' %}✓{% endif %}</span></li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="pagination-controls" style="display:inline-flex;align-items:center;gap:6px;">
+                {% if page_obj %}
+                    {% if page_obj.has_previous %}
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if per_page %}&per_page={{ per_page }}{% endif %}{% if search %}&search={{ search|urlencode }}{% endif %}" style="padding:6px 10px;border-radius:6px;text-decoration:none;border:1px solid transparent;background:transparent;color:#444;">&lt;</a>
+                    {% else %}
+                        <span class="page-link disabled" style="padding:6px 10px;border-radius:6px;color:#999;">&lt;</span>
+                    {% endif %}
+                    <span style="padding:6px 10px;border-radius:6px;background:transparent;color:#222;font-weight:600;">{{ page_obj.number }} - {{ page_obj.paginator.num_pages }}</span>
+                    {% if page_obj.has_next %}
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if per_page %}&per_page={{ per_page }}{% endif %}{% if search %}&search={{ search|urlencode }}{% endif %}" style="padding:6px 10px;border-radius:6px;text-decoration:none;border:1px solid transparent;background:transparent;color:#444;">&gt;</a>
+                    {% else %}
+                        <span class="page-link disabled" style="padding:6px 10px;border-radius:6px;color:#999;">&gt;</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# per-page dropdown auto-initializes from static/js/per_page_dropdown.js when that file loads #}

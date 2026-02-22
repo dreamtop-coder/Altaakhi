@@ -1,0 +1,42 @@
+/* Shared components CSS (per-page dropdown + misc) */
+.per-page-dropdown button { display:inline-flex; align-items:center; border:none; background:transparent; cursor:pointer; font-weight:600; }
+.per-page-dropdown .gear { color:#6c757d; padding-right:6px; }
+#perPageMenu { display:none; position:fixed; background:#fff; border-radius:10px; box-shadow:0 6px 24px rgba(15,22,39,0.08); padding:6px; z-index:1200; overflow:hidden; }
+#perPageMenu li[role="option"] { padding:8px 10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition: background .12s, color .12s; }
+/* reverse behavior: blue on hover, neutral when selected */
+#perPageMenu li[role="option"]:hover { background:#1976d2; color:#fff; }
+#perPageMenu li[role="option"]:hover .check { color:#fff; }
+#perPageMenu li[role="option"][aria-selected="true"] { background:#e9ecef; color:#222; }
+#perPageMenu li[role="option"][aria-selected="true"] .check { color:#6c757d; font-weight:700; }
+
+/* small helper to visually fade the pill when menu open */
+.per-page-dropdown.open .perPageBtn { opacity:0.5; }
+
+/* Shared table components: used by clients and suppliers pages */
+.table-wrapper { width: 100%; }
+.table-head-wrap { overflow: hidden; }
+.table-body-scroll { overflow: auto; max-height: 60vh; }
+.responsive-table, .responsive-table-body, .clients-table, .clients-table-body, .suppliers-table, .suppliers-table-body { table-layout: fixed; width: 100%; border-collapse: collapse; }
+.responsive-table th, .responsive-table td, .responsive-table-body th, .responsive-table-body td { text-align: left !important; border: 1px solid #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px !important; }
+.resize-handle { position: absolute; right: 0; top: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 5; }
+.resize-handle:hover { background: rgba(0,0,0,0.03); }
+.responsive-table thead tr, .clients-table thead tr, .suppliers-table thead tr { background: #e9ecef !important; color: #444 !important; font-weight:700; text-align:center; }
+.responsive-table th:first-child, .responsive-table td:first-child { width:36px; }
+.responsive-table tbody tr:hover, .responsive-table-body tr.row-hover { background: #efefef !important; cursor: pointer; }
+.responsive-table-body tr.row-selected { background: #e0e0e0 !important; }
+
+/* ensure header sticks correctly under the page header */
+.table-head-wrap th { position: relative; }
+.responsive-table thead th { position: sticky; top: 132px; z-index: 900; }
+
+/* Pagination controls (shared) */
+.pagination-controls .page-link { color:#444; text-decoration:none; padding:6px 10px; border-radius:6px; }
+.pagination-controls .page-link:hover { background:#f2f4f8; color:#1976d2; }
+.pagination-controls .page-link:focus { outline: none; box-shadow: 0 0 0 4px rgba(25,118,210,0.12); }
+
+/* Force name links in tables to be black and non-bold (clients + suppliers) */
+.responsive-table td.col-name a, .clients-table td.col-name a, .suppliers-table td.col-name a {
+	color: #000 !important;
+	font-weight: normal !important;
+	text-decoration: none !important;
+}

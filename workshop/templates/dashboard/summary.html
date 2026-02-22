@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'dashboard/filters_bar.html' %}
+<div class="dashboard-cards" style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;">
+    <!-- بطاقة السيارات قيد الانتظار -->
+    <div class="card card-waiting" style="min-width:200px; background:#fff3cd; border-left:5px solid #dc3545;">
+    {% load i18n %}
+        <div class="card-body">
+            <h5 class="card-title">🚗 {% trans "Cars Waiting" %}</h5>
+            <h2 style="color:#dc3545;">{{ cars_waiting_count }}</h2>
+        </div>
+    </div>
+    <!-- بطاقة السيارات المنجزة والمدفوعة -->
+    <div class="card card-paid" style="min-width:200px; background:#d4edda; border-left:5px solid #28a745;">
+        <div class="card-body">
+            <h5 class="card-title">✅ {% trans "Cars Completed & Paid" %}</h5>
+            <h2 style="color:#28a745;">{{ cars_done_count }}</h2>
+        </div>
+    </div>
+    <!-- بطاقة السيارات في الصيانة وغير مدفوعة -->
+    <div class="card card-inprogress" style="min-width:200px; background:#f8d7da; border-left:5px solid #ffc107;">
+        <div class="card-body">
+            <h5 class="card-title">🔧 {% trans "Cars In Repair / Unpaid" %}</h5>
+            <h2 style="color:#ffc107;">{{ cars_in_progress_count }}</h2>
+        </div>
+    </div>
+    <!-- بطاقة عدد العملاء -->
+    <div class="card card-clients" style="min-width:200px; background:#e2e3e5; border-left:5px solid #007bff;">
+        <div class="card-body">
+            <h5 class="card-title">👤 {% trans "Clients" %}</h5>
+            <h2 style="color:#007bff;">{{ clients_count }}</h2>
+        </div>
+    </div>
+    <!-- بطاقة إجمالي الإيرادات -->
+    <div class="card card-revenue" style="min-width:200px; background:#d1ecf1; border-left:5px solid #17a2b8;">
+        <div class="card-body">
+            <h5 class="card-title">💰 {% trans "Total Revenue" %}</h5>
+            <h2 style="color:#17a2b8;">{{ total_revenue|floatformat:2 }} {% trans "SAR" %}</h2>
+        </div>
+    </div>
+</div>
+{% endblock %}

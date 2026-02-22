@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% block content %}
+<div id="cars-filters-container">
+    <div class="cars-filters" style="display:flex;gap:10px;margin-bottom:20px;">
+        <div class="filter-tab" data-status="waiting" style="color:#007bff;cursor:pointer;">قيد الانتظار <span class="count">({{ counts.waiting }})</span></div>
+        <div class="filter-tab" data-status="in_progress" style="color:#007bff;cursor:pointer;">جاري التنفيذ <span class="count">({{ counts.in_progress }})</span></div>
+        <div class="filter-tab" data-status="done" style="color:#28a745;cursor:pointer;">منتهية <span class="count">({{ counts.done }})</span></div>
+        <div class="filter-tab" data-status="paid_waiting_collection" style="color:#6f42c1;cursor:pointer;">مدفوعة - بانتظار الاستلام <span class="count">({{ counts.paid_waiting_collection|default:0 }})</span></div>
+        <div class="filter-tab" data-status="follow" style="color:#ffc107;cursor:pointer;">متابعة <span class="count">({{ counts.follow }})</span></div>
+        <div class="filter-tab" data-status="pending_payment" style="color:#dc3545;cursor:pointer;">معلق للدفع <span class="count">({{ counts.pending_payment }})</span></div>
+        <div class="filter-tab" data-status="bookings" style="color:#007bff;cursor:pointer;">الحجوزات <span class="count">({{ counts.bookings }})</span></div>
+
+    </div>
+</div>
+<style>
+/* Ensure filter badge sizing matches main dashboard */
+.filter-tab .count {
+    font-weight: normal;
+    font-size: 0.98em;
+    display: inline-block;
+    min-width: 36px;
+    padding: 2px 6px;
+    text-align: center;
+    border-radius: 8px;
+    box-sizing: border-box;
+    vertical-align: middle;
+    margin-left: 6px;
+    background: rgba(255,255,255,0.06);
+}
+/* Force consistent small card layout so sizes don't jump between filters */
+#cars-list-container > div,
+#cars-list-container > a,
+#cars-list-container > form {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 36px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 6px 0 !important;
+}
+#cars-list-container > div i.fa,
+#cars-list-container > a i.fa,
+#cars-list-container > form i.fa,
+#cars-list-container > div i.fas,
+#cars-list-container > a i.fas,
+#cars-list-container > form i.fas,
+#cars-list-container > div i.far,
+#cars-list-container > a i.far,
+#cars-list-container > form i.far {
+    font-size: 18px !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
+}
+</style>
+<div id="cars-list-container">
+    <!-- سيتم تعبئة السيارات هنا عبر AJAX -->
+</div>
+<script>
+    function loadCarsByStatus(status) {
+        if (status === 'bookings') {
+            // عند الضغط على الحجوزات، اعرض أرقام العملاء الذين لديهم حجوزات
+            fetch('/cars/ajax/bookings_clients/')
+                .then(response => response.json())
+                .then(data => {
+                    let html = '<div style="display:flex;flex-wrap:wrap;gap:20px;">';
+                    if (data.phones && data.phones.length > 0) {
+                        data.phones.forEach(function(phone) {
+                            html += `<div style='border:1px solid #007bff;padding:18px 32px;border-radius:12px;background:#f7faff;font-size:1.2em;font-weight:bold;color:#007bff;'>${phone}</div>`;
+                        });
+                    } else {
+                        html += '<div style="color:#888;font-size:1.1em;">لا يوجد حجوزات حالياً</div>';
+                    }
+                    html += '</div>';
+                    document.getElementById('cars-list-container').innerHTML = html;
+                });
+            return;
+        }
+        fetch(`/cars/ajax/filter/?status=${status}`)
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('cars-list-container').innerHTML = html;
+                // Update the visible count for this tab to match rendered cards
+                try {
+                    const wrapper = document.querySelector('#cars-list-container .cars-mobile-wrapper');
+                    const cardCount = wrapper ? wrapper.children.length : 0;
+                    const tab = document.querySelector(`.filter-tab[data-status="${status}"]`);
+                    if (tab) {
+                        const countEl = tab.querySelector('.count');
+                        if (countEl) countEl.textContent = '(' + cardCount + ')';
+                    }
+                } catch (e) {
+                    console.error('Failed to update filter count:', e);
+                }
+                try {
+                    // hide empty-state placeholder if the tab count is zero
+                    const tab = document.querySelector(`.filter-tab[data-status="${status}"]`);
+                    const countEl = tab ? tab.querySelector('.count') : null;
+                    const num = countEl ? parseInt(countEl.textContent.replace(/[^0-9]/g,''),10) || 0 : 0;
+                    if (num === 0) {
+                        const placeholder = document.querySelector('.empty-state-placeholder');
+                        if (placeholder) placeholder.style.display = 'none';
+                    }
+                } catch (e) {}
+                // attach finish handlers for any inserted buttons
+                attachFinishHandlers();
+            });
+    }
+
+    // تحديث عداد "منتهية" تلقائياً
+    function updateDoneCount() {
+        fetch('/cars/get_done_count/')
+            .then(response => response.json())
+            .then(data => {
+                document.querySelector('.filter-tab[data-status="done"] .count').textContent = '(' + data.done_count + ')';
+                const el = document.querySelector('.filter-tab[data-status="paid_waiting_collection"] .count');
+                if(el) el.textContent = '(' + (data.paid_waiting_count || 0) + ')';
+            });
+    }
+    function attachFinishHandlers(){
+        function getCookie(name){
+            let v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return v ? v.pop() : '';
+        }
+        document.querySelectorAll('#cars-list-container .finish-service-btn').forEach(function(btn){
+            if (btn._attached) return; btn._attached = true;
+            btn.addEventListener('click', function(e){
+                e.preventDefault();
+                var carId = this.dataset.carId;
+                if(!confirm('هل أنت متأكد من إنهاء جميع سجلات الصيانة لهذه المركبة؟')) return;
+                try {
+                    var form = document.createElement('form'); form.method='POST'; form.action='/cars/finish/' + carId + '/';
+                    var csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value=getCookie('csrftoken');
+                    form.appendChild(csrf); document.body.appendChild(form); form.submit();
+                } catch (err) { alert('خطأ أثناء إرسال الطلب: ' + err); }
+            });
+        });
+    }
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.filter-tab').forEach(t => t.style.fontWeight = 'normal');
+            this.style.fontWeight = 'bold';
+            loadCarsByStatus(this.getAttribute('data-status'));
+            updateDoneCount();
+        });
+    });
+    // تحميل السيارات الافتراضية (أول فلتر) وتحديث عداد منتهية
+    window.addEventListener('DOMContentLoaded', function() {
+        let firstTab = document.querySelector('.filter-tab');
+        if(firstTab) firstTab.click();
+        updateDoneCount();
+        // Ensure all filter badges reflect current data by fetching each filter
+        // once on load. This fixes cases where a maintenance record was added
+        // elsewhere and the badge still shows 0 until the user clicks the tab.
+        (function updateAllFilterCounts(){
+            const statuses = ['waiting','in_progress','pending_payment','ready','done','paid_waiting_collection','bookings'];
+            statuses.forEach(status => {
+                if(status === 'bookings') {
+                    // bookings endpoint returns JSON
+                    fetch('/cars/ajax/bookings_clients/').then(r=>r.json()).then(data=>{
+                        const tab = document.querySelector(`.filter-tab[data-status="${status}"]`);
+                        if(tab){
+                            const countEl = tab.querySelector('.count');
+                            const n = (data.phones && data.phones.length) ? data.phones.length : 0;
+                            if(countEl) countEl.textContent = '(' + n + ')';
+                        }
+                    }).catch(()=>{});
+                    return;
+                }
+                fetch(`/cars/ajax/filter/?status=${status}`)
+                    .then(r => r.text())
+                    .then(html => {
+                        // count cards in returned HTML
+                        const wrapperMatch = html.match(/class="cars-mobile-wrapper">([\s\S]*?)<\/div>/);
+                        let cardCount = 0;
+                        if(wrapperMatch && wrapperMatch[1]){
+                            // crude count: count occurrences of car-card
+                            cardCount = (wrapperMatch[1].match(/car-card/g) || []).length;
+                        } else {
+                            // fallback: count occurrences of data-car-id
+                            cardCount = (html.match(/data-car-id="/g) || []).length;
+                        }
+                        const tab = document.querySelector(`.filter-tab[data-status="${status}"]`);
+                        if(tab){
+                            const countEl = tab.querySelector('.count');
+                            if(countEl) countEl.textContent = '(' + cardCount + ')';
+                        }
+                    }).catch(()=>{});
+            });
+        })();
+    });
+</script>
+{% endblock %}

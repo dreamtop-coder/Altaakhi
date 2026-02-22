@@ -1,0 +1,123 @@
+<style>
+.bookings-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+.booking-box {
+    border: 1.5px solid #28a745;
+    padding: 18px 24px;
+    border-radius: 12px;
+    min-width: 180px;
+    max-width: 250px;
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #eaffea;
+    transition: box-shadow 0.2s;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(40,167,69,0.08);
+}
+.booking-box:hover {
+    box-shadow: 0 4px 16px rgba(40,167,69,0.18);
+}
+.booking-icon {
+    margin-bottom: 10px;
+}
+.booking-icon img {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0;
+    object-fit: contain;
+    filter: grayscale(10%) contrast(1.1);
+}
+.booking-plate {
+    font-weight: bold;
+    font-size: 1.08em;
+    margin-bottom: 7px;
+    direction: ltr;
+    text-decoration: underline;
+    color: #222;
+    letter-spacing: 1px;
+}
+.booking-date-label {
+    font-size: 0.95em;
+    color: #888;
+    margin-top: 2px;
+}
+.booking-date {
+    font-size: 1em;
+    color: #007bff;
+    margin-bottom: 2px;
+}
+</style>
+<style>
+@media (max-width: 700px) {
+    .bookings-list > .booking-box {
+        width: calc(50% - 8px);
+        max-width: 50%;
+        min-width: 140px;
+        box-sizing: border-box;
+    }
+}
+</style>
+
+<div class="bookings-list">
+{% for booking in bookings %}
+    <form method="post" action="{% url 'booking_start_maintenance' booking.id %}" class="booking-box booking-maintenance-form" style="cursor:pointer;">
+        <div class="booking-icon" style="margin-bottom:10px;">
+            <img src="/static/car-repair.png" alt="car" style="width:48px;height:48px;margin-bottom:0;object-fit:contain;filter: grayscale(10%) contrast(1.1);">
+        </div>
+        <div class="booking-plate">{{ booking.car.plate_number }}</div>
+        <a class="booking-phone" href="/clients/?search={{ booking.phone }}" style="font-size:1em;color:#007bff;margin-bottom:4px;direction:ltr;text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();">{{ booking.phone }}</a>
+        <div class="booking-date-label" style="font-size:0.98em;color:#888;margin-top:2px;">تاريخ الخدمة</div>
+        <div class="booking-date">{{ booking.service_date|date:"d/m/Y" }}</div>
+        <button type="submit" style="display:none;">بدء الصيانة</button>
+    </form>
+{% empty %}
+    <div>لا توجد حجوزات</div>
+{% endfor %}
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+function activateBookingCards() {
+    document.querySelectorAll('.booking-maintenance-form').forEach(function(form) {
+        form.addEventListener('click', function(e) {
+            if (e.target.tagName.toLowerCase() !== 'a') {
+                alert('clicked');
+                e.preventDefault();
+                // أضف csrf token ديناميكيًا قبل الإرسال
+                let csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                if (!csrfInput) {
+                    csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    form.appendChild(csrfInput);
+                }
+                csrfInput.value = getCookie('csrftoken');
+                form.querySelector('button[type="submit"]').click();
+            }
+        });
+    });
+}
+// تفعيل البطاقات عند تحميل الصفحة أو بعد أي تحديث ديناميكي
+activateBookingCards();
+</script>
+</div>

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<h2>{{ title|default:_("Add Part") }}</h2>
+<form method="post">
+    {% csrf_token %}
+    <div style="max-width:600px;">
+        {% for field in form %}
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-weight:bold;margin-bottom:6px;">{{ field.label_tag }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="text-muted">{{ field.help_text }}</div>{% endif %}
+                {% for err in field.errors %}<div style="color:#c00;">{{ err }}</div>{% endfor %}
+            </div>
+        {% endfor %}
+        <div style="margin-top:8px;color:#666;font-size:0.95em;">Note: Use <strong>Track Stock</strong> for items that reduce stock on sale. Use <strong>Purchase</strong> for items you buy from suppliers, and <strong>Sale</strong> for items you can sell.</div>
+        <button class="btn btn-primary" type="submit">{% trans "Save" %}</button>
+        <a href="/inventory/" class="btn" style="margin-left:8px;">{% trans "Cancel" %}</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+/* Unified catalog master/detail */
+.catalog { display:flex; gap:20px; align-items:flex-start; }
+.catalog-sidebar { width:280px; min-width:220px; background:#fff;border:1px solid #e6e6e6;border-radius:8px;padding:12px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.catalog-sidebar h3 { margin:0 0 8px 0 }
+.brands-list { list-style:none;margin:0;padding:0; max-height:520px; overflow:auto }
+.brands-list li { padding:10px;border-bottom:1px solid #f2f2f2; cursor:pointer; display:flex; justify-content:space-between; align-items:center; color: #111 }
+.brands-list li.active { background:#f5fbff; font-weight:600 }
+.catalog .main { flex:1; min-width:0 }
+.models-table-wrapper { overflow:auto; background:transparent; }
+.models-table-wrapper table { width:100%; table-layout:fixed; border-collapse:collapse; }
+.models-table-wrapper th, .models-table-wrapper td { padding:8px; border:1px solid #eee; }
+.models-table-wrapper thead tr { background:#f7f7f7; font-weight:600; color:#333; text-align:left }
+.actions { display:flex; gap:8px; margin-bottom:12px }
+.modal-backdrop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.35); z-index:9999; padding:16px }
+.modal { background:#fff; padding:12px; border-radius:8px; width:100%; max-width:420px; box-sizing:border-box; overflow:hidden }
+.modal h3 { margin:0 0 8px 0; font-size:1.05rem; }
+.modal input, .modal select { max-width:100%; box-sizing:border-box }
+@media (max-width:900px){ .catalog{flex-direction:column} .catalog-sidebar{width:100%} }
+</style>
+
+<h2 style="margin-top:18px;margin-bottom:14px;">Catalog — Brands & Models</h2>
+{% if message %}<div style="background:#e0f7e0;color:#1a7a1a;padding:10px 18px;border-radius:7px;margin-bottom:10px;">{{ message }}</div>{% endif %}
+
+<div class="catalog">
+    <div class="catalog-sidebar">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3>Brands</h3>
+            <div>
+                <a href="#" id="btnAddBrand" style="background:#007bff;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;">+ Add</a>
+            </div>
+        </div>
+        <div id="brands-bulk-toolbar" style="display:none; position:relative; margin-bottom:8px; background:#fff; padding:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06); justify-content:space-between; align-items:center; gap:12px; width:100%;">
+            <div style="display:flex;align-items:center;gap:12px;"><span id="brands-selected-count">0 Selected</span></div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button id="brands-bulk-edit" style="background:#ffc107;color:#000;padding:6px 10px;border-radius:4px;border:none;cursor:pointer;">Edit</button>
+                <button id="brands-bulk-delete" style="background:#dc3545;color:#fff;padding:6px 10px;border-radius:4px;border:none;cursor:pointer;">Delete</button>
+            </div>
+        </div>
+        <div style="max-height:520px; overflow:auto;">
+            <table class="brands-table" style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#f7f7f7;font-weight:600;color:#333; text-align:left;">
+                        <th style="width:36px; text-align:center;"><input type="checkbox" id="select-all-brands"></th>
+                        <th>Brand</th>
+                    </tr>
+                </thead>
+                <tbody id="brandsTable">
+                    <tr data-id="all" class="active"><td></td><td style="padding:8px;border:1px solid #eee">All Brands</td></tr>
+                    {% for brand in brands %}
+                    <tr data-id="{{ brand.id }}">
+                        <td style="text-align:center;padding:8px;border:1px solid #eee"><input class="brand-row-checkbox" type="checkbox" data-id="{{ brand.id }}"></td>
+                        <td style="padding:8px;border:1px solid #eee">{{ brand.name }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="actions">
+            <a href="#" id="btnAddModel" style="background:#007bff;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;">+ Add Model</a>
+            <input id="searchModel" placeholder="Search models" style="padding:8px;border-radius:6px;border:1px solid #ddd;flex:1">
+        </div>
+
+        <div id="models-bulk-toolbar" style="display:none; position:relative; margin-bottom:8px; background:#fff; padding:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06); justify-content:space-between; align-items:center; gap:12px; width:100%;">
+            <div style="display:flex;align-items:center;gap:12px;"><span id="models-selected-count">0 Selected</span></div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button id="models-bulk-edit" style="background:#ffc107;color:#000;padding:6px 10px;border-radius:4px;border:none;cursor:pointer;">Edit</button>
+                <button id="models-bulk-delete" style="background:#dc3545;color:#fff;padding:6px 10px;border-radius:4px;border:none;cursor:pointer;">Delete</button>
+            </div>
+        </div>
+
+        <div class="models-table-wrapper">
+        <table class="models-table">
+            <thead>
+                <tr style="background:#f7f7f7;font-weight:600;color:#333">
+                    <th style="width:36px;text-align:center;"><input type="checkbox" id="select-all-models"></th>
+                    <th>Brand</th>
+                    <th>Model</th>
+                </tr>
+            </thead>
+            <tbody id="modelsTable">
+                {% for model in models %}
+                <tr data-brand-id="{{ model.brand.id }}" data-model-id="{{ model.id }}" data-model-name="{{ model.name }}">
+                    <td style="padding:10px;text-align:center"><input class="model-row-checkbox" type="checkbox" data-id="{{ model.id }}"></td>
+                    <td style="padding:10px;text-align:center">{{ model.brand.name }}</td>
+                    <td style="padding:10px;text-align:center">{{ model.name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Brand Modal -->
+<div class="modal-backdrop" id="brandModal">
+    <div class="modal">
+        <h3 id="brandModalTitle">Add Brand</h3>
+        <form id="brandForm" method="post" action="{% url 'add_brand' %}">
+            {% csrf_token %}
+            <div id="brandFormMsg" style="display:none;margin-bottom:8px;padding:8px;border-radius:6px;color:#a11;background:#ffecec"></div>
+            <input type="text" name="name" id="brandNameInput" placeholder="Brand name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:8px">
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                <button type="button" id="brandCancel" style="background:#6c757d;color:#fff;padding:8px 12px;border-radius:6px;border:none">Cancel</button>
+                <button type="submit" id="brandSaveBtn" style="background:#007bff;color:#fff;padding:8px 12px;border-radius:6px;border:none">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add/Edit Model Modal -->
+<div class="modal-backdrop" id="modelModal">
+    <div class="modal">
+        <h3 id="modelModalTitle">Add Model</h3>
+        <form id="modelForm" method="post" action="{% url 'add_model' %}">
+            {% csrf_token %}
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <select name="brand" id="modelBrandSelect" style="padding:8px;border:1px solid #ddd;border-radius:6px">
+                    {% for brand in brands %}
+                        <option value="{{ brand.id }}">{{ brand.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="name" id="modelNameInput" placeholder="Model name" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px">
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                <button type="button" id="modelCancel" style="background:#6c757d;color:#fff;padding:8px 12px;border-radius:6px;border:none">Cancel</button>
+                <button type="submit" style="background:#007bff;color:#fff;padding:8px 12px;border-radius:6px;border:none">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Helpers
+const show = id => document.getElementById(id).style.display = 'flex';
+const hide = id => document.getElementById(id).style.display = 'none';
+
+// Brand selection filter and table interactions
+const brandsTableBody = document.getElementById('brandsTable');
+const modelRows = document.querySelectorAll('#modelsTable tr');
+
+if (brandsTableBody) {
+    brandsTableBody.addEventListener('click', (e)=>{
+        const tr = e.target.closest('tr[data-id]');
+        if(!tr) return;
+        // ignore clicks on checkboxes or action links
+        if(e.target.closest('input') || e.target.closest('a')) return;
+        // set active
+        Array.from(brandsTableBody.querySelectorAll('tr[data-id]')).forEach(r=> r.classList.remove('active'));
+        tr.classList.add('active');
+        const id = tr.getAttribute('data-id');
+        modelRows.forEach(r=> r.style.display = (id==='all' || r.getAttribute('data-brand-id')===id) ? '' : 'none');
+        const sel = document.getElementById('modelBrandSelect'); if(sel && id!=='all') sel.value = id;
+    });
+
+    // select-all and checkbox toolbar for brands
+    const selectAllBrands = document.getElementById('select-all-brands');
+    const rowCheckboxesBrands = Array.from(document.querySelectorAll('.brand-row-checkbox'));
+    const brandsToolbar = document.getElementById('brands-bulk-toolbar');
+    const brandsSelectedCount = document.getElementById('brands-selected-count');
+    const brandsEditBtn = document.getElementById('brands-bulk-edit');
+    const brandsDeleteBtn = document.getElementById('brands-bulk-delete');
+
+    function updateBrandsToolbar(){
+        const checked = rowCheckboxesBrands.filter(cb => cb.checked).map(cb=>cb.dataset.id);
+        if(checked.length>0){
+            brandsToolbar.style.display = 'flex';
+            brandsSelectedCount.textContent = checked.length + ' Selected';
+            if(brandsEditBtn) brandsEditBtn.disabled = checked.length!==1;
+        } else { brandsToolbar.style.display = 'none'; if(brandsEditBtn) brandsEditBtn.disabled = true; }
+    }
+
+    if(selectAllBrands){
+        selectAllBrands.addEventListener('change', function(){ rowCheckboxesBrands.forEach(cb=> cb.checked = selectAllBrands.checked); updateBrandsToolbar(); });
+    }
+    rowCheckboxesBrands.forEach(cb=> cb.addEventListener('change', updateBrandsToolbar));
+
+    if(brandsDeleteBtn){
+        brandsDeleteBtn.addEventListener('click', function(){
+            const ids = rowCheckboxesBrands.filter(cb=>cb.checked).map(cb=>cb.dataset.id);
+            if(ids.length===0) return; if(!confirm('Delete '+ids.length+' selected brands?')) return;
+            fetch('/brands/bulk-delete/', {
+                method: 'POST', headers: { 'Content-Type':'application/json', 'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] }, body: JSON.stringify({ids: ids})
+            }).then(r=>r.json()).then(data=>{ if(data.ok) location.reload(); else alert('Delete failed'); }).catch(()=> alert('Delete error'));
+        });
+    }
+
+    // Bulk edit via toolbar (only when exactly one selected)
+    if(brandsEditBtn){
+        brandsEditBtn.disabled = true;
+        brandsEditBtn.addEventListener('click', function(){
+            const ids = rowCheckboxesBrands.filter(cb=>cb.checked).map(cb=>cb.dataset.id);
+            if(ids.length!==1) return;
+            const id = ids[0];
+            const tr = document.querySelector('tr[data-id="'+id+'"]');
+            const name = tr && tr.children[1] ? tr.children[1].textContent.trim() : '';
+            document.getElementById('brandModalTitle').textContent = 'Edit Brand';
+            document.getElementById('brandForm').action = '/brands/' + id + '/edit/';
+            document.getElementById('brandNameInput').value = name;
+            show('brandModal');
+        });
+    }
+
+    // Double-click a brand row to edit it in modal (except 'all')
+    brandsTableBody.addEventListener('dblclick', function(e){
+        const tr = e.target.closest('tr[data-id]'); if(!tr) return;
+        const id = tr.getAttribute('data-id'); if(!id || id==='all') return;
+        const name = (tr.children[1] && tr.children[1].textContent) ? tr.children[1].textContent.trim() : '';
+        document.getElementById('brandModalTitle').textContent = 'Edit Brand';
+        document.getElementById('brandForm').action = '/brands/' + id + '/edit/';
+        document.getElementById('brandNameInput').value = name;
+        show('brandModal');
+    });
+}
+
+// Search models
+document.getElementById('searchModel').addEventListener('input', function(){
+    const q = this.value.trim().toLowerCase();
+    modelRows.forEach(r=>{
+        const name = r.children[1].textContent.trim().toLowerCase();
+        r.style.display = name.includes(q) ? '' : 'none';
+    });
+});
+
+// Brand modal: add
+document.getElementById('btnAddBrand').addEventListener('click', (e)=>{ e.preventDefault();
+    document.getElementById('brandModalTitle').textContent = 'Add Brand';
+    document.getElementById('brandForm').action = '{% url "add_brand" %}';
+    document.getElementById('brandNameInput').value = '';
+    show('brandModal');
+});
+document.getElementById('brandCancel').addEventListener('click', ()=> hide('brandModal'));
+
+// Brand edit now handled via double-click on brand rows
+
+// Model modal: add
+document.getElementById('btnAddModel').addEventListener('click', (e)=>{ e.preventDefault();
+    document.getElementById('modelModalTitle').textContent = 'Add Model';
+    document.getElementById('modelForm').action = '{% url "add_model" %}';
+    document.getElementById('modelNameInput').value = '';
+    show('modelModal');
+});
+document.getElementById('modelCancel').addEventListener('click', ()=> hide('modelModal'));
+
+// Model modal: edit
+document.querySelectorAll('.edit-model').forEach(btn=> btn.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const id = btn.getAttribute('data-id');
+    const name = btn.getAttribute('data-name');
+    const brandId = btn.getAttribute('data-brand-id');
+    document.getElementById('modelModalTitle').textContent = 'Edit Model';
+    document.getElementById('modelForm').action = '/models/' + id + '/edit/';
+    document.getElementById('modelNameInput').value = name;
+    const sel = document.getElementById('modelBrandSelect'); if(sel) sel.value = brandId;
+    show('modelModal');
+}));
+
+// Close modals when clicking backdrop
+document.querySelectorAll('.modal-backdrop').forEach(back=> back.addEventListener('click', (ev)=>{ if(ev.target===back) back.style.display='none'; }));
+</script>
+
+<script>
+// Models bulk selection and actions (checkboxes)
+document.addEventListener('DOMContentLoaded', function(){
+    const selectAll = document.getElementById('select-all-models');
+    const rowCheckboxes = Array.from(document.querySelectorAll('.model-row-checkbox'));
+    const toolbar = document.getElementById('models-bulk-toolbar');
+    const selectedCount = document.getElementById('models-selected-count');
+    const deleteBtn = document.getElementById('models-bulk-delete');
+    const editBtn = document.getElementById('models-bulk-edit');
+
+    function updateToolbar(){
+        const checked = rowCheckboxes.filter(cb => cb.checked).map(cb=>cb.dataset.id);
+        const wrapper = document.querySelector('.models-table-wrapper');
+        if(checked.length>0){
+            // size toolbar to match table wrapper to avoid visual overflow
+            if(wrapper){
+                toolbar.style.width = wrapper.clientWidth + 'px';
+                toolbar.style.boxSizing = 'border-box';
+                // align toolbar with wrapper (handles scrollbars/padding)
+                const parentLeft = toolbar.parentElement.getBoundingClientRect().left;
+                const wrapLeft = wrapper.getBoundingClientRect().left;
+                toolbar.style.marginLeft = (wrapLeft - parentLeft) + 'px';
+            }
+            toolbar.style.display = 'flex';
+            selectedCount.textContent = checked.length + ' Selected';
+            editBtn.disabled = checked.length!==1;
+        } else {
+            toolbar.style.display = 'none';
+            // clear inline sizing to return to normal flow
+            toolbar.style.width = '';
+            toolbar.style.marginLeft = '';
+            toolbar.style.boxSizing = '';
+        }
+    }
+
+    if(selectAll){
+        selectAll.addEventListener('change', function(){
+            rowCheckboxes.forEach(cb=> cb.checked = selectAll.checked);
+            rowCheckboxes.forEach(cb=> cb.closest('tr').classList.toggle('row-selected', cb.checked));
+            updateToolbar();
+        });
+    }
+
+    rowCheckboxes.forEach(cb=>{
+        cb.addEventListener('change', function(){
+            const tr = cb.closest('tr');
+            if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected');
+            updateToolbar();
+        });
+    });
+
+    // Bulk delete
+    deleteBtn.addEventListener('click', function(){
+        const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id);
+        if(ids.length===0) return;
+        if(!confirm('Delete '+ids.length+' selected models?')) return;
+        fetch('/models/bulk-delete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type':'application/json',
+                'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1]
+            },
+            body: JSON.stringify({ids: ids})
+        }).then(r=>r.json()).then(data=>{
+            if(data.ok){ location.reload(); }
+            else { alert('Delete failed'); }
+        }).catch(()=> alert('Delete error'));
+    });
+
+    // Bulk edit (only when exactly one selected)
+    editBtn.addEventListener('click', function(){
+        const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id);
+        if(ids.length!==1) return;
+        const id = ids[0];
+        // open model modal in Edit mode
+        document.getElementById('modelModalTitle').textContent = 'Edit Model';
+        document.getElementById('modelForm').action = '/models/' + id + '/edit/';
+        // prefill name and brand
+        const tr = document.querySelector('tr[data-model-id="'+id+'"]');
+        if(tr){
+            const name = tr.getAttribute('data-model-name') || tr.children[2].textContent.trim();
+            document.getElementById('modelNameInput').value = name;
+            const brandId = tr.getAttribute('data-brand-id');
+            const sel = document.getElementById('modelBrandSelect'); if(sel && brandId) sel.value = brandId;
+        }
+        show('modelModal');
+    });
+});
+// end models bulk actions
+// AJAX submit brand form to avoid redirect on duplicate
+document.getElementById('brandForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const url = this.action;
+    const formData = new FormData(this);
+    const msgBox = document.getElementById('brandFormMsg');
+    const saveBtn = document.getElementById('brandSaveBtn');
+    saveBtn.disabled = true;
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(r=>r.json()).then(data=>{
+        saveBtn.disabled = false;
+        if(data.success){
+            // append new brand row to table
+            const tbody = document.getElementById('brandsTable');
+            if(tbody){
+                const tr = document.createElement('tr'); tr.setAttribute('data-id', data.id);
+                tr.innerHTML = `<td style="text-align:center;padding:8px;border:1px solid #eee"><input class="brand-row-checkbox" type="checkbox" data-id="${data.id}"></td><td style="padding:8px;border:1px solid #eee">${data.name}</td>`;
+                tbody.appendChild(tr);
+            }
+            // add option to modelBrandSelect
+            const opt = document.createElement('option'); opt.value = data.id; opt.text = data.name; const sel = document.getElementById('modelBrandSelect'); if(sel) sel.appendChild(opt);
+            msgBox.style.display='none';
+            hide('brandModal');
+            // reload to ensure toolbar and handlers pick up new rows
+            location.reload();
+        } else {
+            msgBox.innerText = (data.errors && data.errors.length) ? data.errors.join('\n') : 'Error';
+            msgBox.style.display = 'block';
+        }
+    }).catch(err=>{
+        saveBtn.disabled = false;
+        msgBox.innerText = 'Network error'; msgBox.style.display='block';
+    });
+});
+</script>
+
+{% endblock %}

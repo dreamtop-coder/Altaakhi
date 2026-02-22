@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:600px;margin:auto;background:#fff;padding:28px;border-radius:8px;">
+    <h3>حذف عملية دفع</h3>
+    <p>هل أنت متأكد من حذف الدفعة لـ الفاتورة <strong>{{ invoice.invoice_number }}</strong> بمبلغ <strong>{{ payment.amount }}</strong>؟</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" style="background:#e53935;color:#fff;padding:8px 14px;border-radius:6px;border:none;margin-right:8px;">نعم، احذف</button>
+        <a href="{% url 'payments_list' %}">إلغاء</a>
+    </form>
+</div>
+{% endblock %}
