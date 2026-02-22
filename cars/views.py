@@ -16,9 +16,26 @@ from django.http import JsonResponse
 # Endpoint لإرجاع عدد السيارات المنتهية (sold)
 def get_done_count(request):
 	from .models import Car
-	count = Car.objects.filter(status='done').count()
-	paid_waiting = Car.objects.filter(status='paid_waiting_collection').count()
-	return JsonResponse({'done_count': count, 'paid_waiting_count': paid_waiting})
+	# Compute counts based on derived status so UI reflects maintenance records
+	done_count = 0
+	paid_waiting_count = 0
+	try:
+		all_cars = Car.objects.all()
+		for c in all_cars:
+			try:
+				st = derive_car_status(c)
+			except Exception:
+				st = getattr(c, 'status', None)
+			if st == 'done':
+				done_count += 1
+			# keep paid_waiting_count compatible with DB semantic for this badge
+			if getattr(c, 'status', None) == 'paid_waiting_collection' or st == 'paid_waiting_collection':
+				paid_waiting_count += 1
+	except Exception:
+		# fallback to DB counts if something goes wrong
+		done_count = Car.objects.filter(status='done').count()
+		paid_waiting_count = Car.objects.filter(status='paid_waiting_collection').count()
+	return JsonResponse({'done_count': done_count, 'paid_waiting_count': paid_waiting_count})
 from .forms_edit_maintenance import EditMaintenanceRecordForm
 # تعديل سجل الصيانة
 def edit_maintenance_record_fields(request, record_id):
@@ -113,8 +130,10 @@ def derive_car_status(car):
 	Returns one of: 'waiting', 'in_progress', 'pending_payment', 'ready', 'done'.
 	"""
 	from django.db.models import Sum
-	# latest non-delivered record
-	last = car.maintenance_records.filter(delivery_date__isnull=True).order_by('-created_at').first()
+	# latest non-delivered record — tie-break by PK to handle same-timestamp inserts
+	# Use both created_at and id so records with identical timestamps still
+	# deterministically select the newest record.
+	last = car.maintenance_records.filter(delivery_date__isnull=True).order_by('-created_at', '-id').first()
 	if last:
 		# compute remaining amount if linked invoice exists
 		inv = getattr(last, 'invoice', None)
@@ -534,7 +553,9 @@ def deliver_car(request, car_id):
 				record_to_deliver.save()
 			except Exception:
 				pass
-			car.status = 'done'
+			# mark car as active (available) after delivery; workflow state is
+			# derived from maintenance records so the car can re-enter service
+			car.status = 'active'
 			car.save()
 	# بعد التسليم، أعد التوجيه إلى لوحة التحكم
 	return redirect('/dashboard/')
@@ -580,7 +601,7 @@ def mark_collected(request, car_id):
 		for rec in MaintenanceRecord.objects.filter(car=car, delivery_date__isnull=True):
 			rec.delivery_date = now
 			rec.save()
-		car.status = 'done'
+			car.status = 'active'
 		car.save()
 	return redirect('/dashboard/')
 

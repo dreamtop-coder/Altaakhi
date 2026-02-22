@@ -2,7 +2,10 @@ import sqlite3
 from decimal import Decimal
 
 DB = 'db.sqlite3'
-plate = 'SMOKE98408'
+import sys
+plate = '70016'
+if len(sys.argv) > 1:
+    plate = sys.argv[1]
 
 con = sqlite3.connect(DB)
 con.row_factory = sqlite3.Row

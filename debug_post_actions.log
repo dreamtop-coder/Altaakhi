@@ -33,3 +33,10 @@ POST-COMPLETE: car_id=27 status=in_progress invoice_id=34 amount=240.0
 POST-COMPLETE: car_id=30 status=in_progress invoice_id=37 amount=120.0
 POST-COMPLETE: car_id=None status=None invoice_id=38 amount=120.0
 POST-COMPLETE: car_id=33 status=in_progress invoice_id=40 amount=120.0
+POST-COMPLETE: car_id=None status=None invoice_id=45 amount=10.0
+POST-COMPLETE: car_id=38 status=in_progress invoice_id=46 amount=120.0
+POST-COMPLETE: car_id=None status=None invoice_id=48 amount=120.0
+POST-COMPLETE: car_id=40 status=in_progress invoice_id=49 amount=120.0
+POST-COMPLETE: car_id=None status=None invoice_id=50 amount=120.0
+POST-COMPLETE: car_id=41 status=in_progress invoice_id=52 amount=120.0
+POST-COMPLETE: car_id=None status=None invoice_id=53 amount=110.0

@@ -125,3 +125,9 @@ BEFORE: car_id=30 status=waiting
 STATUS-TRANSITION: car_id=30 -> in_progress
 BEFORE: car_id=33 status=waiting
 STATUS-TRANSITION: car_id=33 -> in_progress
+BEFORE: car_id=38 status=waiting
+STATUS-TRANSITION: car_id=38 -> in_progress
+BEFORE: car_id=40 status=waiting
+STATUS-TRANSITION: car_id=40 -> in_progress
+BEFORE: car_id=41 status=waiting
+STATUS-TRANSITION: car_id=41 -> in_progress

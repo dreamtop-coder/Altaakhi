@@ -54,6 +54,8 @@ ALLOWED_HOSTS = [
     'www.altaakhitowers.com'
 ]
 
+# Note: 'testserver' is used by Django Test Client; keep it for local test runs.
+
 
 # Application definition
 
