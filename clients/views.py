@@ -199,7 +199,13 @@ def search_clients_api(request):
 		qs = Client.objects.all().order_by('-id')[:50]
 	for c in qs:
 		plates = [car.plate_number for car in c.cars.all()[:5] if car.plate_number]
-		cars_list = [{'id': car.id, 'plate': car.plate_number} for car in c.cars.all()[:20] if car.plate_number]
+		cars_list = []
+		for car in c.cars.all()[:20]:
+			if not car.plate_number:
+				continue
+			brand = car.brand.name if getattr(car, 'brand', None) else ''
+			model = car.model.name if getattr(car, 'model', None) else ''
+			cars_list.append({'id': car.id, 'plate': car.plate_number, 'brand': brand, 'model': model})
 		results.append({'id': c.id, 'name': f"{c.first_name} {c.last_name or ''}".strip(), 'phone': getattr(c, 'phone_number', ''), 'plates': plates, 'cars': cars_list})
 	return JsonResponse({'results': results})
 

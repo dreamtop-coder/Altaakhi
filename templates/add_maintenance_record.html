@@ -400,8 +400,23 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if(item.plates && item.plates.length){
                                 // if exactly one plate, set it; if multiple, show chooser to force explicit pick
                                 if(item.plates.length === 1){
-                                    if(plateEl) plateEl.value = item.plates[0];
-                                    if(showEl) showEl.textContent = item.plates[0];
+                                    var singlePlate = item.plates[0];
+                                    if(plateEl) plateEl.value = singlePlate;
+                                    // try to find matching car object for richer label
+                                    var richLabel = singlePlate;
+                                    if(item.cars && item.cars.length){
+                                        for(var ii=0; ii<item.cars.length; ii++){
+                                            var cc = item.cars[ii];
+                                            if(cc.plate === singlePlate){
+                                                var br = cc.brand || '';
+                                                var mo = cc.model || '';
+                                                var sfx = ((br? (br + ' '): '') + (mo || '')).trim();
+                                                if(sfx) richLabel = singlePlate + ' - ' + sfx;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if(showEl) showEl.textContent = richLabel;
                                 }
                                 // if multiple plates, append a small chooser
                                 if(item.plates.length > 1 && showEl){
@@ -410,8 +425,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                     // prefer item.cars with ids when available
                                     var carList = (item.cars && item.cars.length) ? item.cars : item.plates.map(function(p, idx){ return {id: null, plate: p}; });
                                     carList.forEach(function(c){
-                                        var btn = document.createElement('button'); btn.type='button'; btn.style.margin='0 6px'; btn.style.padding='2px 6px'; btn.style.border='1px solid #e6e6e6'; btn.style.borderRadius='4px'; btn.style.background='#fff'; btn.style.cursor='pointer'; btn.textContent = c.plate;
-                                        btn.addEventListener('click', function(ev){ ev.stopPropagation(); if(plateEl) plateEl.value = c.plate; if(showEl) showEl.textContent = c.plate; try{ var selectEl2 = document.getElementById('id_selected_client_car'); if(selectEl2){ if(c.id) selectEl2.value = c.id; } }catch(e){} });
+                                        var btn = document.createElement('button'); btn.type='button'; btn.style.margin='0 6px'; btn.style.padding='2px 6px'; btn.style.border='1px solid #e6e6e6'; btn.style.borderRadius='4px'; btn.style.background='#fff'; btn.style.cursor='pointer';
+                                        var b = c.brand || '';
+                                        var m = c.model || '';
+                                        var suffix = ((b? (b + ' '): '') + (m || '')).trim();
+                                        btn.textContent = suffix ? (c.plate + ' - ' + suffix) : c.plate;
+                                        btn.addEventListener('click', function(ev){ ev.stopPropagation(); if(plateEl) plateEl.value = c.plate; if(showEl) showEl.textContent = (suffix ? (c.plate + ' - ' + suffix) : c.plate); try{ var selectEl2 = document.getElementById('id_selected_client_car'); if(selectEl2){ if(c.id) selectEl2.value = c.id; } }catch(e){} });
                                         chooser.appendChild(btn);
                                     });
                                     // remove old chooser if exists
@@ -432,7 +451,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                     selectEl.innerHTML = '';
                                     if(item.cars && item.cars.length){
                                         item.cars.forEach(function(c){
-                                            var opt = document.createElement('option'); opt.value = c.id; opt.text = c.plate; selectEl.appendChild(opt);
+                                            var opt = document.createElement('option'); opt.value = c.id;
+                                            var label = (c.plate || '');
+                                            var brand = c.brand || '';
+                                            var model = c.model || '';
+                                            var suffix = ((brand? (brand + ' ') : '') + (model || '')).trim();
+                                            if(suffix) label = label + ' - ' + suffix;
+                                            opt.text = label;
+                                            selectEl.appendChild(opt);
                                         });
                                     }
                                 }
@@ -612,7 +638,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // populate select with car ids
         try{
             var selectEl = document.getElementById('id_selected_client_car');
-            if(selectEl){ selectEl.innerHTML = ''; if(item.cars && item.cars.length){ item.cars.forEach(function(c){ var opt = document.createElement('option'); opt.value = c.id; opt.text = c.plate; selectEl.appendChild(opt); }); } }
+            if(selectEl){ selectEl.innerHTML = ''; if(item.cars && item.cars.length){ item.cars.forEach(function(c){ var opt = document.createElement('option'); opt.value = c.id; var label = (c.plate||''); var brand = c.brand || ''; var model = c.model || ''; var suffix = ((brand? (brand + ' '):'') + (model||'')).trim(); if(suffix) label = label + ' - ' + suffix; opt.text = label; selectEl.appendChild(opt); }); } }
         }catch(e){}
         closeCustomerModal(); clearSuggestions();
     }
