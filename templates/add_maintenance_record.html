@@ -203,11 +203,21 @@
                         {% else %}
                             <input type="hidden" name="plate_number" id="id_plate_number" value="" />
                         {% endif %}
-                        <div style="margin-top:8px;">
-                            <label class="maintenance-label">اختيار مركبة العميل (إن وُجد)</label>
-                            {{ form.selected_client_car }}
-                        </div>
-                        <div id="selected-plate" class="small-muted" style="margin-top:6px;">{% if car_instance %}{{ car_instance.plate_number }}{% endif %}</div>
+                        {% if car_instance %}
+                            <div style="margin-top:8px;">
+                                <label class="maintenance-label">المركبة المحددة</label>
+                                <div id="selected-plate" class="small-muted" style="margin-top:6px;">
+                                    {{ car_instance.plate_number }}{% if car_instance.brand %} - {{ car_instance.brand.name }}{% endif %}{% if car_instance.model %} {{ car_instance.model.name }}{% endif %}
+                                </div>
+                                <input type="hidden" name="selected_client_car" id="id_selected_client_car" value="{{ car_instance.id }}" />
+                            </div>
+                        {% else %}
+                            <div style="margin-top:8px;">
+                                <label class="maintenance-label">اختيار مركبة العميل (إن وُجد)</label>
+                                {{ form.selected_client_car }}
+                            </div>
+                            <div id="selected-plate" class="small-muted" style="margin-top:6px;"></div>
+                        {% endif %}
                         <div id="customer-suggestions" style="position:relative;display:none;"></div>
                         <!-- plate/car lookup removed per request -->
                     </div>
