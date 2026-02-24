@@ -205,7 +205,7 @@
                         {% endif %}
                         {% if car_instance %}
                             <div style="margin-top:8px;">
-                                <label class="maintenance-label">المركبة المحددة</label>
+                                <label class="maintenance-label">Selected Vehicle</label>
                                 <div id="selected-plate" class="small-muted" style="margin-top:6px;">
                                     {{ car_instance.plate_number }}{% if car_instance.brand %} - {{ car_instance.brand.name }}{% endif %}{% if car_instance.model %} {{ car_instance.model.name }}{% endif %}
                                 </div>
