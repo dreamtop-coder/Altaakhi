@@ -1,5 +1,11 @@
 {% load static %}
 {% load custom_filters %}
+<style>
+.cars-mobile-wrapper { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; width:100%; box-sizing:border-box; }
+.cars-mobile-wrapper > * { box-sizing:border-box; padding:12px 14px; min-height:120px; }
+.cars-mobile-wrapper .car-card { margin:6px; flex: 0 0 240px; }
+@media (max-width:700px){ .cars-mobile-wrapper > * { width:calc(50% - 12px); } }
+</style>
 <div class="cars-mobile-wrapper">
   {% for car in cars %}
     <div class="car-card" data-car-id="{{ car.id }}" data-status="{{ car.derived_status|default:car.status }}">
