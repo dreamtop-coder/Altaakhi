@@ -359,10 +359,39 @@ def invoices_list(request):
     invoices = Invoice.objects.select_related('client', 'car').order_by('-created_at')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
+    # General search q: matches invoice number, client name, or car plate (including client's other cars)
+    q = (request.GET.get('q') or '').strip()
+    car_number = (request.GET.get('car_number') or '').strip()
+    invoice_number_q = (request.GET.get('invoice_number') or '').strip()
     if start_date:
         invoices = invoices.filter(created_at__date__gte=parse_date(start_date))
     if end_date:
         invoices = invoices.filter(created_at__date__lte=parse_date(end_date))
+    # Apply search filters
+    try:
+        from clients.models import Client
+        if q:
+            # search clients by name/phone/customer id or invoices' car plate
+            client_qs = Client.objects.filter(
+                models.Q(first_name__icontains=q) |
+                models.Q(last_name__icontains=q) |
+                models.Q(phone_number__icontains=q) |
+                models.Q(customer_id__icontains=q) |
+                models.Q(cars__plate_number__icontains=q)
+            ).distinct()
+            if client_qs.exists():
+                invoices = invoices.filter(models.Q(client__in=client_qs) | models.Q(car__plate_number__icontains=q)).distinct()
+            else:
+                invoices = invoices.filter(models.Q(car__plate_number__icontains=q) | models.Q(invoice_number__icontains=q)).distinct()
+        if car_number:
+            # include invoices where the invoice.car matches OR the client has a car with that plate
+            client_qs2 = Client.objects.filter(cars__plate_number__icontains=car_number).distinct()
+            invoices = invoices.filter(models.Q(car__plate_number__icontains=car_number) | models.Q(client__in=client_qs2)).distinct()
+        if invoice_number_q:
+            invoices = invoices.filter(invoice_number__icontains=invoice_number_q)
+    except Exception:
+        # best-effort: ignore search errors and continue
+        pass
     total_amount = invoices.aggregate(total=Sum('amount'))['total'] or 0
 
     # Pagination / per-page handling

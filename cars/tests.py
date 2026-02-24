@@ -34,3 +34,35 @@ class DerivedStatusTest(TestCase):
 		self.car.refresh_from_db()
 		self.assertEqual(derive_car_status(self.car), 'in_progress')
 
+
+class CarWorkshopLogicTest(TestCase):
+	def setUp(self):
+		from clients.models import Client
+		from services.models import Department
+		# create client and car
+		self.client = Client.objects.create(first_name='Test', last_name='Client', phone_number='000')
+		self.car = Car.objects.create(client=self.client, plate_number='UNIT-123')
+		# create department/service
+		dept = Department.objects.create(name='General')
+		self.service = Service.objects.create(name='Oil Change', default_price=50, department=dept)
+
+	def test_no_records(self):
+		# Car with no maintenance records
+		self.assertFalse(self.car.is_in_workshop())
+		self.assertIsNone(self.car.get_current_record())
+
+	def test_open_record(self):
+		# create an open maintenance record (defaults to is_finished=False)
+		mr = MaintenanceRecord.objects.create(car=self.car, service=self.service, price=100)
+		self.assertTrue(self.car.is_in_workshop())
+		current = self.car.get_current_record()
+		self.assertIsNotNone(current)
+		self.assertEqual(current.id, mr.id)
+		self.assertFalse(current.is_finished)
+
+	def test_finished_last_record(self):
+		# create a finished maintenance record
+		mr = MaintenanceRecord.objects.create(car=self.car, service=self.service, price=80, is_finished=True)
+		self.assertFalse(self.car.is_in_workshop())
+		self.assertIsNone(self.car.get_current_record())
+

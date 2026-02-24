@@ -74,7 +74,24 @@ def add_maintenance_record(request):
                 _f.write(f"RECEIVED POST: keys={list(request.POST.keys())}\n")
         except Exception:
             pass
+        # If user selected a client earlier in the form (selected_client_id),
+        # prepare the `selected_client_car` queryset before validating the form
+        sel_cid = request.POST.get('selected_client_id')
+        client_for_queryset = None
+        if sel_cid:
+            try:
+                from clients.models import Client
+                client_for_queryset = Client.objects.get(id=sel_cid)
+            except Exception:
+                client_for_queryset = None
+
         form = AddMaintenanceForm(request.POST, initial=initial)
+        try:
+            if client_for_queryset:
+                form.fields['selected_client_car'].queryset = Car.objects.filter(client=client_for_queryset)
+        except Exception:
+            pass
+
         if form.is_valid():
             car = form.get_car_instance()
             # Fallback: if form did not resolve a car instance, try to find by plate number
@@ -113,16 +130,69 @@ def add_maintenance_record(request):
                     except Exception:
                         client_obj = None
 
+            # If car wasn't resolved earlier, attempt to resolve from submitted plate
+            if not car:
+                try:
+                    plate_sub = (request.POST.get('plate_number') or '').strip()
+                    if plate_sub:
+                        car = Car.objects.filter(plate_number__iexact=plate_sub).first()
+                except Exception:
+                    car = None
+
+            # If still no car but we have a client, try to resolve heuristically.
+            if not car and client_obj:
+                try:
+                    client_cars_qs = Car.objects.filter(client=client_obj)
+                    cnt = client_cars_qs.count()
+                    if cnt == 1:
+                        car = client_cars_qs.first()
+                    elif cnt > 1:
+                        # If client has multiple cars and the user didn't explicitly
+                        # select one via the `selected_client_car` field or plate,
+                        # require explicit selection to avoid guessing.
+                        sel_car_from_form = form.cleaned_data.get('selected_client_car') if hasattr(form, 'cleaned_data') else None
+                        plate_sub2 = (request.POST.get('plate_number') or '').strip()
+                        if not sel_car_from_form and not plate_sub2:
+                            return render(request, 'add_maintenance_record.html', {
+                                'form': form,
+                                'car_instance': car_instance,
+                                'clients_sample': [],
+                                'error': 'العميل لديه أكثر من مركبة، الرجاء اختيار رقم اللوحة أو تحديد المركبة من القائمة.'
+                            })
+                except Exception:
+                    pass
+
             if not client_obj:
                 return render(request, 'add_maintenance_record.html', {'form': form, 'car_instance': car_instance, 'error': 'تأكد من وجود عميل مختار أو رقم مركبة.'})
 
             # find existing unpaid invoice for this client/car if any
+            # Avoid reusing an unpaid invoice that was created before the last
+            # delivery for this car (i.e. ensure new maintenance starts a fresh
+            # billing cycle). Only reuse unpaid invoices created *after* the
+            # most recent delivery_date for the car.
+            invoice = None
             if car and client_obj:
-                invoice = Invoice.objects.filter(car=car, client=client_obj, paid=False).first()
+                try:
+                    last_delivered = car.maintenance_records.filter(delivery_date__isnull=False).order_by('-delivery_date').first()
+                    if last_delivered and getattr(last_delivered, 'delivery_date', None):
+                        invoice = Invoice.objects.filter(car=car, client=client_obj, paid=False, created_at__gte=last_delivered.delivery_date).order_by('-created_at').first()
+                    else:
+                        invoice = Invoice.objects.filter(car=car, client=client_obj, paid=False).order_by('-created_at').first()
+                except Exception:
+                    invoice = Invoice.objects.filter(car=car, client=client_obj, paid=False).first()
             elif client_obj:
-                invoice = Invoice.objects.filter(client=client_obj, paid=False).first()
-            else:
-                invoice = None
+                invoice = Invoice.objects.filter(client=client_obj, paid=False).order_by('-created_at').first()
+            # Prevent creating a new maintenance when there's an open maintenance record
+            try:
+                if car and MaintenanceRecord.objects.filter(car=car, is_finished=False).exists():
+                    return render(request, 'add_maintenance_record.html', {
+                        'form': form,
+                        'car_instance': car_instance,
+                        'error': 'لا يمكن إنشاء صيانة جديدة: توجد صيانة مفتوحة للمركبة.'
+                    })
+            except Exception:
+                # best-effort: if the check fails, continue and let later logic handle errors
+                pass
             # capture submitted items_json early so we can decide whether to create an invoice
             items_json = request.POST.get('items_json')
             # Determine invoice number: prefer submitted value if provided, otherwise compute next
@@ -507,13 +577,28 @@ def add_maintenance_record(request):
             return redirect('/maintenance/')
     else:
         form = AddMaintenanceForm(initial=initial)
+        try:
+            sel_cid_get = request.GET.get('selected_client_id')
+            if car_instance and getattr(car_instance, 'client', None):
+                form.fields['selected_client_car'].queryset = Car.objects.filter(client=car_instance.client)
+            elif sel_cid_get:
+                try:
+                    from clients.models import Client
+                    cl = Client.objects.filter(id=sel_cid_get).first()
+                    if cl:
+                        form.fields['selected_client_car'].queryset = Car.objects.filter(client=cl)
+                except Exception:
+                    pass
+        except Exception:
+            pass
     # Provide a small client list for frontend autocomplete (no extra endpoint required)
     clients_sample = []
     try:
         from clients.models import Client
         for c in Client.objects.all()[:200]:
             plates = [car.plate_number for car in c.cars.all()[:5] if car.plate_number]
-            clients_sample.append({'id': c.id, 'name': f"{c.first_name} {c.last_name or ''}".strip(), 'phone': getattr(c, 'phone', ''), 'plates': plates})
+            cars_list = [{'id': car.id, 'plate': car.plate_number} for car in c.cars.all()[:20] if car.plate_number]
+            clients_sample.append({'id': c.id, 'name': f"{c.first_name} {c.last_name or ''}".strip(), 'phone': getattr(c, 'phone', ''), 'plates': plates, 'cars': cars_list})
     except Exception:
         clients_sample = []
     # compute next invoice number for prefilling the form

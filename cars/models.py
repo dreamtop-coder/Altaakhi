@@ -68,3 +68,25 @@ class Car(models.Model):
 	def unpaid_invoice_id(self):
 		unpaid_invoice = self.invoices.filter(paid=False).first()
 		return unpaid_invoice.id if unpaid_invoice else None
+
+	def is_in_workshop(self):
+		"""Return True when there is an open (unfinished & not delivered)
+		maintenance record for this car.
+		This centralizes the workshop membership logic to avoid repeating
+		queries across views and templates.
+		"""
+		try:
+			from .maintenance_models import MaintenanceRecord
+			return MaintenanceRecord.objects.filter(car=self, is_finished=False, delivery_date__isnull=True).exists()
+		except Exception:
+			return False
+
+	def get_current_record(self):
+		"""Return the current open MaintenanceRecord for this car, if any.
+		Prefers the most recently created unfinished record.
+		"""
+		try:
+			from .maintenance_models import MaintenanceRecord
+			return MaintenanceRecord.objects.filter(car=self, is_finished=False, delivery_date__isnull=True).order_by('-created_at', '-id').first()
+		except Exception:
+			return None

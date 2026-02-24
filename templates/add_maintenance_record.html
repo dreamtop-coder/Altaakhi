@@ -203,6 +203,10 @@
                         {% else %}
                             <input type="hidden" name="plate_number" id="id_plate_number" value="" />
                         {% endif %}
+                        <div style="margin-top:8px;">
+                            <label class="maintenance-label">اختيار مركبة العميل (إن وُجد)</label>
+                            {{ form.selected_client_car }}
+                        </div>
                         <div id="selected-plate" class="small-muted" style="margin-top:6px;">{% if car_instance %}{{ car_instance.plate_number }}{% endif %}</div>
                         <div id="customer-suggestions" style="position:relative;display:none;"></div>
                         <!-- plate/car lookup removed per request -->
@@ -393,17 +397,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         try{
                             var plateEl = document.getElementById('id_plate_number');
                             var showEl = document.getElementById('selected-plate');
-                            if(item.plates && item.plates.length){
-                                // default to first plate
-                                if(plateEl) plateEl.value = item.plates[0];
-                                if(showEl) showEl.textContent = item.plates[0];
+                                if(item.plates && item.plates.length){
+                                // if exactly one plate, set it; if multiple, show chooser to force explicit pick
+                                if(item.plates.length === 1){
+                                    if(plateEl) plateEl.value = item.plates[0];
+                                    if(showEl) showEl.textContent = item.plates[0];
+                                }
                                 // if multiple plates, append a small chooser
                                 if(item.plates.length > 1 && showEl){
                                     var chooser = document.createElement('div'); chooser.style.marginTop='6px'; chooser.style.fontSize='13px'; chooser.style.color='#1976d2';
                                     chooser.textContent = 'Choose plate: ';
-                                    item.plates.forEach(function(p){
-                                        var btn = document.createElement('button'); btn.type='button'; btn.style.margin='0 6px'; btn.style.padding='2px 6px'; btn.style.border='1px solid #e6e6e6'; btn.style.borderRadius='4px'; btn.style.background='#fff'; btn.style.cursor='pointer'; btn.textContent = p;
-                                        btn.addEventListener('click', function(ev){ ev.stopPropagation(); if(plateEl) plateEl.value = p; if(showEl) showEl.textContent = p; });
+                                    // prefer item.cars with ids when available
+                                    var carList = (item.cars && item.cars.length) ? item.cars : item.plates.map(function(p, idx){ return {id: null, plate: p}; });
+                                    carList.forEach(function(c){
+                                        var btn = document.createElement('button'); btn.type='button'; btn.style.margin='0 6px'; btn.style.padding='2px 6px'; btn.style.border='1px solid #e6e6e6'; btn.style.borderRadius='4px'; btn.style.background='#fff'; btn.style.cursor='pointer'; btn.textContent = c.plate;
+                                        btn.addEventListener('click', function(ev){ ev.stopPropagation(); if(plateEl) plateEl.value = c.plate; if(showEl) showEl.textContent = c.plate; try{ var selectEl2 = document.getElementById('id_selected_client_car'); if(selectEl2){ if(c.id) selectEl2.value = c.id; } }catch(e){} });
                                         chooser.appendChild(btn);
                                     });
                                     // remove old chooser if exists
@@ -416,6 +424,19 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if(plateEl) plateEl.value = '';
                                 if(showEl) showEl.textContent = '';
                             }
+                            // populate selected_client_car select if present
+                            try{
+                                var selectEl = document.getElementById('id_selected_client_car');
+                                if(selectEl){
+                                    // clear existing options
+                                    selectEl.innerHTML = '';
+                                    if(item.cars && item.cars.length){
+                                        item.cars.forEach(function(c){
+                                            var opt = document.createElement('option'); opt.value = c.id; opt.text = c.plate; selectEl.appendChild(opt);
+                                        });
+                                    }
+                                }
+                            }catch(ex){}
                         }catch(ex){}
                         clearSuggestions();
                     });
@@ -585,7 +606,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         tbl.appendChild(tbody); resultsBox.appendChild(tbl);
     }
-    function selectClientFromModal(item){ document.getElementById('selected_client_id').value = item.id; custInput.value = item.name; closeCustomerModal(); clearSuggestions(); }
+    function selectClientFromModal(item){
+        document.getElementById('selected_client_id').value = item.id;
+        custInput.value = item.name;
+        // populate select with car ids
+        try{
+            var selectEl = document.getElementById('id_selected_client_car');
+            if(selectEl){ selectEl.innerHTML = ''; if(item.cars && item.cars.length){ item.cars.forEach(function(c){ var opt = document.createElement('option'); opt.value = c.id; opt.text = c.plate; selectEl.appendChild(opt); }); } }
+        }catch(e){}
+        closeCustomerModal(); clearSuggestions();
+    }
 
     // --- Items table logic ---
     function parseFloatSafe(v){ var n = parseFloat(v); return isNaN(n)?0:n; }

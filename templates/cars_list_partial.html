@@ -107,14 +107,14 @@
         {% endwith %}
       {% endwith %}
       
-      {% if car.derived_status == 'ready' or car.status == 'ready' %}
+      {% if car.derived_status == 'ready' %}
         <form method="post" action="/cars/deliver/{{ car.id }}/" style="width:100%;">
           {% csrf_token %}
           <div style="border:1px solid #28a745;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#eaffea;transition:box-shadow 0.2s;">
             <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
             <a href="/cars/?plate_number={{ car.plate_number }}" class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;text-decoration:underline;color:#222;">{{ car.plate_number }}</a>
             <div class="client-name" style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
-            {% if car.work_days and car.derived_status != 'waiting' or car.work_days and car.status != 'waiting' %}
+            {% if car.work_days and car.derived_status != 'waiting' %}
               <div style="color:#007bff;font-size:0.95em;">
                 مدة العمل: 
                 {% if car.work_days == 1 %}يوم واحد
@@ -129,13 +129,13 @@
             <div style="margin-top:8px;color:#28a745;font-weight:bold;">جاهزة للتسليم</div>
           </div>
         </form>
-      {% elif car.derived_status == 'pending_payment' and car.unpaid_invoice_id or car.status == 'pending_payment' and car.unpaid_invoice_id %}
+      {% elif car.derived_status == 'pending_payment' and car.unpaid_invoice_id %}
         <a href="/invoices/pay/invoice/{{ car.unpaid_invoice_id }}/" style="text-decoration:none;">
           <div style="border:1.5px solid #e67e22;padding:18px 24px;border-radius:12px;min-width:180px;max-width:250px;width:220px;display:flex;flex-direction:column;align-items:center;background:#fffbe6;transition:box-shadow 0.2s;cursor:pointer;">
             <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
             <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
             <div class="client-name" style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
-            {% if car.work_days and car.derived_status != 'waiting' or car.work_days and car.status != 'waiting' %}
+            {% if car.work_days and car.derived_status != 'waiting' %}
               <div style="color:#007bff;font-size:0.95em;">
                 مدة العمل: 
                 {% if car.work_days == 1 %}يوم واحد
@@ -149,7 +149,7 @@
             <div style="margin-top:10px;color:#e67e22;font-weight:bold;">معلق للدفع</div>
           </div>
         </a>
-            {% elif car.status == 'paid_waiting_collection' %}
+            {% elif car.derived_status == 'paid_waiting_collection' %}
             <div style="border:1.5px solid #6f42c1;padding:18px 24px;border-radius:12px;min-width:180px;max-width:250px;width:220px;display:flex;flex-direction:column;align-items:center;background:#f5f0ff;transition:box-shadow 0.2s;cursor:pointer;">
               <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
               <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
@@ -161,19 +161,19 @@
                 <button type="submit" class="collect-btn" style="padding:8px 12px;background:#28a745;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;width:100%;">تم الاستلام</button>
               </form>
             </div>
-      {% elif car.derived_status == 'pending_payment' and not car.unpaid_invoice_id or car.status == 'pending_payment' and not car.unpaid_invoice_id %}
+      {% elif car.derived_status == 'pending_payment' and not car.unpaid_invoice_id %}
         <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;opacity:0.5;cursor:not-allowed;">
           <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
           <div style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
           <div style="color:#c00;font-size:1em;margin-bottom:2px;">لا توجد فاتورة غير مدفوعة</div>
         </div>
-      {% elif car.status == 'delivered' or car.status == 'done' or car.derived_status == 'done' %}
+      {% elif car.derived_status == 'done' %}
           <a href="/cars/?plate_number={{ car.plate_number }}" style="text-decoration:none;color:inherit;display:block;width:100%;">
             <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;transition:box-shadow 0.2s;cursor:pointer;">
               <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
               <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
               <div class="client-name" style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
-              {% if car.work_days and car.derived_status != 'waiting' or car.work_days and car.status != 'waiting' %}
+              {% if car.work_days and car.derived_status != 'waiting' %}
                 <div style="color:#007bff;font-size:0.95em;">
                   مدة العمل: 
                   {% if car.work_days == 1 %}يوم واحد
@@ -187,14 +187,14 @@
               <div style="margin-top:8px;color:#6c757d;font-weight:bold;">منتهية</div>
             </div>
           </a>
-      {% else %}
+          {% else %}
         <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;transition:box-shadow 0.2s;cursor:pointer;">
             <a href="/cars/?plate_number={{ car.plate_number }}" style="text-decoration:none;">
             <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
             <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
           </a>
           <div style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
-          {% if car.work_days and car.status != 'waiting' %}
+          {% if car.work_days and car.derived_status != 'waiting' %}
             <div style="color:#007bff;font-size:0.95em;">
               مدة العمل: 
               {% if car.work_days == 1 %}يوم واحد
@@ -205,14 +205,12 @@
           {% else %}
             <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
           {% endif %}
-            {% if car.status == 'active' or car.derived_status == 'waiting' or car.status == 'waiting' %}
-              {% with active_maintenance=car.maintenance_records.all|dictsortreversed:"created_at"|first %}
-                {% if not active_maintenance or active_maintenance.is_finished %}
+            {% if car.derived_status == 'waiting' %}
+                {% if not car.is_in_workshop %}
                   <a href="/maintenance/add/?car_id={{ car.id }}" class="btn btn-primary btn-sm" style="margin-top:10px;">إضافة سجل صيانة</a>
                 {% endif %}
-              {% endwith %}
             {% endif %}
-            {% if car.derived_status == 'in_progress' or car.status == 'in_progress' %}
+            {% if car.is_in_workshop or car.derived_status == 'in_progress' %}
                 <form method="post" action="{% url 'cars:finish_maintenance' car.id %}" style="margin-top:10px;">
                   {% csrf_token %}
                   <button type="submit" class="finish-service-btn" data-car-id="{{ car.id }}" style="padding:8px 14px;background:#ffc107;border:none;border-radius:6px;color:#111;font-weight:bold;cursor:pointer;">إنهاء الخدمة</button>

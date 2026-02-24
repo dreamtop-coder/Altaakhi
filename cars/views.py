@@ -297,6 +297,7 @@ def cars_list(request):
 			car.derived_status = derive_car_status(car)
 		except Exception:
 			car.derived_status = getattr(car, 'status', None)
+		# Note: template should call `car.is_in_workshop()` or use `car.derived_status`.
 
 	# persist per_page in session
 	try:
@@ -454,18 +455,22 @@ def finish_maintenance(request, car_id):
 			from django.utils import timezone
 			invoice_number = f"INV-{car.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
 			amount = 0
-			for rec in car.maintenance_records.filter(invoice__isnull=True):
+			unsent = list(car.maintenance_records.filter(invoice__isnull=True))
+			for rec in unsent:
 				amount += rec.price
-			invoice = Invoice.objects.create(
-				invoice_number=invoice_number,
-				client=car.client,
-				car=car,
-				amount=amount,
-				paid=False
-			)
-			for rec in car.maintenance_records.filter(invoice__isnull=True):
-				rec.invoice = invoice
-				rec.save()
+			# Only create an invoice when there's a real amount to bill
+			if amount > 0:
+				invoice = Invoice.objects.create(
+					invoice_number=invoice_number,
+					client=car.client,
+					car=car,
+					amount=amount,
+					paid=False,
+					created_at=timezone.now()
+				)
+				for rec in unsent:
+					rec.invoice = invoice
+					rec.save()
 	else:
 		# keep in_progress if not all finished
 		if car.status != 'in_progress':
