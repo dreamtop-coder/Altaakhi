@@ -468,6 +468,16 @@
     max-width: 100%;
     box-sizing: border-box;
 }
+/* Ensure our cars mobile wrapper keeps its intended layout when injected into #cars-list-container */
+#cars-list-container > .cars-mobile-wrapper {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    align-items: stretch !important;
+    padding: 0 !important;
+}
+#cars-list-container > .cars-mobile-wrapper > .car-card { margin: 6px !important; }
 @media (max-width: 600px) {
     #cars-list-container > div i.fa,
     #cars-list-container > a i.fa,
