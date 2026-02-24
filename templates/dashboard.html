@@ -478,6 +478,11 @@
     padding: 0 !important;
 }
 #cars-list-container > .cars-mobile-wrapper > .car-card { margin: 6px !important; }
+
+/* Stronger overrides in case global rules elsewhere override margins/gap */
+#cars-list-container .cars-mobile-wrapper { gap: 16px !important; row-gap:16px !important; column-gap:16px !important; }
+#cars-list-container .cars-mobile-wrapper .car-card { margin: 12px !important; }
+#cars-list-container .cars-mobile-wrapper .car-card > div { box-shadow: 0 6px 18px rgba(2,6,23,0.06); }
 @media (max-width: 600px) {
     #cars-list-container > div i.fa,
     #cars-list-container > a i.fa,
