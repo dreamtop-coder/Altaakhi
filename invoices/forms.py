@@ -30,3 +30,14 @@ class PaymentForm(forms.Form):
     reference = forms.CharField(label='Reference #', required=False, widget=forms.TextInput(attrs={'placeholder': "Auto-filled if method is 'benefit'"}))
     notes = forms.CharField(label='Notes', required=False, widget=forms.Textarea(attrs={'rows':2}), max_length=200)
     amount = forms.DecimalField(label='Amount', max_digits=12, decimal_places=3, required=False)
+
+
+class ExpenseForm(forms.ModelForm):
+    class Meta:
+        from .models import Expense
+        model = Expense
+        fields = ['date', 'amount', 'category', 'payee', 'note', 'bill']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'note': forms.Textarea(attrs={'rows': 3}),
+        }

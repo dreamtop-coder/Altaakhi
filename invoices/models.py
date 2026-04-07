@@ -5,11 +5,19 @@ from django.db import models
 from clients.models import Client
 from cars.models import Car
 from services.models import Service
+from decimal import Decimal
 
 class Invoice(models.Model):
 	invoice_number = models.CharField(max_length=20, unique=True)
+	# short subject/description (e.g. recipient name or brief note)
+	subject = models.CharField(max_length=255, blank=True, null=True)
 	client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='invoices')
 	car = models.ForeignKey(Car, on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices')
+	TYPE_CHOICES = [
+		('stock', 'Stock Sale'),
+		('maintenance', 'Maintenance'),
+	]
+	type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='stock')
 	services = models.ManyToManyField(Service, related_name='invoices')
 	amount = models.DecimalField(max_digits=10, decimal_places=2)
 	paid = models.BooleanField(default=False)
@@ -18,6 +26,14 @@ class Invoice(models.Model):
 
 	def __str__(self):
 		return self.invoice_number
+
+	def recalc_amount(self):
+		from django.db.models import Sum
+		total = self.items.aggregate(total=Sum('total'))['total'] or Decimal('0')
+		# store as Decimal with 2 decimal places consistent with Invoice.amount
+		# keep precision: Invoice.amount has 2 decimal places
+		self.amount = total.quantize(Decimal('0.01')) if isinstance(total, Decimal) else Decimal(str(total)).quantize(Decimal('0.01'))
+		self.save()
 
 from services.models import Service
 
@@ -63,3 +79,33 @@ class InvoiceItem(models.Model):
 	def __str__(self):
 		desc = self.description or (self.service.name if self.service else '')
 		return f"{desc} - {self.quantity} x {self.rate} = {self.total}"
+
+
+# Expense models
+class ExpenseCategory(models.Model):
+	name = models.CharField(max_length=120)
+	description = models.TextField(blank=True, null=True)
+
+	class Meta:
+		verbose_name = 'Expense Category'
+		verbose_name_plural = 'Expense Categories'
+
+	def __str__(self):
+		return self.name
+
+
+class Expense(models.Model):
+	date = models.DateField()
+	amount = models.DecimalField(max_digits=12, decimal_places=2)
+	category = models.ForeignKey(ExpenseCategory, on_delete=models.PROTECT, related_name='expenses')
+	payee = models.CharField(max_length=200, blank=True, null=True)
+	note = models.TextField(blank=True, null=True)
+	bill = models.ForeignKey('bills.Bill', on_delete=models.SET_NULL, null=True, blank=True, related_name='linked_expenses')
+	created_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ['-date']
+
+	def __str__(self):
+		return f"{self.date} - {self.category.name} - {self.amount}"

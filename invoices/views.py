@@ -299,6 +299,22 @@ def financial_management(request):
             total_expenses = (total_expenses or 0) + (invoice_line_expenses if 'invoice_line_expenses' in locals() else Decimal('0'))
         except Exception:
             pass
+        # include manual Expense records (app 'invoices'.Expense) in total_expenses
+        try:
+            from .models import Expense
+            from django.db.models import Sum
+            exp_qs = Expense.objects.all()
+            try:
+                if from_date:
+                    exp_qs = exp_qs.filter(date__gte=from_date)
+                if to_date:
+                    exp_qs = exp_qs.filter(date__lte=to_date)
+            except Exception:
+                pass
+            exp_sum = exp_qs.aggregate(total=Sum('amount'))['total'] or 0
+            total_expenses = (total_expenses or 0) + exp_sum
+        except Exception:
+            pass
     except Exception:
         total_expenses = 0
 
@@ -412,6 +428,45 @@ def financial_management(request):
         'to_date': to_date,
         'months': months,
     })
+
+
+
+@login_required
+def expenses_list(request):
+    from .models import Expense
+    from django.db.models import Sum
+
+    fd = request.GET.get('from')
+    td = request.GET.get('to')
+    qs = Expense.objects.select_related('category').order_by('-date')
+    try:
+        if fd:
+            qs = qs.filter(date__gte=fd)
+        if td:
+            qs = qs.filter(date__lte=td)
+    except Exception:
+        pass
+
+    total = qs.aggregate(total=Sum('amount'))['total'] or 0
+    return render(request, 'expenses_list.html', {'expenses': qs[:200], 'total': total, 'from_date': fd, 'to_date': td})
+
+
+@login_required
+def add_expense(request):
+    from .forms import ExpenseForm
+    if request.method == 'POST':
+        form = ExpenseForm(request.POST)
+        if form.is_valid():
+            exp = form.save(commit=False)
+            try:
+                exp.created_by = request.user
+            except Exception:
+                pass
+            exp.save()
+            return redirect('expenses_list')
+    else:
+        form = ExpenseForm()
+    return render(request, 'expenses_add.html', {'form': form})
 
 
 @login_required
