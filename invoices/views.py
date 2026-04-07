@@ -4,6 +4,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .models import Invoice
 from django.core.paginator import Paginator
 from django.db import models
+from django import forms
+from django.utils import timezone
+from django.http import JsonResponse
+from django.db.models.functions import TruncMonth
+from django.db.models.functions import Substr, Cast
+from django.db.models import IntegerField
 
 # كشف حساب عميل (للطباعة)
 @login_required
@@ -73,7 +79,8 @@ def print_invoice(request, invoice_id):
 
 @login_required
 def invoices_print_list(request):
-    invoices = Invoice.objects.select_related('client', 'car').order_by('-created_at')
+    # Order by id descending so newest invoice numbers appear first (INV-00000...)
+    invoices = Invoice.objects.select_related('client', 'car').order_by('-id')
     car_number = request.GET.get('car_number', '').strip()
     invoice_number = request.GET.get('invoice_number', '').strip()
     if car_number:
@@ -81,6 +88,764 @@ def invoices_print_list(request):
     if invoice_number:
         invoices = invoices.filter(invoice_number__icontains=invoice_number)
     return render(request, 'invoices_print_list.html', {'invoices': invoices})
+
+
+@login_required
+def financial_management(request):
+    from django.db.models import Sum, Count, Q
+    import datetime
+    from django.utils import timezone
+    # Read filters from request
+    status = (request.GET.get('status') or '').strip().lower()
+    q = (request.GET.get('q') or '').strip()
+    from_date = (request.GET.get('from') or '').strip()
+    to_date = (request.GET.get('to') or '').strip()
+    # months selector for charts (6,12,24)
+    try:
+        months = int(request.GET.get('months') or 12)
+    except Exception:
+        months = 12
+    if months not in (6, 12, 24):
+        months = 12
+
+    # Base queryset: annotate numeric part of invoice_number (strip 'INV-' prefix) and order by it desc
+    # This ensures INV-000064 sorts before INV-000063 regardless of created_at ordering.
+    qs = Invoice.objects.select_related('client', 'car').annotate(
+        _inv_num=Cast(Substr('invoice_number', 5, 10), IntegerField())
+    ).order_by('-_inv_num', '-created_at')
+
+    # Apply status filter
+    if status == 'paid':
+        qs = qs.filter(paid=True)
+    elif status == 'unpaid':
+        qs = qs.filter(paid=False)
+    elif status == 'overdue':
+        # unpaid and older than 30 days
+        thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
+        qs = qs.filter(paid=False, created_at__lte=thirty_days_ago)
+
+    # Apply date filters if provided
+    try:
+        if from_date:
+            qs = qs.filter(created_at__gte=from_date)
+        if to_date:
+            qs = qs.filter(created_at__lte=to_date)
+    except Exception:
+        pass
+
+    # Search (client name, invoice number, car plate)
+    if q:
+        qs = qs.filter(
+            Q(invoice_number__icontains=q) |
+            Q(client__first_name__icontains=q) |
+            Q(client__last_name__icontains=q) |
+            Q(car__plate_number__icontains=q)
+        ).distinct()
+
+    # Aggregates based on current filter (but also provide global totals)
+    total_revenue = Invoice.objects.aggregate(total=Sum('amount'))['total'] or 0
+    collected = Invoice.objects.filter(paid=True).aggregate(total=Sum('amount'))['total'] or 0
+    outstanding = Invoice.objects.filter(paid=False).aggregate(total=Sum('amount'))['total'] or 0
+
+    # Overdue invoices: unpaid and older than 30 days (global)
+    thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
+    overdue_count = Invoice.objects.filter(paid=False, created_at__lte=thirty_days_ago).count()
+
+    # COGS and profit calculations
+    try:
+        from .models import InvoiceItem
+        from decimal import Decimal
+        # InvoiceItem does not have a direct FK to Part in this schema, so attempt
+        # to resolve parts by matching item descriptions to Part (best-effort).
+        try:
+            from inventory.utils import find_part_for_description
+            from bills.models import BillLine
+            from inventory.models import Part
+            cogs_total = Decimal('0')
+            invoice_line_expenses = Decimal('0')
+            unmatched_items = []
+            items_qs = InvoiceItem.objects.filter(invoice__in=qs).values('description', 'quantity', 'rate', 'total', 'invoice__invoice_number', 'invoice')
+            for it in items_qs:
+                try:
+                    desc = (it.get('description') or '').strip()
+                    qty = Decimal(str(it.get('quantity') or 0))
+                except Exception:
+                    continue
+                if not desc or qty == 0:
+                    continue
+                try:
+                    part = find_part_for_description(desc)
+                except Exception:
+                    part = None
+
+                # determine line total (fallback to rate*qty)
+                line_total = None
+                try:
+                    if it.get('total') is not None:
+                        line_total = Decimal(str(it.get('total')))
+                    else:
+                        line_total = qty * Decimal(str(it.get('rate') or 0))
+                except Exception:
+                    line_total = None
+
+                # Decide whether this line is inventory (COGS) or expense
+                line_is_inventory = None
+                # Priority 1: BillLine.account_type if we can find a recent purchase line for the same part
+                try:
+                    if part:
+                        last_purchase_line = BillLine.objects.filter(part=part).select_related('bill').order_by('-bill__bill_date', '-bill__created_at').first()
+                        if last_purchase_line and getattr(last_purchase_line, 'account_type', None):
+                            line_is_inventory = (last_purchase_line.account_type == 'inventory')
+                except Exception:
+                    line_is_inventory = None
+
+                # Priority 2: use Part.is_inventory
+                try:
+                    if line_is_inventory is None and part:
+                        line_is_inventory = bool(getattr(part, 'is_inventory', True))
+                except Exception:
+                    line_is_inventory = None
+
+                # Now accumulate values
+                try:
+                    if line_is_inventory is True and part and getattr(part, 'purchase_price', None) is not None:
+                        # inventory -> use part purchase_price if available
+                        try:
+                            cogs_total += (qty * Decimal(str(part.purchase_price)))
+                        except Exception:
+                            if line_total is not None:
+                                cogs_total += line_total
+                    elif line_is_inventory is False:
+                        # explicitly marked expense
+                        if line_total is not None:
+                            invoice_line_expenses += line_total
+                    else:
+                        # fallback: if purchase_price available use it, otherwise use line total
+                        if part and getattr(part, 'purchase_price', None) is not None:
+                            try:
+                                cogs_total += (qty * Decimal(str(part.purchase_price)))
+                            except Exception:
+                                if line_total is not None:
+                                    cogs_total += line_total
+                        else:
+                            if line_total is not None:
+                                cogs_total += line_total
+                except Exception:
+                    pass
+
+                # record unmatched item metadata for visibility/debug
+                try:
+                    supplier_name = None
+                    supplier_id = None
+                    try:
+                        candidate = None
+                        if part is None:
+                            candidate = Part.objects.filter(name__icontains=desc).first()
+                        else:
+                            candidate = part
+                        if candidate:
+                            last_line = BillLine.objects.select_related('bill__supplier').filter(part=candidate).order_by('-bill__bill_date', '-bill__created_at').first()
+                            if last_line and last_line.bill and last_line.bill.supplier:
+                                supplier = last_line.bill.supplier
+                            else:
+                                supplier = getattr(candidate, 'supplier', None)
+                            if supplier:
+                                supplier_name = getattr(supplier, 'name', None)
+                                supplier_id = getattr(supplier, 'id', None)
+                    except Exception:
+                        supplier_name = None
+                        supplier_id = None
+
+                    unmatched_items.append({
+                        'invoice_id': it.get('invoice'),
+                        'invoice_number': it.get('invoice__invoice_number') or '',
+                        'description': desc,
+                        'quantity': float(qty),
+                        'rate': float(it.get('rate') or 0),
+                        'line_total': float(line_total) if line_total is not None else None,
+                        'supplier_name': supplier_name,
+                        'supplier_id': supplier_id,
+                        'resolved_part_id': getattr(part, 'id', None) if part else None,
+                    })
+                except Exception:
+                    pass
+
+            cogs = cogs_total
+        except Exception:
+            cogs = 0
+            invoice_line_expenses = Decimal('0')
+    except Exception:
+        cogs = 0
+        invoice_line_expenses = Decimal('0')
+
+    # Total expenses (suppliers/bills) — respect date filters if provided
+    try:
+        from bills.models import Bill
+        bill_qs = Bill.objects.all()
+        try:
+            if from_date:
+                bill_qs = bill_qs.filter(bill_date__gte=from_date)
+            if to_date:
+                bill_qs = bill_qs.filter(bill_date__lte=to_date)
+        except Exception:
+            pass
+        try:
+            total_expenses = bill_qs.aggregate(total=Sum('grand_total'))['total'] or 0
+        except Exception:
+            total_expenses = 0
+        # include invoice-line-level expenses (lines marked as expense rather than inventory)
+        try:
+            from decimal import Decimal
+            total_expenses = (total_expenses or 0) + (invoice_line_expenses if 'invoice_line_expenses' in locals() else Decimal('0'))
+        except Exception:
+            pass
+    except Exception:
+        total_expenses = 0
+
+    try:
+        from decimal import Decimal
+        # normalize values to Decimal for correct arithmetic (avoid accidental bool short-circuit)
+        total_revenue_dec = Decimal(str(total_revenue or 0))
+        cogs_dec = Decimal(str(cogs or 0))
+        total_expenses_dec = Decimal(str(total_expenses or 0))
+
+        # direct arithmetic without conditional short-circuits
+        gross_profit = total_revenue_dec - cogs_dec
+        net_profit = gross_profit - total_expenses_dec
+    except Exception:
+        # fallback: try numeric subtraction with available values but avoid forcing zeros blindly
+        try:
+            gross_profit = (total_revenue or 0) - (cogs if 'cogs' in locals() else 0)
+            net_profit = gross_profit - (total_expenses if 'total_expenses' in locals() else 0)
+        except Exception:
+            gross_profit = 0
+            net_profit = 0
+
+    # Recent lists derived from filtered queryset
+    recent_invoices = qs[:12]
+    invoices_table = qs[:50]
+
+    # Recent payments (latest 12) — order by numeric invoice number desc, then by payment_date
+    try:
+        from .models import Payment
+
+        # annotate numeric part of related invoice's invoice_number and order by it
+        recent_payments = (
+            Payment.objects.select_related('invoice', 'invoice__client')
+            .annotate(_inv_num=Cast(Substr('invoice__invoice_number', 5, 10), IntegerField()))
+            .order_by('-_inv_num', '-payment_date')[:12]
+        )
+    except Exception:
+        recent_payments = []
+
+    # Suppliers / Bills: KPIs and recent lists (separate section)
+    try:
+        from bills.models import Bill, BillPayment
+    except Exception:
+        total_payables = 0
+        paid_to_suppliers = 0
+        outstanding_bills = 0
+        overdue_bills_count = 0
+        recent_bills = []
+        recent_supplier_payments = []
+    else:
+        # totals (safe)
+        try:
+            total_payables = Bill.objects.aggregate(total=Sum('grand_total'))['total'] or 0
+        except Exception:
+            total_payables = 0
+        try:
+            paid_to_suppliers = BillPayment.objects.aggregate(total=Sum('amount'))['total'] or 0
+        except Exception:
+            paid_to_suppliers = 0
+        outstanding_bills = (total_payables or 0) - (paid_to_suppliers or 0)
+
+        # overdue bills: not paid and older than 30 days (using bill_date)
+        try:
+            thirty_days_ago_b = timezone.now() - datetime.timedelta(days=30)
+            overdue_bills_count = Bill.objects.exclude(status='paid').filter(bill_date__lte=thirty_days_ago_b).count()
+        except Exception:
+            overdue_bills_count = 0
+
+        # recent bills: try numeric bill_number ordering, fallback to bill_date
+        try:
+            recent_bills = (
+                Bill.objects.select_related('supplier')
+                .annotate(_bill_num=Cast(Substr('bill_number', 5, 10), IntegerField()))
+                .order_by('-_bill_num', '-bill_date')[:12]
+            )
+        except Exception:
+            recent_bills = Bill.objects.select_related('supplier').order_by('-bill_date')[:12]
+
+        # recent supplier payments: try numeric bill ordering, fallback to payment_date
+        try:
+            recent_supplier_payments = (
+                BillPayment.objects.select_related('bill', 'supplier')
+                .annotate(_bill_num=Cast(Substr('bill__bill_number', 5, 10), IntegerField()))
+                .order_by('-_bill_num', '-payment_date')[:12]
+            )
+        except Exception:
+            recent_supplier_payments = BillPayment.objects.select_related('bill', 'supplier').order_by('-payment_date')[:12]
+
+    return render(request, 'financial_management.html', {
+        'total_revenue': total_revenue,
+        'collected': collected,
+        'outstanding': outstanding,
+        'overdue_count': overdue_count,
+        'recent_invoices': recent_invoices,
+        'invoices_table': invoices_table,
+        'recent_payments': recent_payments,
+        'total_payables': total_payables,
+        'paid_to_suppliers': paid_to_suppliers,
+        'outstanding_bills': outstanding_bills,
+        'overdue_bills_count': overdue_bills_count,
+        'recent_bills': recent_bills,
+        'recent_supplier_payments': recent_supplier_payments,
+        'cogs_unmatched_items': unmatched_items if 'unmatched_items' in locals() else [],
+        'cogs': cogs if 'cogs' in locals() else 0,
+        'total_expenses': total_expenses if 'total_expenses' in locals() else 0,
+        'gross_profit': gross_profit if 'gross_profit' in locals() else 0,
+        'net_profit': net_profit if 'net_profit' in locals() else 0,
+        'applied_status': status,
+        'query': q,
+        'from_date': from_date,
+        'to_date': to_date,
+        'months': months,
+    })
+
+
+@login_required
+def charts_data(request):
+    from django.db.models import Sum, Case, When, FloatField
+    import datetime
+    # build last 12 months labels (including current)
+    now = timezone.now()
+    start_month = now.replace(day=1)
+
+    months = []
+    for i in range(11, -1, -1):
+        y = start_month.year
+        m = start_month.month - i
+        while m <= 0:
+            m += 12
+            y -= 1
+        months.append((y, m))
+
+    labels = []
+    totals = []
+    paid_data = []
+    unpaid_data = []
+
+    for (y, m) in months:
+        labels.append(datetime.date(y, m, 1).strftime('%b %Y'))
+        month_qs = Invoice.objects.filter(created_at__year=y, created_at__month=m)
+        total_val = month_qs.aggregate(total=Sum('amount'))['total'] or 0
+        paid_val = month_qs.filter(paid=True).aggregate(total=Sum('amount'))['total'] or 0
+        unpaid_val = month_qs.filter(paid=False).aggregate(total=Sum('amount'))['total'] or 0
+        totals.append(float(total_val or 0))
+        paid_data.append(float(paid_val or 0))
+        unpaid_data.append(float(unpaid_val or 0))
+
+    return JsonResponse({'labels': labels, 'total': totals, 'paid': paid_data, 'unpaid': unpaid_data})
+
+
+@login_required
+def reports_view(request):
+    """Render the Reports page (MVP)."""
+    from django.utils import timezone
+    # read filters
+    status = (request.GET.get('status') or '').strip().lower()
+    from_date = (request.GET.get('from') or '').strip()
+    to_date = (request.GET.get('to') or '').strip()
+
+    # basic KPIs (respecting filters would be implemented in JSON endpoints)
+    from django.db.models import Sum
+    total_revenue = Invoice.objects.aggregate(total=Sum('amount'))['total'] or 0
+    collected = Invoice.objects.filter(paid=True).aggregate(total=Sum('amount'))['total'] or 0
+    outstanding = Invoice.objects.filter(paid=False).aggregate(total=Sum('amount'))['total'] or 0
+
+    from django.utils import timezone
+    import datetime
+    thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
+    overdue_count = Invoice.objects.filter(paid=False, created_at__lte=thirty_days_ago).count()
+
+    return render(request, 'invoices/reports.html', {
+        'total_revenue': total_revenue,
+        'collected': collected,
+        'outstanding': outstanding,
+        'overdue_count': overdue_count,
+        'applied_status': status,
+        'from_date': from_date,
+        'to_date': to_date,
+    })
+
+
+@login_required
+def reports_revenue_json(request):
+    """Return revenue summary (monthly) as JSON for charts and table.
+
+    Query params: from, to, status
+    """
+    from django.db.models import Sum
+    import datetime
+    from django.utils import timezone
+
+    # parse date filters
+    fd = request.GET.get('from')
+    td = request.GET.get('to')
+    status = (request.GET.get('status') or '').strip().lower()
+
+    qs = Invoice.objects.all()
+    if fd:
+        try:
+            qs = qs.filter(created_at__date__gte=fd)
+        except Exception:
+            pass
+    if td:
+        try:
+            qs = qs.filter(created_at__date__lte=td)
+        except Exception:
+            pass
+    if status == 'paid':
+        qs = qs.filter(paid=True)
+    elif status == 'unpaid':
+        qs = qs.filter(paid=False)
+    elif status == 'overdue':
+        thirty = timezone.now() - datetime.timedelta(days=30)
+        qs = qs.filter(paid=False, created_at__lte=thirty)
+
+    # group by month between from/to or last 12 months
+    labels = []
+    totals = []
+
+    # determine range
+    try:
+        if fd and td:
+            start = datetime.datetime.strptime(fd, '%Y-%m-%d').date().replace(day=1)
+            end = datetime.datetime.strptime(td, '%Y-%m-%d').date().replace(day=1)
+        else:
+            now = timezone.now().date()
+            end = now.replace(day=1)
+            # last 11 months + current = 12
+            start = (end - datetime.timedelta(days=365)).replace(day=1)
+    except Exception:
+        now = timezone.now().date()
+        end = now.replace(day=1)
+        start = (end - datetime.timedelta(days=365)).replace(day=1)
+
+    cur = start
+    while cur <= end:
+        labels.append(cur.strftime('%b %Y'))
+        # calculate month range
+        next_month = (cur.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+        month_sum = qs.filter(created_at__date__gte=cur, created_at__date__lt=next_month).aggregate(total=Sum('amount'))['total'] or 0
+        totals.append(float(month_sum))
+        cur = next_month
+
+    return JsonResponse({'labels': labels, 'total': totals})
+
+
+@login_required
+def reports_revenue_csv(request):
+    """Export revenue summary (per month) as CSV."""
+    import csv
+    from django.http import HttpResponse
+    resp = reports_revenue_json(request)
+    data = resp.json() if hasattr(resp, 'json') else resp.content
+    # resp is JsonResponse; convert to python
+    if isinstance(resp, JsonResponse):
+        data = resp.content
+        import json as _json
+        parsed = _json.loads(data)
+    else:
+        parsed = {}
+    labels = parsed.get('labels', [])
+    totals = parsed.get('total', [])
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="revenue_report.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Month', 'Total'])
+    for l, t in zip(labels, totals):
+        writer.writerow([l, t])
+    return response
+
+
+@login_required
+def reports_aging_json(request):
+    """Return aging buckets for unpaid invoices.
+
+    Buckets: 0-30,31-60,61-90,90+
+    """
+    from django.utils import timezone
+    import datetime
+    from django.db.models import Sum
+
+    now = timezone.now().date()
+    buckets = [
+        {'key': '0-30', 'min': 0, 'max': 30, 'count': 0, 'amount': 0},
+        {'key': '31-60', 'min': 31, 'max': 60, 'count': 0, 'amount': 0},
+        {'key': '61-90', 'min': 61, 'max': 90, 'count': 0, 'amount': 0},
+        {'key': '90+', 'min': 91, 'max': 10000, 'count': 0, 'amount': 0},
+    ]
+
+    qs = Invoice.objects.filter(paid=False)
+    # optional date/status filters
+    fd = request.GET.get('from')
+    td = request.GET.get('to')
+    if fd:
+        try:
+            qs = qs.filter(created_at__date__gte=fd)
+        except Exception:
+            pass
+    if td:
+        try:
+            qs = qs.filter(created_at__date__lte=td)
+        except Exception:
+            pass
+
+    results = []
+    # iterate invoices and classify
+    for inv in qs.values('id', 'invoice_number', 'client__first_name', 'client__last_name', 'amount', 'created_at'):
+        try:
+            created = inv.get('created_at').date()
+        except Exception:
+            created = inv.get('created_at')
+        age = (now - created).days if created else 0
+        for b in buckets:
+            if b['min'] <= age <= b['max']:
+                b['count'] += 1
+                b['amount'] += float(inv.get('amount') or 0)
+                break
+        results.append(inv)
+
+    return JsonResponse({'buckets': buckets, 'invoices': results})
+
+
+@login_required
+def reports_aging_csv(request):
+    import csv
+    from django.http import HttpResponse
+    resp = reports_aging_json(request)
+    if isinstance(resp, JsonResponse):
+        import json as _json
+        parsed = _json.loads(resp.content)
+    else:
+        parsed = {}
+    buckets = parsed.get('buckets', [])
+    invoices = parsed.get('invoices', [])
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="aging_report.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Bucket', 'Count', 'Amount'])
+    for b in buckets:
+        writer.writerow([b.get('key'), b.get('count'), b.get('amount')])
+    writer.writerow([])
+    writer.writerow(['Invoice #', 'Client', 'Amount', 'Created At'])
+    for inv in invoices:
+        client = f"{inv.get('client__first_name','')} {inv.get('client__last_name','') or ''}".strip()
+        writer.writerow([inv.get('invoice_number'), client, inv.get('amount'), inv.get('created_at')])
+    return response
+
+
+# Add invoice page (reuse maintenance-style invoice editor)
+@login_required
+def add_invoice(request):
+    # minimal form to provide `maintenance_date` widget used by the template
+    class _MiniForm(forms.Form):
+        maintenance_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
+
+    # Prefill maintenance_date with today's date (editable by user)
+    try:
+        from django.utils import timezone
+        today = timezone.now().date()
+        form = _MiniForm(initial={'maintenance_date': today.strftime('%Y-%m-%d')})
+    except Exception:
+        form = _MiniForm()
+    # clients sample for autocomplete (serialize to simple dicts so template JS can consume it)
+    clients_sample = []
+    try:
+        from clients.models import Client
+        for c in Client.objects.all()[:200]:
+            try:
+                plates = [car.plate_number for car in c.cars.all()[:5] if car.plate_number]
+            except Exception:
+                plates = []
+            try:
+                cars_list = [{'id': car.id, 'plate': car.plate_number} for car in c.cars.all()[:20] if car.plate_number]
+            except Exception:
+                cars_list = []
+            clients_sample.append({
+                'id': c.id,
+                'name': f"{c.first_name} {c.last_name or ''}".strip(),
+                'phone': getattr(c, 'phone', ''),
+                'plates': plates,
+                'cars': cars_list,
+            })
+    except Exception:
+        clients_sample = []
+
+    # compute next invoice number for prefilling
+    next_invoice_number = ''
+    last_invoice_number = ''
+    try:
+        last_invoice = Invoice.objects.order_by('-id').first()
+        if last_invoice:
+            try:
+                last_invoice_number = last_invoice.invoice_number or ''
+            except Exception:
+                last_invoice_number = ''
+            if last_invoice.invoice_number and last_invoice.invoice_number.upper().startswith('INV-'):
+                try:
+                    last_num = int(last_invoice.invoice_number.split('INV-')[-1])
+                    next_invoice_number = f"INV-{(last_num+1):06d}"
+                except Exception:
+                    next_invoice_number = ''
+            else:
+                try:
+                    v = int((last_invoice.invoice_number or '').strip())
+                    next_invoice_number = f"INV-{(v+1):06d}"
+                except Exception:
+                    next_invoice_number = ''
+    except Exception:
+        next_invoice_number = ''
+    if not next_invoice_number:
+        next_invoice_number = 'INV-000001'
+
+    # support create on POST for stock invoices
+    if request.method == 'POST':
+        # create a stock invoice: no car, items_json expected
+        import json
+        from decimal import Decimal
+        from django.db import transaction
+        from django.http import HttpResponseBadRequest
+        items_json = request.POST.get('items_json')
+        # simple subject field (single-line) saved on Invoice
+        subject = request.POST.get('subject')
+        selected_client_id = request.POST.get('selected_client_id')
+        if not selected_client_id:
+            return HttpResponseBadRequest('يرجى اختيار عميل')
+        try:
+            from clients.models import Client
+            client_obj = Client.objects.get(id=int(selected_client_id))
+        except Exception:
+            return HttpResponseBadRequest('عميل غير موجود')
+
+        try:
+            items = json.loads(items_json) if items_json else []
+        except Exception:
+            items = []
+
+        # early availability check
+        try:
+            from inventory.utils import check_items_availability, apply_inventory_changes_for_invoice
+            shortages = check_items_availability(items, None)
+            if shortages:
+                first = shortages[0]
+                pname = getattr(first[0], 'name', '') if first and first[0] else ''
+                msg = f'الكمية غير متوفرة: {pname}. المتوفر: {first[1]} المطلوب: {first[2]}'
+                return HttpResponseBadRequest(msg)
+        except Exception:
+            return HttpResponseBadRequest('فشل التحقق من المخزون')
+
+        # create invoice and items transactionally
+        try:
+            from django.db import IntegrityError
+            import time, re
+            # Attempt creation with retry on UNIQUE constraint collisions
+            attempt = 0
+            use_invoice_number = next_invoice_number or 'INV-000001'
+            invoice = None
+            while True:
+                try:
+                    with transaction.atomic():
+                        invoice = Invoice.objects.create(
+                            invoice_number=use_invoice_number,
+                            client=client_obj,
+                            car=None,
+                            amount=0,
+                            paid=False,
+                            created_at=timezone.now(),
+                            type='stock',
+                            subject=(subject or '')
+                        )
+                    break
+                except IntegrityError:
+                    attempt += 1
+                    if attempt > 10:
+                        # fallback to timestamp-suffixed unique value
+                        use_invoice_number = f"{use_invoice_number}-{int(time.time())}-{attempt}"
+                    else:
+                        # try to increment numeric tail if in INV-000001 format
+                        if use_invoice_number and use_invoice_number.upper().startswith('INV-'):
+                            try:
+                                tail = int(use_invoice_number.split('INV-')[-1])
+                                tail += 1
+                                use_invoice_number = f"INV-{tail:06d}"
+                            except Exception:
+                                use_invoice_number = use_invoice_number + f"-{attempt}"
+                        else:
+                            m = re.search(r"(\d+)$", use_invoice_number or '')
+                            if m:
+                                try:
+                                    num = int(m.group(1)) + 1
+                                    use_invoice_number = use_invoice_number[:m.start(1)] + str(num)
+                                except Exception:
+                                    use_invoice_number = use_invoice_number + f"-{attempt}"
+                            else:
+                                use_invoice_number = use_invoice_number + f"-{attempt}"
+
+            if not invoice:
+                raise Exception('Failed to create invoice after retries')
+
+            total_amount = Decimal('0')
+            from .models import InvoiceItem
+            for it in items:
+                desc = (it.get('description') or '').strip()
+                try:
+                    qty = Decimal(str(it.get('qty') or 0))
+                except Exception:
+                    qty = Decimal('0')
+                try:
+                    rate = Decimal(str(it.get('rate') or 0))
+                except Exception:
+                    rate = Decimal('0')
+                try:
+                    discount = Decimal(str(it.get('discount') or 0))
+                except Exception:
+                    discount = Decimal('0')
+                line_total = (qty * rate * (Decimal('1') - (discount / Decimal('100')))).quantize(Decimal('0.001'))
+                if not desc and qty == 0 and rate == 0:
+                    continue
+                InvoiceItem.objects.create(
+                    invoice=invoice,
+                    description=desc,
+                    quantity=qty,
+                    rate=rate,
+                    discount=discount,
+                    total=line_total
+                )
+                total_amount += line_total
+
+            # apply inventory decrement for stock sale
+            apply_inventory_changes_for_invoice(items, decrement=True)
+            invoice.amount = float(total_amount)
+            invoice.save()
+        except Exception as e:
+            return HttpResponseBadRequest('فشل في إنشاء الفاتورة: ' + str(e))
+        from django.shortcuts import redirect
+        # If the form was submitted with the "save_send" action, redirect
+        # to the invoice print view so the user can print immediately.
+        try:
+            action = (request.POST.get('action') or '').strip()
+            if action == 'save_send' and invoice and getattr(invoice, 'id', None):
+                return redirect(f'/invoices/print/{invoice.id}/')
+        except Exception:
+            pass
+        return redirect('invoices_list')
+
+    return render(request, 'add_maintenance_record.html', {'form': form, 'car_instance': None, 'clients_sample': clients_sample, 'next_invoice_number': next_invoice_number, 'invoice_type': 'stock'})
 from django.db import models
 from cars.maintenance_models import MaintenanceRecord
 from .forms import EditInvoiceForm
@@ -155,45 +920,186 @@ def edit_invoice(request, invoice_id):
                     try:
                         from .models import InvoiceItem
                         from services.models import Service as ServiceModel
-                        InvoiceItem.objects.filter(invoice=invoice).delete()
-                        for it in data:
-                            desc = (it.get('description') or '').strip()
-                            try:
-                                q = Decimal(str(it.get('qty', 0) or 0))
-                            except Exception:
-                                q = Decimal('0')
-                            try:
-                                r = Decimal(str(it.get('rate', 0) or 0))
-                            except Exception:
-                                r = Decimal('0')
-                            try:
-                                d = Decimal(str(it.get('disc', 0) or 0))
-                            except Exception:
-                                d = Decimal('0')
-                            line_before = q * r
-                            line_disc = (line_before * d) / Decimal('100') if d else Decimal('0')
-                            line_total = (line_before - line_disc)
-                            # Skip completely empty rows (no description and no numeric values)
-                            if (not desc) and q == Decimal('0') and r == Decimal('0') and d == Decimal('0'):
-                                continue
-                            serv = None
-                            if desc:
+                        # EARLY AVAILABILITY CHECK: normalize items and abort with 400 on shortage
+                        try:
+                            from django.http import HttpResponseBadRequest
+                            from inventory.utils import find_part_for_description, check_items_availability
+                            from inventory.models import Part
+                            # build normalized list similar to downstream logic
+                            early_norm = []
+                            for it in data:
+                                desc = (it.get('description') or '').strip()
+                                pid = it.get('part_id') or it.get('part') or None
+                                if pid:
+                                    try:
+                                        p = Part.objects.filter(id=int(pid)).first()
+                                        if p:
+                                            desc = p.name
+                                    except Exception:
+                                        pass
+                                if not desc:
+                                    continue
                                 try:
-                                    serv = ServiceModel.objects.filter(name__iexact=desc).first()
+                                    q = Decimal(str(it.get('qty', 0) or 0))
                                 except Exception:
-                                    serv = None
+                                    q = Decimal('0')
+                                early_norm.append({'description': desc, 'qty': q})
+                            # build existing map
+                            early_existing = {}
                             try:
-                                InvoiceItem.objects.create(
-                                    invoice=invoice,
-                                    service=serv,
-                                    description=desc,
-                                    quantity=q,
-                                    rate=r,
-                                    discount=d,
-                                    total=line_total
-                                )
+                                for ex in InvoiceItem.objects.filter(invoice=invoice):
+                                    k = (ex.description or '').strip().lower()
+                                    try:
+                                        early_existing[k] = early_existing.get(k, Decimal('0')) + Decimal(str(ex.quantity or 0))
+                                    except Exception:
+                                        early_existing[k] = early_existing.get(k, Decimal('0'))
                             except Exception:
-                                pass
+                                early_existing = {}
+                            shortages = check_items_availability(early_norm, early_existing)
+                            if shortages:
+                                first = shortages[0]
+                                pname = getattr(first[0], 'name', '') if first and first[0] else ''
+                                msg = f'الكمية غير متوفرة: {pname}. المتوفر: {first[1]} المطلوب: {first[2]}'
+                                return HttpResponseBadRequest(msg)
+                        except Exception:
+                            # if early check fails unexpectedly, be conservative and abort
+                            from django.http import HttpResponseBadRequest
+                            return HttpResponseBadRequest('الكمية غير متوفرة')
+                        # build existing items map (description -> qty) before deleting
+                        existing_items_map = {}
+                        try:
+                            for ex in InvoiceItem.objects.filter(invoice=invoice):
+                                k = (ex.description or '').strip().lower()
+                                try:
+                                    existing_items_map[k] = existing_items_map.get(k, Decimal('0')) + Decimal(str(ex.quantity or 0))
+                                except Exception:
+                                    existing_items_map[k] = existing_items_map.get(k, Decimal('0'))
+                        except Exception:
+                            existing_items_map = {}
+
+                        # Centralized availability check + transactional update
+                        try:
+                            import logging
+                            logger = logging.getLogger('inventory')
+                            logger.info('edit_invoice payload (raw): %s', data)
+                        except Exception:
+                            logger = None
+
+                        # Normalize incoming items: support both description and part_id payloads
+                        normalized = []
+                        part_ids = set()
+                        try:
+                            from inventory.utils import find_part_for_description, check_items_availability, apply_inventory_changes_for_invoice
+                            from inventory.models import Part
+                            for it in data:
+                                desc = (it.get('description') or '').strip()
+                                pid = it.get('part_id') or it.get('part') or None
+                                part = None
+                                if pid:
+                                    try:
+                                        part = Part.objects.filter(id=int(pid)).first()
+                                        if part:
+                                            desc = part.name
+                                            part_ids.add(part.id)
+                                    except Exception:
+                                        part = None
+                                if not part and desc:
+                                    part = find_part_for_description(desc)
+                                    if part:
+                                        part_ids.add(part.id)
+
+                                try:
+                                    q = Decimal(str(it.get('qty', 0) or 0))
+                                except Exception:
+                                    q = Decimal('0')
+                                try:
+                                    r = Decimal(str(it.get('rate', 0) or 0))
+                                except Exception:
+                                    r = Decimal('0')
+                                try:
+                                    d = Decimal(str(it.get('disc', 0) or 0))
+                                except Exception:
+                                    d = Decimal('0')
+                                normalized.append({'description': desc, 'qty': q, 'rate': r, 'disc': d, 'part_id': (part.id if part else None)})
+                        except Exception:
+                            normalized = data
+
+                        try:
+                            from django.db import transaction
+                            from django.contrib import messages
+                            from django.http import HttpResponseBadRequest
+
+                            shortages = check_items_availability(normalized, existing_items_map)
+                            if shortages:
+                                first = shortages[0]
+                                pname = getattr(first[0], 'name', '') if first and first[0] else ''
+                                msg = f'الكمية غير متوفرة: {pname}. المتوفر: {first[1]} المطلوب: {first[2]}'
+                                messages.error(request, msg)
+                                return HttpResponseBadRequest(msg)
+
+                            # apply changes in a single atomic transaction: lock parts, delete old items, create new, update parts
+                            with transaction.atomic():
+                                try:
+                                    if part_ids:
+                                        Part.objects.select_for_update().filter(id__in=list(part_ids))
+                                except Exception:
+                                    pass
+
+                                # restore inventory for existing invoice items before deleting them
+                                try:
+                                    from inventory.utils import apply_inventory_changes_for_invoice
+                                    existing_items = []
+                                    for ex in InvoiceItem.objects.filter(invoice=invoice):
+                                        try:
+                                            existing_items.append({'description': ex.description or '', 'qty': float(ex.quantity or 0)})
+                                        except Exception:
+                                            existing_items.append({'description': ex.description or '', 'qty': 0})
+                                    if existing_items:
+                                        try:
+                                            apply_inventory_changes_for_invoice(existing_items, decrement=False)
+                                        except Exception:
+                                            pass
+                                except Exception:
+                                    pass
+                                InvoiceItem.objects.filter(invoice=invoice).delete()
+                                for it in normalized:
+                                    desc = (it.get('description') or '').strip()
+                                    q = it.get('qty', Decimal('0'))
+                                    r = it.get('rate', Decimal('0'))
+                                    d = it.get('disc', Decimal('0'))
+                                    line_before = q * r
+                                    line_disc = (line_before * d) / Decimal('100') if d else Decimal('0')
+                                    line_total = (line_before - line_disc)
+                                    if (not desc) and q == Decimal('0') and r == Decimal('0') and d == Decimal('0'):
+                                        continue
+                                    serv = None
+                                    if desc:
+                                        try:
+                                            serv = ServiceModel.objects.filter(name__iexact=desc).first()
+                                        except Exception:
+                                            serv = None
+                                    try:
+                                        InvoiceItem.objects.create(
+                                            invoice=invoice,
+                                            service=serv,
+                                            description=desc,
+                                            quantity=q,
+                                            rate=r,
+                                            discount=d,
+                                            total=line_total
+                                        )
+                                    except Exception:
+                                        raise
+
+                                try:
+                                    apply_inventory_changes_for_invoice(normalized, decrement=True)
+                                except Exception:
+                                    raise
+                        except Exception:
+                            # if anything unexpected happens, abort and surface a generic message
+                            from django.contrib import messages
+                            messages.error(request, 'فشل في حفظ عناصر الفاتورة. حاول لاحقاً.')
+                            return redirect('edit_invoice', invoice_id=invoice.id)
                     except Exception:
                         pass
                 invoice.amount = float(computed_total)
@@ -220,6 +1126,15 @@ def edit_invoice(request, invoice_id):
                     updated = True
             except Exception:
                 pass
+
+                # Save subject if provided (single-line subject field)
+                try:
+                    subj = request.POST.get('subject')
+                    if subj is not None:
+                        invoice.subject = subj
+                        updated = True
+                except Exception:
+                    pass
 
         # Re-evaluate payment status: mark paid if received >= invoice.amount
         try:
@@ -396,7 +1311,7 @@ def invoices_list(request):
 
     # Pagination / per-page handling
     per_page_param = request.GET.get('per_page', '').strip()
-    per_page_options = [25, 50, 100, 200]
+    per_page_options = [25, 50, 100, 200, 'all']
     try:
         if per_page_param.lower() == 'all' or per_page_param == '0':
             per_page = 0
@@ -438,8 +1353,15 @@ def invoices_list(request):
     except Exception:
         pass
 
+    # Ensure the template receives a concrete list ordered by `id` desc
+    try:
+        iterable = invoices.object_list if hasattr(invoices, 'object_list') else invoices
+        invoices_sorted = sorted(list(iterable), key=lambda x: getattr(x, 'id', 0), reverse=True)
+    except Exception:
+        invoices_sorted = invoices
+
     return render(request, 'invoices_list.html', {
-        'invoices': invoices,
+        'invoices': invoices_sorted,
         'start_date': start_date,
         'end_date': end_date,
         'total_amount': total_amount,
@@ -449,17 +1371,290 @@ def invoices_list(request):
     })
 from django.contrib import messages
 
+
+@login_required
+def bulk_delete_invoices(request):
+    from django.http import JsonResponse, HttpResponseBadRequest
+    import json
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Invalid method')
+    try:
+        data = json.loads(request.body.decode('utf-8') or '[]')
+    except Exception:
+        return HttpResponseBadRequest('Invalid payload')
+    ids = []
+    try:
+        for v in data:
+            try:
+                ids.append(int(v))
+            except Exception:
+                continue
+    except Exception:
+        return HttpResponseBadRequest('Invalid payload')
+
+    deleted = []
+    skipped = []
+    from cars.maintenance_models import MaintenanceRecord
+    try:
+        from inventory.utils import apply_inventory_changes_for_invoice
+    except Exception:
+        apply_inventory_changes_for_invoice = None
+    for iid in ids:
+        try:
+            inv = Invoice.objects.get(id=iid)
+        except Exception:
+            skipped.append({'id': iid, 'reason': 'not_found'})
+            continue
+        try:
+            if MaintenanceRecord.objects.filter(invoice=inv).exists():
+                skipped.append({'id': iid, 'reason': 'has_maintenance'})
+                continue
+        except Exception:
+            pass
+        # restore inventory for items
+        try:
+            existing_items = []
+            for it in inv.items.all():
+                try:
+                    existing_items.append({'description': it.description or '', 'qty': float(it.quantity or 0)})
+                except Exception:
+                    existing_items.append({'description': it.description or '', 'qty': 0})
+            if existing_items and apply_inventory_changes_for_invoice:
+                try:
+                    apply_inventory_changes_for_invoice(existing_items, decrement=False)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        try:
+            inv.delete()
+            deleted.append(iid)
+        except Exception:
+            skipped.append({'id': iid, 'reason': 'delete_failed'})
+
+    return JsonResponse({'deleted': deleted, 'skipped': skipped})
+
+
+@login_required
+def client_invoices_json(request, client_id):
+    from django.http import JsonResponse
+    try:
+        # only include invoices with remaining balance > 0 (unpaid or partially paid)
+        invs = Invoice.objects.filter(client_id=client_id).order_by('-created_at')
+    except Exception:
+        return JsonResponse([], safe=False)
+    out = []
+    for inv in invs:
+        try:
+            paid_amount = inv.payments.filter(status='paid').aggregate(total=models.Sum('amount'))['total'] or 0
+        except Exception:
+            paid_amount = 0
+        try:
+            amt = float(inv.amount or 0)
+        except Exception:
+            amt = 0.0
+        try:
+            paid = float(paid_amount or 0)
+        except Exception:
+            paid = 0.0
+        remaining = max(0.0, amt - paid)
+        if remaining <= 0:
+            # skip fully paid invoices
+            continue
+        out.append({
+            'id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'date': inv.created_at.strftime('%Y-%m-%d') if inv.created_at else '',
+            'amount': amt,
+            'paid': paid,
+            'remaining': remaining,
+        })
+    return JsonResponse(out, safe=False)
+
+
+@login_required
+def get_invoice_json(request, invoice_id):
+    from django.http import JsonResponse
+    try:
+        inv = Invoice.objects.select_related('client').get(id=invoice_id)
+    except Exception:
+        return JsonResponse({'error': 'not_found'}, status=404)
+    try:
+        paid_amount = inv.payments.filter(status='paid').aggregate(total=models.Sum('amount'))['total'] or 0
+    except Exception:
+        paid_amount = 0
+    try:
+        amt = float(inv.amount or 0)
+    except Exception:
+        amt = 0.0
+    remaining = max(0.0, amt - float(paid_amount or 0))
+    return JsonResponse({
+        'id': inv.id,
+        'invoice_number': inv.invoice_number,
+        'client_id': inv.client.id if inv.client else None,
+        'client_name': f"{inv.client.first_name} {(inv.client.last_name or '')}".strip() if inv.client else '',
+        'amount': amt,
+        'remaining': remaining,
+        'date': inv.created_at.strftime('%Y-%m-%d') if inv.created_at else ''
+    })
+
+
+@login_required
+def add_payment(request):
+    from django.http import JsonResponse, HttpResponseBadRequest
+    from clients.models import Client
+    from decimal import Decimal
+    from django.utils import timezone
+    from .models import Payment
+
+    if request.method == 'POST':
+        client_id = request.POST.get('client_id')
+        payment_date = request.POST.get('payment_date')
+        method = request.POST.get('method')
+        reference = request.POST.get('reference')
+        notes = request.POST.get('notes')
+        allocations = request.POST.get('allocations')
+        try:
+            import json
+            alloc = json.loads(allocations or '[]')
+        except Exception:
+            alloc = []
+
+        try:
+            client = Client.objects.get(id=int(client_id))
+        except Exception:
+            return HttpResponseBadRequest('عميل غير موجود')
+
+        # parse payment_date
+        try:
+            if payment_date:
+                pd = parse_date(payment_date)
+                from datetime import datetime, time
+                payment_dt = datetime.combine(pd, time(12, 0))
+            else:
+                payment_dt = timezone.now()
+        except Exception:
+            payment_dt = timezone.now()
+
+        draft_flag = request.POST.get('draft') in ('1', 'true', 'yes') or request.POST.get('action') == 'save_draft'
+        created_payments = []
+        try:
+            for a in alloc:
+                inv_id = a.get('invoice_id')
+                amt = a.get('amount')
+                try:
+                    amt_val = Decimal(str(amt or 0))
+                except Exception:
+                    amt_val = Decimal('0')
+                if amt_val <= 0:
+                    continue
+                try:
+                    inv = Invoice.objects.get(id=int(inv_id))
+                except Exception:
+                    continue
+                # create payment record; if draft, mark payment as 'unpaid' so it doesn't affect invoice balances
+                p = Payment.objects.create(
+                    invoice=inv,
+                    car=inv.car,
+                    client=client,
+                    amount=float(amt_val),
+                    status=('unpaid' if draft_flag else 'paid'),
+                    payment_date=payment_dt,
+                    method=method or 'cash',
+                    reference=reference,
+                    notes=notes,
+                )
+                created_payments.append(p.id)
+                # update invoice paid flag only when not saving as draft
+                if not draft_flag:
+                    try:
+                        paid_amount = inv.payments.filter(status='paid').aggregate(total=models.Sum('amount'))['total'] or 0
+                        from decimal import Decimal as D
+                        if D(str(paid_amount or 0)) >= D(str(inv.amount or 0)) and float(inv.amount or 0) > 0:
+                            inv.paid = True
+                        else:
+                            inv.paid = False
+                        inv.save()
+                    except Exception:
+                        pass
+        except Exception as e:
+            return HttpResponseBadRequest('فشل في معالجة المدفوعات: ' + str(e))
+
+        return JsonResponse({'created': created_payments})
+
+    # GET -> render page
+    try:
+        clients = list(Client.objects.all().order_by('first_name')[:500])
+    except Exception:
+        clients = []
+
+    # compute next payment reference (e.g. 202600001) using year + sequence
+    next_payment_ref = ''
+    try:
+        from .models import Payment
+        last = Payment.objects.order_by('-id').first()
+        import datetime
+        year = datetime.datetime.now().year
+        if last and getattr(last, 'reference', None):
+            ref = str(last.reference).strip()
+            # if ref starts with current year digits and rest is numeric, increment
+            if ref.startswith(str(year)) and ref[len(str(year)):].isdigit():
+                try:
+                    tail = int(ref[len(str(year)):]) + 1
+                    next_payment_ref = f"{year}{tail:06d}"
+                except Exception:
+                    next_payment_ref = f"{year}000001"
+            else:
+                # try to find trailing number
+                import re
+                m = re.search(r"(\d+)$", ref)
+                if m:
+                    try:
+                        num = int(m.group(1)) + 1
+                        # keep same width
+                        width = len(m.group(1))
+                        next_payment_ref = str(num).zfill(width)
+                    except Exception:
+                        next_payment_ref = f"{year}000001"
+                else:
+                    next_payment_ref = f"{year}000001"
+        else:
+            next_payment_ref = f"{year}000001"
+    except Exception:
+        next_payment_ref = ''
+
+    return render(request, 'payments_add.html', {'clients': clients, 'next_payment_ref': next_payment_ref})
+
 # حذف الفاتورة إذا لم يكن لها سجلات صيانة مرتبطة
 @login_required
 def delete_invoice(request, invoice_id):
     from cars.maintenance_models import MaintenanceRecord
     invoice = get_object_or_404(Invoice, id=invoice_id)
     if MaintenanceRecord.objects.filter(invoice=invoice).exists():
-        messages.error(request, "لا يمكن حذف الفاتورة لوجود سجلات صيانة مرتبطة بها.")
+        messages.error(request, "Cannot delete invoice: maintenance records are linked to it.")
         return redirect('cars:maintenance_list')
     if request.method == 'POST':
+        # restore inventory for this invoice's items before deleting the invoice
+        try:
+            from inventory.utils import apply_inventory_changes_for_invoice
+            existing_items = []
+            try:
+                for it in invoice.items.all():
+                    try:
+                        existing_items.append({'description': it.description or '', 'qty': float(it.quantity or 0)})
+                    except Exception:
+                        existing_items.append({'description': it.description or '', 'qty': 0})
+            except Exception:
+                existing_items = []
+            if existing_items:
+                try:
+                    apply_inventory_changes_for_invoice(existing_items, decrement=False)
+                except Exception:
+                    pass
+        except Exception:
+            pass
         invoice.delete()
-        messages.success(request, "تم حذف الفاتورة بنجاح.")
+        messages.success(request, "Invoice deleted successfully.")
         return redirect('cars:maintenance_list')
     return render(request, 'delete_invoice.html', {'invoice': invoice})
 
@@ -556,13 +1751,22 @@ def pay_invoice_by_id(request, invoice_id):
             })
     else:
         initial = {}
-        if request.GET.get('method') == 'benefit':
-            last_payment = Payment.objects.filter(method='benefit').order_by('-id').first()
+        # Always prepare a next benefit reference (useful to display even if method not preselected)
+        try:
+            from .models import Payment as PaymentModel
+            last_payment = PaymentModel.objects.filter(method='benefit').order_by('-id').first()
             if last_payment and last_payment.reference and last_payment.reference.isdigit():
                 next_ref = str(int(last_payment.reference) + 1).zfill(7)
             else:
                 next_ref = '0000001'
+        except Exception:
+            next_ref = '0000001'
+
+        if request.GET.get('method') == 'benefit':
             initial['reference'] = next_ref
+        else:
+            # if not prefilled, show the suggested next reference so user can see numbering
+            initial.setdefault('reference', next_ref)
         # Prefill amount if provided via GET (e.g., ?amount=10.000) or compute remaining_balance
         try:
             amt_q = request.GET.get('amount')
@@ -696,21 +1900,102 @@ def pay_invoice(request, car_id):
 
 @login_required
 def payments_list(request):
-    payments = Payment.objects.filter(status='paid').select_related('client', 'car', 'invoice')
+    payments_qs = Payment.objects.filter(status='paid').select_related('client', 'car', 'invoice')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     if start_date:
-        payments = payments.filter(payment_date__date__gte=parse_date(start_date))
+        payments_qs = payments_qs.filter(payment_date__date__gte=parse_date(start_date))
     if end_date:
-        payments = payments.filter(payment_date__date__lte=parse_date(end_date))
-    payments = payments.order_by('invoice__invoice_number')
+        payments_qs = payments_qs.filter(payment_date__date__lte=parse_date(end_date))
+    payments_qs = payments_qs.order_by('invoice__invoice_number')
+
+    # Build a serializable list including computed unused amount per payment
+    payments = []
+    # English label mappings for method/status (keep model choices as-is)
+    STATUS_LABELS_EN = {
+        'paid': 'Paid',
+        'unpaid': 'Unpaid',
+        'partial': 'Partial',
+    }
+    METHOD_LABELS_EN = {
+        'cash': 'Cash',
+        'card': 'Card',
+        'benefit': 'Benefit',
+        'bank': 'Bank Transfer',
+        'other': 'Other',
+    }
+    from django.db.models import Sum
+    for p in payments_qs:
+        try:
+            # sum of other paid payments on the same invoice (before/aside from this payment)
+            paid_others = p.invoice.payments.filter(status='paid').exclude(id=p.id).aggregate(total=Sum('amount'))['total'] or 0
+        except Exception:
+            paid_others = 0
+        try:
+            invoice_total = float(p.invoice.amount or 0)
+        except Exception:
+            invoice_total = 0.0
+        try:
+            paid_others_f = float(paid_others or 0)
+        except Exception:
+            paid_others_f = 0.0
+        remaining_before = max(0.0, invoice_total - paid_others_f)
+        try:
+            payment_amount = float(p.amount or 0)
+        except Exception:
+            payment_amount = 0.0
+        amount_applied = min(payment_amount, remaining_before)
+        unused_amount = round(max(0.0, payment_amount - amount_applied), 3)
+        payments.append({
+            'id': p.id,
+            'client_name': (p.client.first_name or '') + ((' ' + p.client.last_name) if getattr(p.client, 'last_name', None) else ''),
+            'payment_date': p.payment_date,
+            'reference': p.reference,
+            'method': METHOD_LABELS_EN.get(p.method, p.get_method_display() if hasattr(p, 'get_method_display') else p.method),
+            'status': STATUS_LABELS_EN.get(p.status, p.get_status_display() if hasattr(p, 'get_status_display') else p.status),
+            'amount': payment_amount,
+            'unused': unused_amount,
+        })
+
     # Calculate total amount
-    total_amount = payments.aggregate(total=models.Sum('amount'))['total'] or 0
+    total_amount = sum([x.get('amount', 0) for x in payments])
+
+    # Pagination / per-page handling (match invoices_list pattern)
+    per_page_param = request.GET.get('per_page', '').strip()
+    per_page_options = [25, 50, 100, 200, 'all']
+    try:
+        if per_page_param.lower() == 'all' or per_page_param == '0':
+            per_page = 0
+        elif per_page_param:
+            per_page = int(per_page_param)
+        else:
+            per_page = 25
+    except Exception:
+        per_page = 25
+
+    page_obj = None
+    if per_page and per_page > 0:
+        paginator = Paginator(payments, per_page)
+        page_num = request.GET.get('page', 1)
+        try:
+            page_obj = paginator.get_page(page_num)
+            payments = page_obj
+        except Exception:
+            page_obj = paginator.get_page(1)
+            payments = page_obj
+    else:
+        # per_page == 0 means show all (no pagination)
+        page_obj = None
+
     return render(request, 'payments_list.html', {
         'payments': payments,
         'start_date': start_date,
         'end_date': end_date,
         'total_amount': total_amount,
+        'page_obj': page_obj,
+        'per_page': per_page,
+        'per_page_options': per_page_options,
+        'search': None,
     })
 
 @login_required
