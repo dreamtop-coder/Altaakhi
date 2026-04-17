@@ -21,13 +21,13 @@ def run():
     if not confirm:
         print('No destructive action taken. Pass --confirm to actually delete.')
         return
-    print("حذف جميع العملاء...")
+    print("Deleting all clients...")
     Client.objects.all().delete()
-    print("حذف جميع سجلات الصيانة...")
+    print("Deleting all maintenance records...")
     MaintenanceRecord.objects.all().delete()
-    print("حذف جميع الإيرادات...")
+    print("Deleting all payments...")
     Payment.objects.all().delete()
-    print("تم الحذف بنجاح.")
+    print("Deleted successfully.")
 
 if __name__ == "__main__":
     run()

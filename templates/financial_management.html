@@ -9,15 +9,15 @@
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
         <div style="flex:1 1 200px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
             <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Total Revenue</div>
-            <div style="font-size:1.6em;font-weight:700;color:#1976d2;">{{ total_revenue|default:0|floatformat:2 }}</div>
+            <div style="font-size:1.6em;font-weight:700;color:#1976d2;">{{ total_revenue|default:0|floatformat:3 }}</div>
         </div>
         <div style="flex:1 1 200px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
             <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Collected</div>
-            <div style="font-size:1.6em;font-weight:700;color:#28a745;">{{ collected|default:0|floatformat:2 }}</div>
+            <div style="font-size:1.6em;font-weight:700;color:#28a745;">{{ collected|default:0|floatformat:3 }}</div>
         </div>
         <div style="flex:1 1 200px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
             <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Outstanding</div>
-            <div style="font-size:1.6em;font-weight:700;color:#c00;">{{ outstanding|default:0|floatformat:2 }}</div>
+            <div style="font-size:1.6em;font-weight:700;color:#c00;">{{ outstanding|default:0|floatformat:3 }}</div>
         </div>
         <div style="flex:1 1 140px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
             <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Overdue</div>
@@ -25,11 +25,11 @@
         </div>
         <div style="flex:1 1 200px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
             <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Gross Profit</div>
-            <div style="font-size:1.6em;font-weight:700;color:#1976d2;">{{ gross_profit|default:0|floatformat:2 }}</div>
+            <div style="font-size:1.6em;font-weight:700;color:#1976d2;">{{ gross_profit|default:0|floatformat:3 }}</div>
         </div>
         <div style="flex:1 1 200px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
             <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Net Profit</div>
-            <div style="font-size:1.6em;font-weight:700;color:#28a745;">{{ net_profit|default:0|floatformat:2 }}</div>
+            <div style="font-size:1.6em;font-weight:700;color:#28a745;">{{ net_profit|default:0|floatformat:3 }}</div>
         </div>
     </div>
 
@@ -56,6 +56,9 @@
             <a href="/invoices/add/" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:700;">+ Create Invoice</a>
             <a href="/invoices/payments/add/" style="background:#28a745;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;">Add Payment</a>
             <a href="/invoices/print/" style="background:#fff;border:1px solid #1976d2;color:#1976d2;padding:8px 12px;border-radius:6px;text-decoration:none;">Print</a>
+            <a href="/invoices/expenses/" style="background:#6c757d;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;">Expenses</a>
+            <a href="/invoices/expenses/add/" style="background:#17a2b8;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;">+ Add Expense</a>
+            <a href="/invoices/recurring/" style="background:#ffc107;color:#222;padding:8px 12px;border-radius:6px;text-decoration:none;">Recurring Expenses</a>
         </div>
     </div>
 
@@ -74,7 +77,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
     (function(){
-        function fmt(n){return Number((n||0).toFixed(2));}
+        function fmt(n){return Number((n||0).toFixed(3));}
         // forward current page querystring (so months/status filters propagate)
         var qs = window.location.search || '';
         fetch('/invoices/json/charts/' + qs)
@@ -161,7 +164,7 @@
                             <td style="padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ inv.created_at|date:'d-m-Y' }}</td>
                             <td style="padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ inv.client.first_name }}{% if inv.client.last_name %} {{ inv.client.last_name }}{% endif %}</td>
                             <td style="padding:8px 10px;">{{ inv.car.plate_number }}</td>
-                            <td style="padding:8px 10px;text-align:right;">{{ inv.amount|floatformat:2 }}</td>
+                            <td style="padding:8px 10px;text-align:right;">{{ inv.amount|floatformat:3 }}</td>
                             <td style="padding:8px 10px;">{% if inv.paid %}<span style="background:#e6f4ea;color:#28a745;padding:4px 8px;border-radius:12px;font-size:0.85em;font-weight:700;">Paid</span>{% else %}<span style="background:#fdecea;color:#c00;padding:4px 8px;border-radius:12px;font-size:0.85em;font-weight:700;">Unpaid</span>{% endif %}</td>
                             <td style="padding:8px 10px;"><a href="{% url 'print_invoice' inv.id %}" target="_blank" style="color:#1976d2;text-decoration:none;margin-right:10px;display:inline-block;">Print</a><a href="{% url 'edit_invoice' inv.id %}" style="color:#666;text-decoration:none;margin-right:10px;display:inline-block;">Edit</a>{% if not inv.paid %}<a href="/invoices/payments/add/?invoice={{ inv.id }}" style="color:#28a745;text-decoration:none;display:inline-block;">Add Payment</a>{% endif %}</td>
                         {% else %}
@@ -170,7 +173,7 @@
                             <td style="padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ inv.created_at|date:'d-m-Y' }}</td>
                             <td style="padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ inv.client.first_name }}{% if inv.client.last_name %} {{ inv.client.last_name }}{% endif %}</td>
                             <td style="padding:8px 10px;">{{ inv.car.plate_number }}</td>
-                            <td style="padding:8px 10px;text-align:right;">{{ inv.amount|floatformat:2 }}</td>
+                            <td style="padding:8px 10px;text-align:right;">{{ inv.amount|floatformat:3 }}</td>
                             <td style="padding:8px 10px;">{% if inv.paid %}<span style="background:#e6f4ea;color:#28a745;padding:4px 8px;border-radius:12px;font-size:0.85em;font-weight:700;">Paid</span>{% else %}<span style="background:#fdecea;color:#c00;padding:4px 8px;border-radius:12px;font-size:0.85em;font-weight:700;">Unpaid</span>{% endif %}</td>
                             <td style="padding:8px 10px;"><a href="{% url 'print_invoice' inv.id %}" target="_blank" style="color:#1976d2;text-decoration:none;margin-right:10px;display:inline-block;">Print</a><a href="{% url 'edit_invoice' inv.id %}" style="color:#666;text-decoration:none;margin-right:10px;display:inline-block;">Edit</a>{% if not inv.paid %}<a href="/invoices/payments/add/?invoice={{ inv.id }}" style="color:#28a745;text-decoration:none;display:inline-block;">Add Payment</a>{% endif %}</td>
                         {% endif %}
@@ -196,7 +199,7 @@
                     {% for p in recent_payments %}
                     <li style="padding:6px 0;border-bottom:1px dashed #f0f0f0;display:flex;justify-content:space-between;align-items:center;">
                         <div style="font-size:0.95em;">{{ p.invoice.invoice_number }} — {{ p.invoice.client.first_name }}</div>
-                        <div style="font-weight:700;color:#28a745;">{{ p.amount|floatformat:2 }}</div>
+                        <div style="font-weight:700;color:#28a745;">{{ p.amount|floatformat:3 }}</div>
                     </li>
                     {% endfor %}
                 </ul>
@@ -207,15 +210,15 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
                     <div style="flex:1 1 120px;padding:8px;border-radius:6px;border:1px solid #f0f0f0;background:#fff;">
                         <div style="color:#666;font-size:0.85em;">Total Payables</div>
-                        <div style="font-weight:700;color:#1976d2;">{{ total_payables|default:0|floatformat:2 }}</div>
+                        <div style="font-weight:700;color:#1976d2;">{{ total_payables|default:0|floatformat:3 }}</div>
                     </div>
                     <div style="flex:1 1 120px;padding:8px;border-radius:6px;border:1px solid #f0f0f0;background:#fff;">
                         <div style="color:#666;font-size:0.85em;">Paid to Suppliers</div>
-                        <div style="font-weight:700;color:#28a745;">{{ paid_to_suppliers|default:0|floatformat:2 }}</div>
+                        <div style="font-weight:700;color:#28a745;">{{ paid_to_suppliers|default:0|floatformat:3 }}</div>
                     </div>
                     <div style="flex:1 1 120px;padding:8px;border-radius:6px;border:1px solid #f0f0f0;background:#fff;">
                         <div style="color:#666;font-size:0.85em;">Outstanding</div>
-                        <div style="font-weight:700;color:#c00;">{{ outstanding_bills|default:0|floatformat:2 }}</div>
+                        <div style="font-weight:700;color:#c00;">{{ outstanding_bills|default:0|floatformat:3 }}</div>
                     </div>
                 </div>
                 <div style="color:#666;font-size:0.9em;margin-bottom:6px;font-weight:700;">Recent Supplier Payments</div>
@@ -223,7 +226,7 @@
                     {% for sp in recent_supplier_payments %}
                     <li style="padding:6px 0;border-bottom:1px dashed #f0f0f0;display:flex;justify-content:space-between;align-items:center;">
                         <div style="font-size:0.95em;">{{ sp.bill.bill_number }} — {{ sp.supplier.name }}</div>
-                        <div style="font-weight:700;color:#28a745;">{{ sp.amount|floatformat:2 }}</div>
+                        <div style="font-weight:700;color:#28a745;">{{ sp.amount|floatformat:3 }}</div>
                     </li>
                     {% empty %}
                     <li style="padding:6px 0;color:#666;">No supplier payments found.</li>
@@ -241,7 +244,7 @@
                                 <a href="{% url 'edit_invoice' it.invoice_id %}" target="_blank" rel="noopener noreferrer" style="color:#1976d2;text-decoration:none;font-weight:700;">[{{ it.invoice_number }}]</a>
                                 &nbsp;{{ it.description }}
                             </div>
-                            <div style="text-align:right;color:#1976d2;font-weight:700;min-width:160px;">Qty: {{ it.quantity }} &nbsp; {{ it.line_total|default:0|floatformat:2 }}</div>
+                            <div style="text-align:right;color:#1976d2;font-weight:700;min-width:160px;">Qty: {{ it.quantity }} &nbsp; {{ it.line_total|default:0|floatformat:3 }}</div>
                         </li>
                         <li style="padding:6px 0;display:flex;justify-content:space-between;align-items:center;background:transparent;border-bottom:1px solid transparent;">
                             <div style="font-size:0.85em;color:#666;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Supplier suggestion:</div>

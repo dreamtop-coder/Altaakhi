@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:1100px;margin:0;padding:20px;direction:ltr;">
+    <h2 style="text-align:left;color:#1976d2;margin-bottom:12px;">Reports</h2>
+
+    <!-- KPI cards -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
+        <div style="flex:1 1 200px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;">
+            <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Total Revenue</div>
+            <div style="font-size:1.4em;font-weight:700;color:#1976d2;">{{ total_revenue|default:0|floatformat:3 }}</div>
+        </div>
+        <div style="flex:1 1 200px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;">
+            <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Collected</div>
+            <div style="font-size:1.4em;font-weight:700;color:#28a745;">{{ collected|default:0|floatformat:3 }}</div>
+        </div>
+        <div style="flex:1 1 200px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;">
+            <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Outstanding</div>
+            <div style="font-size:1.4em;font-weight:700;color:#c00;">{{ outstanding|default:0|floatformat:3 }}</div>
+        </div>
+        <div style="flex:1 1 140px;padding:14px;border-radius:8px;background:transparent;border:1px solid #eee;">
+            <div style="color:#666;font-size:0.9em;margin-bottom:6px;">Overdue</div>
+            <div style="font-size:1.4em;font-weight:700;color:#c56;">{{ overdue_count }}</div>
+        </div>
+    </div>
+
+    <!-- Filters and actions -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap;">
+        <form id="reportFilters" method="get" style="display:flex;gap:8px;align-items:center;">
+            <input type="date" name="from" value="{{ from_date }}" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+            <input type="date" name="to" value="{{ to_date }}" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+            <select name="status" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                <option value="" {% if not applied_status %}selected{% endif %}>All</option>
+                <option value="paid" {% if applied_status == 'paid' %}selected{% endif %}>Paid</option>
+                <option value="unpaid" {% if applied_status == 'unpaid' %}selected{% endif %}>Unpaid</option>
+                <option value="overdue" {% if applied_status == 'overdue' %}selected{% endif %}>Overdue</option>
+            </select>
+            <button type="submit" style="background:#1976d2;color:#fff;padding:8px 14px;border-radius:6px;border:none;font-weight:700;">Apply</button>
+        </form>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <a id="exportRevenueCSV" href="#" style="background:#fff;border:1px solid #1976d2;color:#1976d2;padding:8px 12px;border-radius:6px;text-decoration:none;">Export Revenue CSV</a>
+            <a id="exportAgingCSV" href="#" style="background:#fff;border:1px solid #1976d2;color:#1976d2;padding:8px 12px;border-radius:6px;text-decoration:none;">Export Aging CSV</a>
+        </div>
+    </div>
+
+    <!-- Revenue chart + table -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
+        <div style="flex:2 1 600px;padding:12px;border-radius:8px;border:1px solid #eee;min-height:220px;">
+            <div style="font-weight:700;margin-bottom:8px;color:#666;">Revenue Summary</div>
+            <div style="height:220px;">
+                <canvas id="revenueChart" style="width:100%;height:100%;"></canvas>
+            </div>
+        </div>
+        <div style="flex:1 1 320px;padding:12px;border-radius:8px;border:1px solid #eee;min-height:220px;">
+            <div style="font-weight:700;margin-bottom:8px;color:#666;">Aging / Receivables</div>
+            <div id="agingBuckets">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed invoices table (Aging list) -->
+    <div style="border:1px solid #eee;padding:10px;border-radius:6px;">
+        <h3 style="margin:8px 0;color:#333;">Aging — Unpaid Invoices</h3>
+        <div id="agingTable">Loading...</div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function(){
+    function qs(){ return new URLSearchParams(window.location.search); }
+    function applyFiltersAndLoad(){
+        var params = new URLSearchParams(new FormData(document.getElementById('reportFilters')));
+        var revUrl = '/invoices/json/reports/revenue/?' + params.toString();
+        fetch(revUrl).then(r=>r.json()).then(function(data){
+            var labels = data.labels || [];
+            var totals = data.total || [];
+            try{
+                var ctx = document.getElementById('revenueChart').getContext('2d');
+                if(window._revChart) window._revChart.destroy();
+                window._revChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Revenue', data: totals, backgroundColor: '#1976d2' }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} } });
+            }catch(e){console.error(e)}
+        }).catch(console.error);
+
+        var agingUrl = '/invoices/json/reports/aging/?' + params.toString();
+        fetch(agingUrl).then(r=>r.json()).then(function(data){
+            var buckets = data.buckets || [];
+            var html = '<ul style="list-style:none;padding:0;margin:0;">';
+            buckets.forEach(function(b){ html += '<li style="padding:6px 0;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;"><div>'+b.key+'</div><div style="font-weight:700;">'+(Number(b.amount)||0).toFixed(3)+'</div></li>'; });
+            html += '</ul>';
+            document.getElementById('agingBuckets').innerHTML = html;
+
+            // invoices list
+            var invs = data.invoices || [];
+            if(invs.length===0){ document.getElementById('agingTable').innerHTML = '<div style="padding:12px;color:#666;">No unpaid invoices for this filter.</div>'; return; }
+            var table = '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f6f9ff;color:#1a237e;"><th style="padding:8px">#</th><th style="padding:8px">Client</th><th style="padding:8px">Amount</th><th style="padding:8px">Created</th></tr></thead><tbody>';
+            invs.forEach(function(inv){
+                var client = ((inv['client__first_name']||'') + ' ' + (inv['client__last_name']||'')).trim();
+                var amount = Number(inv.amount)||0;
+                var amtStr = amount.toFixed(3); // show 3 decimal places
+                var createdRaw = inv.created_at || '';
+                var createdDate = createdRaw;
+                try {
+                    // Normalize to YYYY-MM-DD when possible
+                    var d = new Date(createdRaw);
+                    if(!isNaN(d.getTime())) createdDate = d.toISOString().split('T')[0];
+                } catch(e){}
+                table += '<tr><td style="padding:8px">'+inv.invoice_number+'</td><td style="padding:8px">'+client+'</td><td style="padding:8px;text-align:right">'+amtStr+'</td><td style="padding:8px">'+createdDate+'</td></tr>';
+            });
+            table += '</tbody></table>';
+            document.getElementById('agingTable').innerHTML = table;
+        }).catch(console.error);
+
+        // update export links
+        var base = '/invoices/reports/export/revenue/csv/?' + params.toString();
+        document.getElementById('exportRevenueCSV').href = base;
+        var base2 = '/invoices/reports/export/aging/csv/?' + params.toString();
+        document.getElementById('exportAgingCSV').href = base2;
+    }
+
+    document.getElementById('reportFilters').addEventListener('submit', function(e){ e.preventDefault(); var s = new URLSearchParams(new FormData(this)).toString(); window.history.replaceState({}, '', '?' + s); applyFiltersAndLoad(); });
+    // initial load
+    applyFiltersAndLoad();
+})();
+</script>
+
+{% endblock %}

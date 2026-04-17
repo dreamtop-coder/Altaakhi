@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<style>
+    .maintenance-card {
+        max-width: 1200px;
+        margin-left: 0;
+        margin-right: auto;
+        background: transparent;
+        padding: 8px 18px 80px 18px;
+        border-radius: 0;
+        box-shadow: none;
+        direction: ltr;
+        font-family: 'Cairo', Tahoma, Arial, sans-serif;
+        width: 100%;
+    }
+    .maintenance-title {
+        text-align: left;
+        margin-bottom: 24px;
+        font-size: 26px;
+        font-weight: bold;
+        color: #1a237e;
+        letter-spacing: 1px;
+    }
+    .maintenance-form {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+    .maintenance-label {
+        font-weight: bold;
+        margin-bottom: 6px;
+        color: #333;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .maintenance-input,
+    .maintenance-form select,
+    .maintenance-form textarea {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 7px 12px;
+        border: 1.5px solid #bdbdbd;
+        border-radius: 7px;
+        font-size: 15px;
+        background: #f5f7fa;
+        transition: border 0.2s;
+        margin-top: 2px;
+    }
+    .maintenance-input:focus,
+    .maintenance-form select:focus,
+    .maintenance-form textarea:focus {
+        border-color: #1976d2;
+        outline: none;
+        background: #fff;
+    }
+    .maintenance-actions {
+        margin-top: 24px;
+        text-align: center;
+    }
+    .maintenance-btn {
+        background: linear-gradient(90deg,#1976d2 60%,#2196f3 100%);
+        color: #fff;
+        padding: 10px 32px;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 16px;
+        box-shadow: 0 2px 8px #e3e3e3;
+        cursor: pointer;
+        margin-left: 8px;
+        transition: background 0.2s;
+    }
+    .maintenance-btn:hover {
+        background: linear-gradient(90deg,#1565c0 60%,#1976d2 100%);
+    }
+    .maintenance-cancel {
+        background: #fff;
+        color: #1976d2;
+        border: 1px solid #1976d2;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 15px;
+        cursor: pointer;
+        margin-right: 8px;
+        transition: background 0.2s, color 0.2s;
+    }
+    .maintenance-cancel:hover {
+        background: #e3f2fd;
+        color: #0d47a1;
+    }
+    @media (max-width: 700px) {
+        .maintenance-card {
+            max-width: 98vw;
+            padding: 18px 6vw 18px 6vw;
+        }
+        .maintenance-title {
+            font-size: 20px;
+        }
+        .maintenance-form > div, .maintenance-form label, .maintenance-form input, .maintenance-form textarea, .maintenance-form select {
+            font-size: 15px !important;
+        }
+    }
+    @media (max-width: 480px) {
+        .maintenance-card {
+            max-width: 100vw;
+            padding: 10px 1vw 10px 20vw;
+        }
+        .maintenance-title {
+            font-size: 17px;
+        }
+        .maintenance-form > div, .maintenance-form label, .maintenance-form input, .maintenance-form textarea, .maintenance-form select {
+            font-size: 13px !important;
+        }
+    }
+    /* Invoice-like table and summary styles */
+    #items-table thead th { background:#fafafa; font-weight:600; color:#374151; padding:12px 8px; }
+    #items-table tbody td { padding:8px; border-bottom:1px solid #f1f5f9; }
+    #items-table input { border:1px solid #e6e9ee; padding:6px; border-radius:6px; }
+    #items-table .item-amount[readonly] { background:#f8fafc; border-color:#eceff4; }
+    .invoice-summary-card { background:transparent;border-radius:0;border:0;padding:8px; }
+    #bottom-action-bar { box-shadow:0 -4px 18px rgba(15,23,42,0.03); }
+</style>
+<div class="maintenance-card">
+    <div class="maintenance-title">Invoice</div>
+    {% if bill %}
+    <form id="bill-detail-form">
+    <div class="maintenance-form" style="background:#f3f4f6;padding:14px;border-radius:8px;border:1px solid #e6e9ee;">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+            <div style="flex:1;">
+                <label class="maintenance-label">Supplier Name</label>
+                <div class="customer-selector">
+                    <input id="supplier-search-view" type="text" value="{{ bill.vendor_name }}" readonly style="pointer-events:none;background:transparent;border:0;font-weight:600;" />
+                </div>
+                <input type="hidden" id="selected_supplier_id_view" value="{{ bill.vendor_id|default:'' }}" />
+                <div style="margin-top:8px;">
+                    <label class="maintenance-label">Subject</label>
+                    <textarea class="maintenance-input" rows="3" readonly>{{ bill.notes|default:'' }}</textarea>
+                </div>
+            </div>
+            <div style="width:200px;">
+                <label class="maintenance-label">Bill#</label>
+                <input id="id_bill_number_view" type="text" class="maintenance-input" value="{{ bill.number }}" readonly />
+            </div>
+            <div style="width:180px;">
+                <label class="maintenance-label">Bill Date</label>
+                <input id="id_bill_date_view" type="date" class="maintenance-input" value="{{ bill.date }}" readonly />
+            </div>
+            <div style="width:180px;">
+                <label class="maintenance-label">Status</label>
+                <input type="text" class="maintenance-input" value="{{ bill.status }}" readonly />
+            </div>
+        </div>
+
+        <div class="invoice-box" style="padding:12px;">
+            <div class="maintenance-label" style="margin-bottom:8px;">Item Table</div>
+            <table id="items-table" style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:14px;">
+                <thead>
+                    <tr style="text-align:left;color:#444;border-bottom:1px solid #eee;">
+                        <th style="padding:8px 6px;width:45%">Item Details</th>
+                        <th style="padding:8px 6px;width:12%">Quantity</th>
+                        <th style="padding:8px 6px;width:12%">Rate</th>
+                        <th style="padding:8px 6px;width:12%">Discount %</th>
+                        <th style="padding:8px 6px;width:12%">Amount</th>
+                        <th style="padding:8px 6px;width:7%"></th>
+                    </tr>
+                </thead>
+                <tbody id="items-body-view">
+                    {% if bill.items %}
+                        {% for it in bill.items %}
+                            <tr class="item-row">
+                                <td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="{{ it.description }}" readonly /></td>
+                                <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="0.1" value="{{ it.qty }}" readonly /></td>
+                                <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.01" value="{{ it.rate }}" readonly /></td>
+                                <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.01" value="{{ it.discount }}" readonly /></td>
+                                <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="{{ it.line_amount }}" readonly /></td>
+                                <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="display:none;">×</button></td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr class="item-row">
+                            <td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="" readonly /></td>
+                            <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="0.1" value="1.0" readonly /></td>
+                            <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.01" value="0.00" readonly /></td>
+                            <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.01" value="0.0" readonly /></td>
+                            <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly /></td>
+                            <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="display:none;">×</button></td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+            {% if session_raw and not bill.items %}
+            <div style="margin-top:12px;padding:12px;background:#fff;border:1px solid #eee;border-radius:6px;">
+                <div style="font-weight:600;margin-bottom:6px;color:#c63;">Debug: session bill data (no items found)</div>
+                <pre style="white-space:pre-wrap;word-break:break-word;">{{ session_raw }}</pre>
+            </div>
+            {% endif %}
+            <div style="display:flex;gap:12px;justify-content:flex-start;align-items:center;margin-bottom:8px;"><button type="button" id="add-row-view" class="maintenance-btn" style="background:#6c757d;padding:8px 12px;color:#fff;border-radius:6px;display:none;">Add New Row</button></div>
+            <div class="invoice-summary-card" style="margin-top:12px;padding:12px;border-top:1px solid #e6e6e6;display:flex;justify-content:flex-end;">
+                <div style="width:320px;border:1px solid #f1f5f9;padding:12px;border-radius:8px;background:#fff;">
+                    <div style="font-weight:600;margin-bottom:10px;">Bill Summary</div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Sub Total</div><div id="sub-total-view">{{ summary.sub_total }}</div></div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Discount</div><div id="total-discount-view">{{ summary.total_discount }}</div></div>
+                    <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:16px;margin-bottom:12px;"><div>Total ( BHD )</div><div id="grand-total-view">{{ summary.grand_total }}</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </form>
+    <!-- sticky bottom action bar (same layout as bills/add) -->
+    <div id="bottom-action-bar" style="position:fixed;left:0;right:0;bottom:0;background:linear-gradient(90deg, #fff, #fff);border-top:1px solid #e6e6e6;padding:10px 18px;z-index:999;">
+        <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button type="button" class="maintenance-cancel" onclick="window.history.back();" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;color:#1976d2;text-decoration:none;">Back</button>
+                <button type="button" class="maintenance-cancel" onclick="(function(){ try{ window.print(); }catch(e){} })()" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;color:#1976d2;font-weight:bold;">Print</button>
+                <a href="/bills/" class="maintenance-cancel" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;color:#1976d2;text-decoration:none;">Cancel</a>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="color:#6b7280;font-size:13px;">Make Recurring</div>
+                <div style="background:#f3f4f6;border-radius:6px;padding:8px 10px;font-weight:600;">Total Amount: <span id="bottom-total">BHD {{ summary.grand_total }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+        <div style="padding:18px;background:#fff;border:1px solid #eee;border-radius:8px;">Bill not found.</div>
+    {% endif %}
+</div>
+{% endblock %}

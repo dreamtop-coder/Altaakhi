@@ -32,8 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (brandSelect) {
         brandSelect.addEventListener('change', function() {
             var brandId = this.value;
-            fetch('/get-models-for-brand/?brand_id=' + brandId)
-                .then(response => response.json())
+            window.fetchJson('/get-models-for-brand/?brand_id=' + brandId)
                 .then(data => {
                     if (!modelSelect) return;
                     modelSelect.innerHTML = '';
@@ -102,8 +101,8 @@ document.addEventListener('DOMContentLoaded', function(){
         const url = this.action; const fd = new FormData(this);
         const msg = document.getElementById('modelFormMsgInline'); const saveBtn = document.getElementById('modelSaveBtnInline');
         saveBtn.disabled = true;
-        fetch(url, { method:'POST', body: fd, headers: { 'X-Requested-With':'XMLHttpRequest','X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] } })
-            .then(r=>r.json()).then(data=>{
+        window.fetchJson(url, { method:'POST', body: fd, headers: { 'X-Requested-With':'XMLHttpRequest','X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] } })
+            .then(data=>{
                 saveBtn.disabled = false;
                 if(data.success){
                     const opt = document.createElement('option'); opt.value = data.id; opt.text = data.name; modelSelect.appendChild(opt); modelSelect.value = data.id; hideInline();
@@ -175,8 +174,8 @@ document.addEventListener('DOMContentLoaded', function(){
         const msg = document.getElementById('brandFormMsgInline');
         const saveBtn = document.getElementById('brandSaveBtnInline');
         saveBtn.disabled = true;
-        fetch(url, { method: 'POST', body: fd, headers: { 'X-Requested-With':'XMLHttpRequest','X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] } })
-            .then(r=>r.json()).then(data=>{
+        window.fetchJson(url, { method: 'POST', body: fd, headers: { 'X-Requested-With':'XMLHttpRequest','X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] } })
+            .then(data=>{
                 saveBtn.disabled = false;
                 if(data.success){
                     const opt = document.createElement('option'); opt.value = data.id; opt.text = data.name; brand.appendChild(opt); brand.value = data.id; hideInline();

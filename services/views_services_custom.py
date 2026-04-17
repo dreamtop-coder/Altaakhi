@@ -9,7 +9,7 @@ def services_edit(request, service_id):
         form = ServiceFormNoCar(request.POST, instance=service)
         if form.is_valid():
             form.save()
-            return redirect('services_list')
+            return redirect('inventory')
     else:
         form = ServiceFormNoCar(instance=service)
     return render(request, 'services_edit.html', {'form': form, 'service': service})
@@ -18,5 +18,5 @@ def services_delete(request, service_id):
     service = get_object_or_404(Service, id=service_id)
     if request.method == 'POST':
         service.delete()
-        return redirect('services_list')
+        return redirect('inventory')
     return render(request, 'services_delete.html', {'service': service})

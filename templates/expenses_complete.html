@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:700px;margin:0 auto;padding:20px;">
+  <h2>Complete Expense</h2>
+  <p>Fill the amount and details, then press "Post" to mark this expense as posted.</p>
+  <form method="post">
+    {% csrf_token %}
+    <div style="margin-bottom:8px;">{{ form.amount.label_tag }}<br>{{ form.amount }}</div>
+    <div style="margin-bottom:8px;">{{ form.payee.label_tag }}<br>{{ form.payee }}</div>
+    <div style="margin-bottom:8px;">{{ form.note.label_tag }}<br>{{ form.note }}</div>
+    <div style="margin-top:12px;"><button type="submit" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;border:none;">Post</button>
+    <a href="{% url 'expenses_list' %}" style="margin-left:8px;">Cancel</a></div>
+  </form>
+</div>
+{% endblock %}

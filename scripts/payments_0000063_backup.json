@@ -1,0 +1,24 @@
+[
+  {
+    "id": 66,
+    "reference": "0000063",
+    "amount": "120.00",
+    "payment_date": "2026-02-12T12:00:00+00:00",
+    "method": "cash",
+    "status": "paid",
+    "client_id": 55,
+    "client_name": "جاسم عطيه الكويتي None",
+    "invoice_id": 63
+  },
+  {
+    "id": 67,
+    "reference": "0000063",
+    "amount": "120.00",
+    "payment_date": "2026-04-12T12:00:00+00:00",
+    "method": "benefit",
+    "status": "paid",
+    "client_id": 56,
+    "client_name": "عبدالله حسين حمد مبارك None",
+    "invoice_id": 64
+  }
+]

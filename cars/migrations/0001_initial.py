@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('clients', '__first__'),
-        ('services', '__first__'),
     ]
 
     operations = [
@@ -72,7 +71,7 @@ class Migration(migrations.Migration):
                 ('is_finished', models.BooleanField(default=False, verbose_name='تم الانتهاء من الصيانة')),
                 ('car', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='maintenance_records', to='cars.car')),
                 # The 'invoice' field will be added in a follow-up migration to avoid circular migration dependency
-                ('service', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='services.service')),
+                # 'service' FK to 'services.service' moved to a later migration to avoid circular dependencies.
             ],
         ),
     ]

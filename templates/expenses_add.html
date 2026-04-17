@@ -1,13 +1,388 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="max-width:700px;margin:0 auto;padding:20px;">
+<div style="max-width:700px;margin:0;padding:20px;direction:ltr;">
   <h2>Add Expense</h2>
   <form method="post">
     {% csrf_token %}
-    <table>
-      {{ form.as_table }}
+    <input type="hidden" name="payee_recipient" value="{% if existing_recipient %}{{ existing_recipient|escape }}{% endif %}">
+    <input type="hidden" name="payee_month" value="{% if expense and expense.payee %}{{ expense.payee|escape }}{% endif %}">
+    <table style="width:100%;border-collapse:collapse;direction:ltr;" class="expense-form-table">
+      <colgroup><col style="width:36%;"><col></colgroup>
+      <tbody>
+        {{ form.as_table }}
+      </tbody>
     </table>
     <div style="margin-top:12px;"><button type="submit" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;border:none;">Save</button> <a href="{% url 'expenses_list' %}" style="margin-left:8px;">Cancel</a></div>
   </form>
+  <!-- Modal for adding category (no description) -->
+  {{ payee_users|json_script:"payee-users" }}
+  <div id="category-modal" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:1400;">
+    <div style="max-width:420px;margin:80px auto;padding:20px;background:#fff;border-radius:8px;box-shadow:0 15px 40px rgba(0,0,0,0.2);">
+      <h2 style="margin-bottom:14px;text-align:center;">Add Category</h2>
+      <form id="category-form" style="display:flex;flex-direction:column;gap:10px;">
+        <input type="hidden" name="csrfmiddlewaretoken" value="">
+        <div style="width:100%;text-align:center;">
+          <label for="cat_name" style="display:block;font-weight:bold;margin-bottom:6px;">Category name</label>
+          <input id="cat_name" name="name" type="text" style="width:100%;max-width:320px;padding:8px 10px;border-radius:6px;border:1px solid #ccc;" required />
+        </div>
+        <div style="display:flex;justify-content:center;gap:12px;margin-top:6px;">
+          <button type="button" id="cat-cancel" style="background:#eee;color:#333;padding:8px 18px;border-radius:6px;border:none;">Cancel</button>
+          <button type="submit" style="background:#007bff;color:#fff;padding:8px 18px;border:none;border-radius:6px;font-weight:bold;">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      function qs(s){return document.querySelector(s);} 
+      var select = qs('select[name="category"]');
+      // Payee users data from server (rendered safely as JSON)
+      var PAYEE_USERS = (function(){ try{ var el = document.getElementById('payee-users'); return el && el.textContent ? JSON.parse(el.textContent) : []; }catch(e){ return []; } })();
+
+      // existing expense values (when editing)
+      var EXISTING_PAYEE = "{% if expense %}{{ expense.payee|default:''|escapejs }}{% else %}{% endif %}";
+      var EXISTING_NOTE = "{% if expense %}{{ expense.note|default:''|escapejs }}{% else %}{% endif %}";
+      var EXISTING_RECIPIENT = "{% if existing_recipient %}{{ existing_recipient|escapejs }}{% else %}{% endif %}";
+
+      // Dynamic payee: show user dropdown when payee equals 'salary'
+      var payeeInput = qs('[name="payee"]');
+      var payeeSelect = null;
+      var monthSelect = null;
+      var payeeRecipientInput = qs('input[name="payee_recipient"]');
+      var payeeMonthInput = qs('input[name="payee_month"]');
+      if(payeeInput){
+        payeeSelect = document.createElement('select');
+        payeeSelect.style.display = 'none';
+        payeeSelect.style.width = '100%';
+        payeeSelect.style.boxSizing = 'border-box';
+        // build options from PAYEE_USERS JS array so dropdown is always populated client-side
+        (function(){
+          var opts = ['<option value="">-- Select user --</option>'];
+          if(Array.isArray(PAYEE_USERS) && PAYEE_USERS.length){
+            for(var i=0;i<PAYEE_USERS.length;i++){ var u = PAYEE_USERS[i]; opts.push('<option value="'+(u.name||'')+'">'+(u.name||'')+'</option>'); }
+          } else {
+            // attempt to fetch users from server as a fallback
+            try{
+              fetch('/users/admin/users/json/', { credentials: 'same-origin', headers: { 'Accept':'application/json' } }).then(function(r){ return r.json(); }).then(function(j){ if(j && j.success && Array.isArray(j.users) && j.users.length){
+                opts.length = 0; opts.push('<option value="">-- Select user --</option>');
+                j.users.forEach(function(u){ opts.push('<option value="'+(u.name||'')+'">'+(u.name||'')+'</option>'); });
+                payeeSelect.innerHTML = opts.join('');
+                try{ if(EXISTING_RECIPIENT){ Array.prototype.forEach.call(payeeSelect.options, function(o){ if(o.value && o.value === EXISTING_RECIPIENT){ o.selected = true; } }); } }catch(e){}
+              } else {
+                opts.push('<option value="" disabled>No employees found</option>');
+                payeeSelect.innerHTML = opts.join('');
+              } }).catch(function(){ opts.push('<option value="" disabled>No employees found</option>'); payeeSelect.innerHTML = opts.join(''); });
+            }catch(e){ opts.push('<option value="" disabled>No employees found</option>'); }
+          }
+          payeeSelect.innerHTML = opts.join('');
+          // if editing and existing_recipient matches, mark selected
+          try{ if(EXISTING_RECIPIENT){ Array.prototype.forEach.call(payeeSelect.options, function(o){ if(o.value && o.value === EXISTING_RECIPIENT){ o.selected = true; } }); } }catch(e){}
+        })();
+        // insert after the payee input
+        try{ payeeInput.parentNode.insertBefore(payeeSelect, payeeInput.nextSibling); } catch(e){ document.body.appendChild(payeeSelect); }
+        // If editing, robustly pre-select payee and month so name doesn't disappear
+        try{
+          function norm(v){ return (v||'').toString().trim().toLowerCase(); }
+          var pre = EXISTING_RECIPIENT || EXISTING_PAYEE || '';
+          var preNorm = norm(pre);
+          if(preNorm){
+            var matched = false;
+            Array.prototype.forEach.call(payeeSelect.options, function(o){
+              try{
+                var txt = (o.textContent || o.text || o.value || '');
+                if(norm(txt) === preNorm){ payeeSelect.value = o.value; matched = true; }
+              }catch(e){}
+            });
+            if(matched){
+              payeeSelect.style.display = '';
+              if(payeeRecipientInput) payeeRecipientInput.value = pre;
+              try{ payeeInput.style.display = 'none'; }catch(e){}
+            }
+            // also, if EXISTING_PAYEE matches a month name, preselect month
+            try{
+              if(monthSelect && EXISTING_PAYEE){
+                Array.prototype.forEach.call(monthSelect.options, function(o){ if(o.value && norm(o.value) === norm(EXISTING_PAYEE)){ monthSelect.value = o.value; monthSelect.style.display = ''; if(payeeMonthInput) payeeMonthInput.value = monthSelect.value; } });
+              }
+            }catch(e){}
+          }
+        }catch(e){}
+
+        // month select for categories like Electricity
+        monthSelect = document.createElement('select');
+        monthSelect.style.display = 'none';
+        monthSelect.style.width = '100%';
+        monthSelect.style.boxSizing = 'border-box';
+        var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        var ops = ['<option value="">-- Select month --</option>'];
+        for(var i=0;i<months.length;i++){
+          var m = months[i];
+          var sel = '';
+          try{ if(EXISTING_PAYEE && String(EXISTING_PAYEE).toLowerCase() === String(m).toLowerCase()) sel = ' selected'; }catch(e){}
+          ops.push('<option value="'+m+'"'+sel+'>'+m+'</option>');
+        }
+        monthSelect.innerHTML = ops.join('');
+        try{ payeeInput.parentNode.insertBefore(monthSelect, payeeSelect.nextSibling); }catch(e){ try{ payeeInput.parentNode.appendChild(monthSelect);}catch(e){} }
+
+          function updatePayeeVisibility(){
+            try{
+              var v = (payeeInput.value || '').trim().toLowerCase();
+              var catText = '';
+              try{ var so = select.options[select.selectedIndex]; catText = (so && so.text) ? String(so.text).toLowerCase() : ''; }catch(e){}
+              // show if payee explicitly set to 'salary' OR selected category looks like salary/salaries
+              if(v === 'salary' || catText.indexOf('salary') !== -1 || catText.indexOf('salar') !== -1){
+                if(payeeSelect) payeeSelect.style.display = '';
+                // keep month dropdown visible if a month is already selected (edit case)
+                try{
+                  if(monthSelect && monthSelect.value){ monthSelect.style.display = ''; }
+                  else if(monthSelect){ monthSelect.style.display = 'none'; }
+                }catch(e){ if(monthSelect) monthSelect.style.display = 'none'; }
+                payeeInput.style.display = 'none';
+              // show month select when category indicates electricity
+              } else if(catText.indexOf('electric') !== -1 || catText.indexOf('kahraba') !== -1 || catText.indexOf('workshop') !== -1 || catText.indexOf('rental') !== -1){
+                if(monthSelect) monthSelect.style.display = '';
+                if(payeeSelect) payeeSelect.style.display = 'none';
+                payeeInput.style.display = 'none';
+              } else {
+                if(payeeSelect) payeeSelect.style.display = 'none';
+                if(monthSelect) monthSelect.style.display = 'none';
+                payeeInput.style.display = '';
+              }
+            }catch(e){}
+          }
+
+        payeeInput.addEventListener('input', updatePayeeVisibility);
+        payeeInput.addEventListener('change', updatePayeeVisibility);
+        // on form submit, if payee select is visible require selection and copy value into hidden input
+        var theForm = payeeInput.form;
+        if(theForm){
+          theForm.addEventListener('submit', function(ev){
+            try{
+              if(monthSelect && monthSelect.style.display !== 'none'){
+                var selValM = monthSelect.value || '';
+                if(!selValM){ ev.preventDefault(); alert('Please select a month.'); monthSelect.focus(); return false; }
+                payeeInput.value = selValM;
+              } else if(payeeSelect && payeeSelect.style.display !== 'none'){
+                var selVal = payeeSelect.value || '';
+                if(!selVal){ ev.preventDefault(); alert('Please select a user for salary payee.'); payeeSelect.focus(); return false; }
+                payeeInput.value = selVal;
+              }
+            }catch(e){}
+          });
+        }
+
+        // keep payeeInput value in sync when user changes the select
+        if(payeeSelect){
+          payeeSelect.addEventListener('change', function(){
+            try{ payeeInput.value = payeeSelect.value; if(payeeRecipientInput) payeeRecipientInput.value = payeeSelect.value; if(payeeMonthInput) payeeMonthInput.value = monthSelect && monthSelect.value ? monthSelect.value : ''; }catch(e){}
+            try{
+              // show months dropdown when category is salary-type and a payee is selected
+              var so = select.options[select.selectedIndex]; var catText = (so && so.text) ? String(so.text).toLowerCase() : '';
+              if(monthSelect){
+                if((catText.indexOf('salary') !== -1 || catText.indexOf('salar') !== -1) && (payeeSelect.value || '').trim() !== ''){
+                  monthSelect.style.display = '';
+                } else {
+                  monthSelect.style.display = 'none';
+                }
+              }
+            }catch(e){}
+          });
+        }
+        if(monthSelect){ monthSelect.addEventListener('change', function(){ try{ payeeInput.value = monthSelect.value; if(payeeMonthInput) payeeMonthInput.value = monthSelect.value; }catch(e){} }); }
+
+        // react to category changes as well
+        try{ select.addEventListener('change', updatePayeeVisibility); }catch(e){}
+        // initial visibility
+        // if editing, try to prefill selects
+        try{
+          // fill raw payee input first
+          try{ if(EXISTING_PAYEE) payeeInput.value = EXISTING_PAYEE; }catch(e){}
+
+          // parse recipient from note
+          var existingRecipient = '';
+          if(EXISTING_NOTE && EXISTING_NOTE.indexOf('To:') !== -1){ existingRecipient = EXISTING_NOTE.split('To:').pop().trim(); }
+          if(existingRecipient && payeeRecipientInput) payeeRecipientInput.value = existingRecipient;
+
+          // if existing payee is a month, show monthSelect and set it (match by value or text)
+          var lowerPay = (EXISTING_PAYEE || '').toLowerCase();
+          var monthMatched = false;
+          if(monthSelect){
+            Array.prototype.forEach.call(monthSelect.options, function(o){
+              if(!o.value) return;
+              if(o.value.toLowerCase() === lowerPay || (o.text && String(o.text).toLowerCase() === lowerPay)){
+                monthSelect.value = o.value; monthMatched = true;
+              }
+            });
+          }
+          if(monthMatched){
+            // if there is already a recipient recorded, show both payee select and month select
+            if(existingRecipient && payeeSelect){
+              // try to match recipient into payeeSelect
+              var got = false;
+              Array.prototype.forEach.call(payeeSelect.options, function(o){ if(o.value && (o.value === existingRecipient || (o.text && o.text === existingRecipient))){ payeeSelect.value = o.value; got = true; } });
+              payeeSelect.style.display = '';
+              monthSelect.style.display = '';
+              payeeInput.style.display = 'none';
+            } else {
+              monthSelect.style.display = '';
+              payeeInput.style.display = 'none';
+              if(payeeSelect) payeeSelect.style.display = 'none';
+            }
+          }
+          else {
+            // try to match existingRecipient first, then EXISTING_PAYEE into payeeSelect (match by value or text)
+            var found = false;
+            if(payeeSelect){
+              Array.prototype.forEach.call(payeeSelect.options, function(o){
+                if(!o.value) return;
+                if(existingRecipient && (o.value === existingRecipient || (o.text && o.text === existingRecipient))){ payeeSelect.value = o.value; found = true; }
+              });
+              if(!found && EXISTING_PAYEE){
+                Array.prototype.forEach.call(payeeSelect.options, function(o){ if(!o.value) return; if(o.value === EXISTING_PAYEE || (o.text && o.text === EXISTING_PAYEE)){ payeeSelect.value = o.value; found = true; } });
+              }
+            }
+            if(found){ if(payeeSelect) payeeSelect.style.display = ''; payeeInput.style.display = 'none'; }
+          }
+        }catch(e){}
+        updatePayeeVisibility();
+      }
+      if(!select) return;
+
+        // add + button beside the "Category:" label (blue style)
+        var btn = document.createElement('button');
+        btn.type = 'button'; btn.textContent = '+'; btn.title='Add category';
+        btn.style.marginLeft='6px'; btn.style.padding='4px 8px'; btn.style.borderRadius='4px'; btn.style.border='none'; btn.style.background='#007bff'; btn.style.color='#fff'; btn.style.cursor='pointer';
+        // wrap select in an inline-flex container so the + appears to the right on same line
+        try{
+          var wrapper = document.createElement('div');
+          wrapper.style.display = 'inline-flex';
+          wrapper.style.alignItems = 'center';
+          wrapper.style.gap = '6px';
+          wrapper.style.width = '100%';
+          // allow select to shrink inside flex
+          select.style.flex = '1';
+          select.style.minWidth = '0';
+          // insert wrapper and move select into it, then append button and a Manage button
+          select.parentNode.insertBefore(wrapper, select);
+          wrapper.appendChild(select);
+          wrapper.appendChild(btn);
+          var manageBtn = document.createElement('button');
+          manageBtn.type = 'button'; manageBtn.textContent = 'Manage'; manageBtn.title='Manage categories';
+          manageBtn.style.marginLeft='6px'; manageBtn.style.padding='4px 8px'; manageBtn.style.borderRadius='4px'; manageBtn.style.border='1px solid transparent'; manageBtn.style.background='#f0f3ff'; manageBtn.style.color='#0b5ed7'; manageBtn.style.cursor='pointer';
+          wrapper.appendChild(manageBtn);
+        }catch(e){
+          try{ select.insertAdjacentElement('afterend', btn); }catch(e2){ select.parentNode.appendChild(btn); }
+        }
+
+      var modal = qs('#category-modal');
+      var form = qs('#category-form');
+      var cancel = qs('#cat-cancel');
+      var nameInput = qs('#cat_name');
+
+      // helper to fetch JSON or text and provide clear errors
+      function fetchJson(url, opts){
+        return fetch(url, opts).then(function(resp){
+          var ct = resp.headers.get('content-type') || '';
+          if(ct.indexOf('application/json') !== -1){
+            return resp.json().then(function(json){ if(!resp.ok) throw json; return json; });
+          }
+          return resp.text().then(function(text){ if(!resp.ok) throw { text: text, status: resp.status }; try{ return JSON.parse(text); }catch(e){ return { success: true, text: text }; } });
+        });
+      }
+
+      // fill csrf token in modal from page token
+      var pageCsrf = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      if(pageCsrf){ var hidden = modal.querySelector('input[name="csrfmiddlewaretoken"]'); if(hidden) hidden.value = pageCsrf.value; }
+
+      btn.addEventListener('click', function(){ nameInput.value=''; modal.style.display='block'; nameInput.focus(); });
+      if(typeof manageBtn !== 'undefined') manageBtn.addEventListener('click', function(){ openManageModal(); });
+      cancel.addEventListener('click', function(){ modal.style.display='none'; });
+
+      // category modal submit
+      if(form){
+        form.addEventListener('submit', function(ev){
+          ev.preventDefault();
+          var name = (nameInput.value || '').trim(); if(!name){ alert('Enter category name'); nameInput.focus(); return; }
+          var data = new URLSearchParams(); data.append('name', name);
+          fetchJson("{% url 'add_expense_category_ajax' %}", {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '',
+              'Accept': 'application/json',
+              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+            },
+            body: data.toString()
+          }).then(function(json){
+            if(json && json.success){
+              var opt = document.createElement('option'); opt.value = json.id; opt.textContent = json.name; select.appendChild(opt); select.value = json.id; modal.style.display='none';
+            } else {
+              alert('Could not add category: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown'));
+            }
+          }).catch(function(err){ var msg = (err && (err.error || err.text || err.message)) || JSON.stringify(err); alert('Request failed: ' + msg); });
+        });
+      }
+
+      // close modal when clicking outside dialog
+      modal.addEventListener('click', function(e){ if(e.target === modal) modal.style.display='none'; });
+
+      // Manage modal (inline rename/delete)
+      function openManageModal(){
+        var content = document.createElement('div');
+        content.style.maxWidth='520px'; content.style.margin='80px auto'; content.style.background='#fff'; content.style.padding='18px'; content.style.borderRadius='8px'; content.style.boxShadow='0 15px 40px rgba(0,0,0,0.2)';
+        var h = document.createElement('h2'); h.textContent = 'Manage Categories'; h.style.textAlign='center'; h.style.marginBottom='12px'; content.appendChild(h);
+        var list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='8px';
+        Array.from(select.options).filter(function(opt){ return opt.value && String(opt.value).trim() !== ''; }).forEach(function(opt){
+          var row = document.createElement('div'); row.style.display='flex'; row.style.alignItems='center'; row.style.justifyContent='space-between'; row.style.gap='8px';
+          var left = document.createElement('div'); left.style.flex='1'; left.textContent = opt.textContent;
+          row.appendChild(left);
+          var right = document.createElement('div'); right.style.whiteSpace='nowrap';
+          var editBtn = document.createElement('button'); editBtn.type='button'; editBtn.textContent='Edit'; editBtn.style.marginRight='6px'; editBtn.style.padding='4px 8px';
+          var delBtn = document.createElement('button'); delBtn.type='button'; delBtn.textContent='Delete'; delBtn.style.background='#c62828'; delBtn.style.color='#fff'; delBtn.style.border='none'; delBtn.style.padding='4px 8px'; delBtn.style.borderRadius='4px';
+          editBtn.addEventListener('click', function(){ enterEdit(left, opt); });
+          delBtn.addEventListener('click', function(){ doDelete(opt); });
+          right.appendChild(editBtn); right.appendChild(delBtn);
+          row.appendChild(right);
+          list.appendChild(row);
+        });
+        content.appendChild(list);
+        var close = document.createElement('div'); close.style.textAlign='center'; close.style.marginTop='12px';
+        var closeBtn = document.createElement('button'); closeBtn.type='button'; closeBtn.textContent='Close'; closeBtn.style.padding='8px 14px'; closeBtn.style.borderRadius='6px'; closeBtn.style.border='none'; closeBtn.style.background='#eee';
+        close.appendChild(closeBtn); content.appendChild(close);
+        var manageOverlay = document.createElement('div'); manageOverlay.style.position='fixed'; manageOverlay.style.left='0'; manageOverlay.style.top='0'; manageOverlay.style.right='0'; manageOverlay.style.bottom='0'; manageOverlay.style.background='rgba(0,0,0,0.45)'; manageOverlay.style.zIndex='1450';
+        manageOverlay.appendChild(content);
+        document.body.appendChild(manageOverlay);
+        manageOverlay.addEventListener('click', function(e){ if(e.target===manageOverlay) document.body.removeChild(manageOverlay); });
+        closeBtn.addEventListener('click', function(){ document.body.removeChild(manageOverlay); });
+
+        function enterEdit(container, opt){
+          var old = container.textContent;
+          container.textContent='';
+          // make left container a flex row so input and action buttons fit without overflowing
+          container.style.display = 'flex';
+          container.style.alignItems = 'center';
+          container.style.gap = '8px';
+          var inp = document.createElement('input'); inp.type='text'; inp.value = old; inp.style.padding='6px'; inp.style.flex = '1 1 auto'; inp.style.maxWidth = '360px';
+          var save = document.createElement('button'); save.type='button'; save.textContent='Save'; save.style.marginLeft='8px'; save.style.padding='6px 8px'; save.style.flex = '0 0 auto';
+          var cancel = document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel'; cancel.style.marginLeft='6px'; cancel.style.padding='6px 8px'; cancel.style.flex = '0 0 auto';
+          container.appendChild(inp); container.appendChild(save); container.appendChild(cancel);
+          save.addEventListener('click', function(){
+            var newName = inp.value.trim(); if(!newName) { alert('Enter name'); inp.focus(); return; }
+            var data = new URLSearchParams(); data.append('name', newName);
+            fetchJson("{% url 'edit_expense_category_ajax' 0 %}".replace('/0/', '/'+opt.value+'/'), {
+              method: 'POST', headers: { 'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '', 'Content-Type':'application/x-www-form-urlencoded' }, body: data.toString()
+            }).then(function(json){ if(json && json.success){ opt.text = json.name; container.textContent = json.name; } else { alert('Could not rename: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown')); container.textContent=old; } }).catch(function(err){ var msg = (err && (err.error||err.text||err.message)) || JSON.stringify(err); alert('Request failed: '+msg); container.textContent=old; });
+          });
+          cancel.addEventListener('click', function(){ container.textContent = old; });
+        }
+
+        function doDelete(opt){ if(!confirm('Delete category "'+opt.text+'"?')) return; fetchJson("{% url 'delete_expense_category_ajax' 0 %}".replace('/0/', '/'+opt.value+'/'), { method:'POST', headers:{ 'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '' } }).then(function(json){ if(json && json.success){ var parent = opt.parentNode; if(parent) parent.removeChild(opt); document.body.removeChild(manageOverlay); setTimeout(openManageModal, 50); } else { alert('Could not delete: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown')); } }).catch(function(err){ var msg = (err && (err.error||err.text||err.message)) || JSON.stringify(err); alert('Request failed: '+msg); }); }
+      }
+    })();
+  </script>
+  <style>
+    .expense-form-table th { text-align: left; padding:8px 12px 8px 0; vertical-align:top; }
+    .expense-form-table td { text-align: left; padding:8px 12px 8px 0; }
+    .expense-form-table input, .expense-form-table select, .expense-form-table textarea { width:100%; box-sizing:border-box; }
+  </style>
 </div>
 {% endblock %}

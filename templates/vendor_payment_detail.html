@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div style="max-width:900px;margin:24px auto;padding:18px;background:#fff;border-radius:8px;">
+  <h2 style="margin-top:0">Payment #{{ payment.id }}</h2>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+    <div><strong>Supplier:</strong> {{ payment.supplier_name }}</div>
+    <div><strong>Amount:</strong> BHD {{ payment.amount }}</div>
+    <div><strong>Date:</strong> {{ payment.payment_date }}</div>
+    <div><strong>Method:</strong> {{ payment.method }}</div>
+    <div><strong>Status:</strong> {{ payment.status }}</div>
+  </div>
+  <div style="margin-bottom:12px;"><strong>Reference:</strong> {{ payment.reference }}</div>
+  <div style="margin-bottom:16px;"><strong>Notes:</strong><div style="padding:8px;background:#f8fafc;border:1px solid #eef2f7;border-radius:6px;margin-top:6px;">{{ payment.notes }}</div></div>
+  {% if payment.bill_id %}
+    <a href="/bills/view/{{ payment.bill_id }}/" style="display:inline-block;padding:8px 12px;background:#1976d2;color:#fff;border-radius:6px;text-decoration:none;">View Bill {{ payment.bill_number }}</a>
+  {% endif %}
+  <a href="/vendors/payments/" style="margin-left:12px;display:inline-block;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;text-decoration:none;color:#1976d2;">Back to Payments</a>
+</div>
+{% endblock %}

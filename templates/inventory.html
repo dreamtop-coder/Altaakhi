@@ -235,14 +235,14 @@ document.addEventListener('DOMContentLoaded', function(){
         const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id);
         if(ids.length===0) return;
         if(!confirm('Delete '+ids.length+' selected items?')) return;
-        fetch('/inventory/bulk-delete/', {
+        window.fetchJson('/inventory/bulk-delete/', {
             method: 'POST',
             headers: {
                 'Content-Type':'application/json',
                 'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1]
             },
             body: JSON.stringify({ids: ids})
-        }).then(r=>r.json()).then(data=>{
+        }).then(data=>{
             if(data.ok){ location.reload(); }
             else { alert('Delete failed'); }
         }).catch(()=> alert('Delete error'));

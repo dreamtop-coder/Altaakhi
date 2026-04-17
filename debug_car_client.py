@@ -5,15 +5,15 @@ django.setup()
 from clients.models import Client
 from cars.models import Car
 
-# فحص وجود سيارة برقم لوحة معين وعميلها
-plate = input('أدخل رقم اللوحة: ')
+# Check for a car by plate number and its client
+plate = input('Enter plate number: ')
 car = Car.objects.filter(plate_number=plate).first()
 if car:
-    print(f"السيارة موجودة: {car.plate_number}، معرف العميل: {car.client_id}")
+    print(f"Car found: {car.plate_number}, client_id: {car.client_id}")
     client = car.client
-    print(f"بيانات العميل: {client.id}, {client.first_name} {client.last_name}")
+    print(f"Client data: {client.id}, {client.first_name} {client.last_name}")
 else:
-    print("لا توجد سيارة بهذا الرقم.")
+    print("No car found with that plate.")
 
 # فحص جميع السيارات والعملاء المرتبطين
 for car in Car.objects.all():

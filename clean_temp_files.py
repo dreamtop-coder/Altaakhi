@@ -27,5 +27,5 @@ def remove_pyc_and_pycache(root_dir):
 
 if __name__ == '__main__':
     remove_pyc_and_pycache(os.getcwd())
-    # يمكنك حذف السكريبتات المؤقتة يدويًا بعد التشغيل
-    print("تنظيف الملفات المؤقتة تم بنجاح.")
+    # You may remove temporary scripts manually after running
+    print("Temporary files cleaned successfully.")

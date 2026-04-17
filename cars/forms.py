@@ -3,8 +3,8 @@ from .models import Car
 from .brand_models import CarBrand, CarModel
 
 class CarForm(forms.ModelForm):
-    brand = forms.ModelChoiceField(queryset=CarBrand.objects.all(), label="شركة الصنع")
-    model = forms.ModelChoiceField(queryset=CarModel.objects.none(), label="الموديل")
+    brand = forms.ModelChoiceField(queryset=CarBrand.objects.all(), label="Brand")
+    model = forms.ModelChoiceField(queryset=CarModel.objects.none(), label="Model")
 
     class Meta:
         model = Car
@@ -12,6 +12,32 @@ class CarForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Override labels and choice labels for UI-only (keep DB values intact)
+        self.fields['fuel_type'].label = 'Fuel type'
+        self.fields['status'].label = 'Status'
+        # Provide English labels for the select choices (same choice keys preserved)
+        try:
+            self.fields['fuel_type'].choices = [
+                ('gasoline', 'Gasoline'),
+                ('diesel', 'Diesel'),
+                ('electric', 'Electric'),
+                ('hybrid', 'Hybrid'),
+            ]
+        except Exception:
+            pass
+        try:
+            self.fields['status'].choices = [
+                ('waiting', 'Waiting'),
+                ('in_progress', 'In Progress'),
+                ('pending_payment', 'Pending Payment'),
+                ('paid_waiting_collection', 'Paid - Waiting Collection'),
+                ('done', 'Done'),
+                ('active', 'Active'),
+                ('ready', 'Ready'),
+                ('sold', 'Sold'),
+            ]
+        except Exception:
+            pass
         if 'brand' in self.data:
             try:
                 brand_id = int(self.data.get('brand'))

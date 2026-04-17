@@ -15,76 +15,42 @@
 
 <style>
 @media print {
-    .print-hide {
-        display: none !important;
+    .print-hide { display: none !important; }
+    html, body { margin: 0 !important; padding: 0 !important; width: 210mm; display: block !important; }
+    body * { visibility: hidden !important; }
+    #statement-print, #statement-print * { visibility: visible !important; }
+    #statement-print {
+        width: 190mm !important;
+        margin-left: 0 !important;
+        margin-right: auto !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        padding: 10mm !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        transform: scale(1) !important;
+        zoom: 100% !important;
+        background: transparent !important;
+        display: block !important;
+        text-align: left !important;
     }
-    html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-        @media print {
-            html, body {
-                margin: 0 !important;
-                padding: 0 !important;
-                width: 210mm;
-                /* height: 297mm; */
-                background: #fff !important;
-                display: block !important;
-            }
-            body * {
-                visibility: hidden !important;
-            }
-            #statement-print,
-            #statement-print * {
-                visibility: visible !important;
-            }
-            #statement-print {
-                width: 190mm !important;
-                margin-left: auto !important;
-                margin-right: 0 !important;
-                margin-top: 0 !important;
-                margin-bottom: 0 !important;
-                padding: 10mm !important;
-                box-shadow: none !important;
-                border-radius: 0 !important;
-                transform: scale(1) !important;
-                zoom: 100% !important;
-                background: #fff !important;
-                display: block !important;
-                text-align: right !important;
-            }
-            #statement-print table {
-                width: 100% !important;
-                max-width: 95% !important;
-                border-collapse: collapse;
-                font-size: 1.05em !important;
-                margin-left: auto !important;
-                margin-right: 0.5cm !important;
-            }
-            #statement-print th, #statement-print td {
-                padding: 8px 10px !important;
-                border: 1px solid #ddd !important;
-            }
-            .print-hide {
-                display: none !important;
-            }
-        }
-    #statement-print table td {
-        font-size: 1em !important;
-        white-space: nowrap !important;
+    #statement-print table {
+        width: 100% !important;
+        max-width: 95% !important;
+        border-collapse: collapse;
+        font-size: 1.05em !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
-    #statement-print table th:nth-child(2),
-    #statement-print table td:nth-child(2) {
-        min-width: 100px;
-        max-width: none;
-        width: auto;
-        text-align: center;
-    }
+    #statement-print th, #statement-print td { padding: 8px 10px !important; border: 1px solid #ddd !important; }
+    #statement-print table td { font-size: 1em !important; white-space: nowrap !important; }
+    #statement-print table th:nth-child(2), #statement-print table td:nth-child(2) { min-width: 100px; max-width: none; width: auto; text-align: center; }
 }
 </style>
 
 <div id="statement-print" class="account-statement-main-container" 
     data-client-name="{{ client.first_name }}{% if client.last_name %}_{{ client.last_name }}{% endif %}" 
-    style="max-width:900px;margin:auto;background:#fff;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:ltr;">
+    style="max-width:900px;margin:0;padding:32px 28px 22px 28px;direction:ltr;">
 
     <!-- ترويسة -->
     <div class="header-flex" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;">
@@ -115,15 +81,15 @@
         </div>
     </div>
 
-    <h3 style="color:#1976d2;margin-bottom:8px;text-align:center;">كشف حساب الفواتير</h3>
+    <h3 style="color:#1976d2;margin-bottom:8px;text-align:left;">Account Statement</h3>
 
 
     {% if invoices %}
-    <table style="width:100%;background:#fff;border-radius:6px;border:1px solid #e0e0e0;font-size:0.97em;margin-bottom:20px;">
+    <table style="width:100%;border:1px solid #e0e0e0;font-size:0.97em;margin-bottom:20px;">
         <thead>
             <tr style="background:#e3eafc;color:#1a237e;">
-                <th>رقم الفاتورة</th>
-                <th>تاريخ الفاتورة</th>
+                <th>Invoice #</th>
+                <th>Invoice Date</th>
                 <th>Car Number</th>
                 <th>Model</th>
                 <th>Brand</th>
@@ -142,26 +108,26 @@
                 <td>{{ invoice.car.brand|default:'-' }}</td>
                 <td>{{ invoice.car.year|default:'-' }}</td>
                 <td>{{ invoice.amount }}</td>
-                <td>{% if invoice.paid %}مدفوعة{% else %}غير مدفوعة{% endif %}</td>
+                <td>{% if invoice.paid %}Paid{% else %}Unpaid{% endif %}</td>
             </tr>
         {% empty %}
-            <tr><td colspan="8" style="text-align:center;color:#c00;">لا توجد فواتير</td></tr>
+            <tr><td colspan="8" style="text-align:center;color:#c00;">No invoices found</td></tr>
         {% endfor %}
         </tbody>
     </table>
     {% else %}
-    <div style="color:#c00;text-align:center;">لا توجد فواتير</div>
+    <div style="color:#c00;text-align:center;">No invoices found</div>
     {% endif %}
 
     <!-- زر الطباعة خارج منطقة الطباعة -->
     <div class="print-hide" style="text-align:center;margin-top:24px;">
-        <button id="print-statement-btn" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;">طباعة كشف الحساب</button>
+        <button id="print-statement-btn" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;">Print Statement</button>
     </div>
 
 <script>
 document.getElementById('print-statement-btn').addEventListener('click', function() {
     var element = document.getElementById('statement-print');
-    if (!element) return alert('لا يوجد كشف حساب للطباعة!');
+    if (!element) return alert('No statement to print!');
     window.print();
 });
 </script>

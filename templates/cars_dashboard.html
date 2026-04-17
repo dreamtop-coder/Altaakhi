@@ -2,13 +2,13 @@
 {% block content %}
 <div id="cars-filters-container">
     <div class="cars-filters" style="display:flex;gap:10px;margin-bottom:20px;">
-        <div class="filter-tab" data-status="waiting" style="color:#007bff;cursor:pointer;">قيد الانتظار <span class="count">({{ counts.waiting }})</span></div>
-        <div class="filter-tab" data-status="in_progress" style="color:#007bff;cursor:pointer;">جاري التنفيذ <span class="count">({{ counts.in_progress }})</span></div>
-        <div class="filter-tab" data-status="done" style="color:#28a745;cursor:pointer;">منتهية <span class="count">({{ counts.done }})</span></div>
-        <div class="filter-tab" data-status="paid_waiting_collection" style="color:#6f42c1;cursor:pointer;">مدفوعة - بانتظار الاستلام <span class="count">({{ counts.paid_waiting_collection|default:0 }})</span></div>
-        <div class="filter-tab" data-status="follow" style="color:#ffc107;cursor:pointer;">متابعة <span class="count">({{ counts.follow }})</span></div>
-        <div class="filter-tab" data-status="pending_payment" style="color:#dc3545;cursor:pointer;">معلق للدفع <span class="count">({{ counts.pending_payment }})</span></div>
-        <div class="filter-tab" data-status="bookings" style="color:#007bff;cursor:pointer;">الحجوزات <span class="count">({{ counts.bookings }})</span></div>
+        <div class="filter-tab" data-status="waiting" style="color:#007bff;cursor:pointer;">Waiting <span class="count">({{ counts.waiting }})</span></div>
+        <div class="filter-tab" data-status="in_progress" style="color:#007bff;cursor:pointer;">In progress <span class="count">({{ counts.in_progress }})</span></div>
+        <div class="filter-tab" data-status="done" style="color:#28a745;cursor:pointer;">Completed <span class="count">({{ counts.done }})</span></div>
+        <div class="filter-tab" data-status="paid_waiting_collection" style="color:#6f42c1;cursor:pointer;">Paid - Waiting Collection <span class="count">({{ counts.paid_waiting_collection|default:0 }})</span></div>
+        <div class="filter-tab" data-status="follow" style="color:#ffc107;cursor:pointer;">Follow-up <span class="count">({{ counts.follow }})</span></div>
+        <div class="filter-tab" data-status="pending_payment" style="color:#dc3545;cursor:pointer;">Pending payment <span class="count">({{ counts.pending_payment }})</span></div>
+        <div class="filter-tab" data-status="bookings" style="color:#007bff;cursor:pointer;">Bookings <span class="count">({{ counts.bookings }})</span></div>
 
     </div>
 </div>
@@ -63,8 +63,7 @@
     function loadCarsByStatus(status) {
         if (status === 'bookings') {
             // عند الضغط على الحجوزات، اعرض أرقام العملاء الذين لديهم حجوزات
-            fetch('/cars/ajax/bookings_clients/')
-                .then(response => response.json())
+            window.fetchJson('/cars/ajax/bookings_clients/')
                 .then(data => {
                     let html = '<div style="display:flex;flex-wrap:wrap;gap:20px;">';
                     if (data.phones && data.phones.length > 0) {
@@ -72,7 +71,7 @@
                             html += `<div style='border:1px solid #007bff;padding:18px 32px;border-radius:12px;background:#f7faff;font-size:1.2em;font-weight:bold;color:#007bff;'>${phone}</div>`;
                         });
                     } else {
-                        html += '<div style="color:#888;font-size:1.1em;">لا يوجد حجوزات حالياً</div>';
+                        html += '<div style="color:#888;font-size:1.1em;">No bookings currently</div>';
                     }
                     html += '</div>';
                     document.getElementById('cars-list-container').innerHTML = html;
@@ -112,8 +111,7 @@
 
     // تحديث عداد "منتهية" تلقائياً
     function updateDoneCount() {
-        fetch('/cars/get_done_count/')
-            .then(response => response.json())
+        window.fetchJson('/cars/get_done_count/')
             .then(data => {
                 document.querySelector('.filter-tab[data-status="done"] .count').textContent = '(' + data.done_count + ')';
                 const el = document.querySelector('.filter-tab[data-status="paid_waiting_collection"] .count');
@@ -130,12 +128,12 @@
             btn.addEventListener('click', function(e){
                 e.preventDefault();
                 var carId = this.dataset.carId;
-                if(!confirm('هل أنت متأكد من إنهاء جميع سجلات الصيانة لهذه المركبة؟')) return;
+                if(!confirm('Are you sure you want to finish all maintenance records for this vehicle?')) return;
                 try {
                     var form = document.createElement('form'); form.method='POST'; form.action='/cars/finish/' + carId + '/';
                     var csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value=getCookie('csrftoken');
                     form.appendChild(csrf); document.body.appendChild(form); form.submit();
-                } catch (err) { alert('خطأ أثناء إرسال الطلب: ' + err); }
+                } catch (err) { alert('Error sending request: ' + err); }
             });
         });
     }
@@ -160,7 +158,7 @@
             statuses.forEach(status => {
                 if(status === 'bookings') {
                     // bookings endpoint returns JSON
-                    fetch('/cars/ajax/bookings_clients/').then(r=>r.json()).then(data=>{
+                    window.fetchJson('/cars/ajax/bookings_clients/').then(data=>{
                         const tab = document.querySelector(`.filter-tab[data-status="${status}"]`);
                         if(tab){
                             const countEl = tab.querySelector('.count');

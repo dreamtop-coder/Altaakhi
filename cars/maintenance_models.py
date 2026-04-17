@@ -29,5 +29,15 @@ class MaintenanceRecord(models.Model):
         # Default: still in repair
         return "قيد الإصلاح"
 
+    def get_status_en(self):
+        """Return the status text in English for UI display."""
+        if self.delivery_date:
+            return "Delivered"
+        if self.is_finished and self.ready_at:
+            return "Ready for pickup"
+        if self.is_finished:
+            return "Finished"
+        return "In repair"
+
     def __str__(self):
         return f"{self.car.plate_number} - {self.service.name} ({self.price} ريال)"

@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="print-invoices-main-container" style="max-width:900px;margin:auto;background:#fff;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:ltr;">
-    <h2 style="text-align:center;color:#1976d2;margin-bottom:18px;">طباعة الفواتير حسب رقم السيارة</h2>
-    <form method="get" class="search-form-print-invoices" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:center;">
-        <input type="text" name="car_number" placeholder="رقم السيارة" value="{{ request.GET.car_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
-        <input type="text" name="invoice_number" placeholder="رقم الفاتورة" value="{{ request.GET.invoice_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
-        <button type="submit" style="background:#1976d2;color:#fff;padding:8px 22px;border-radius:6px;font-weight:bold;border:none;">بحث</button>
+<div class="print-invoices-main-container" style="max-width:900px;margin:0;padding:32px 28px 22px 28px;direction:ltr;">
+    <h2 style="text-align:left;color:#1976d2;margin-bottom:18px;">Print Invoices by Car Number</h2>
+    <form method="get" class="search-form-print-invoices" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:flex-start;">
+        <input type="text" name="car_number" placeholder="Car Number" value="{{ request.GET.car_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
+        <input type="text" name="invoice_number" placeholder="Invoice #" value="{{ request.GET.invoice_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
+        <button type="submit" style="background:#1976d2;color:#fff;padding:8px 22px;border-radius:6px;font-weight:bold;border:none;">Search</button>
     </form>
         <style>
             @media print {
@@ -19,15 +19,13 @@
                     width: 210mm !important;
                     min-height: 297mm !important;
                     max-width: 210mm !important;
-                    margin: 0 auto !important;
+                    margin: 0 0 !important;
                     box-shadow: none !important;
                     border-radius: 0 !important;
                     padding: 18mm 12mm 12mm 12mm !important;
-                    background: #fff !important;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
+                    background: transparent !important;
+                    display: block;
+                    text-align: left !important;
                 }
                 .table-print-invoices-wrapper,
                 .table-print-invoices-outer-wrapper {
@@ -35,15 +33,14 @@
                     margin: 0 !important;
                     box-shadow: none !important;
                     background: none !important;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
+                    display: block;
+                    text-align: left !important;
                 }
                 .table-print-invoices-wrapper table {
                     width: 100% !important;
                     max-width: 100% !important;
                     min-width: 0 !important;
-                    margin: 0 auto !important;
+                    margin: 0 !important;
                     font-size: 1.05em !important;
                 }
             }
@@ -73,19 +70,19 @@
     }
     </style>
     {% if request.GET.car_number or request.GET.invoice_number %}
-    <div class="table-print-invoices-wrapper" style="display:flex;justify-content:center;width:100%;">
-        <div class="table-print-invoices-outer-wrapper" style="display: flex; justify-content: center; width: 100%;">
-            <div class="table-print-invoices-wrapper" style="margin-top: 20px; width: fit-content; margin-left: auto; margin-right: auto;">
+    <div class="table-print-invoices-wrapper" style="display:block;width:100%;">
+        <div class="table-print-invoices-outer-wrapper" style="display:block;width:100%;">
+            <div class="table-print-invoices-wrapper" style="margin-top: 20px; width:100%;">
                 <table class="table table-bordered table-striped" id="print-invoices-table">
                     <thead>
                         <tr style="background:#e3eafc;color:#1a237e;">
-                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">رقم الفاتورة</th>
-                            <th style="padding:8px 10px;">رقم السيارة</th>
-                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">اسم العميل</th>
-                            <th class="hide-mobile-print" style="padding:8px 10px;">تاريخ الفاتورة</th>
-                            <th style="padding:8px 10px;">المبلغ</th>
-                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">الحالة</th>
-                            <th style="padding:8px 10px;">طباعة</th>
+                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">Invoice #</th>
+                            <th style="padding:8px 10px;">Car Number</th>
+                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">Client Name</th>
+                            <th class="hide-mobile-print" style="padding:8px 10px;">Invoice Date</th>
+                            <th style="padding:8px 10px;">Amount</th>
+                            <th class="hide-mobile-print-mobile" style="padding:8px 10px;">Status</th>
+                            <th style="padding:8px 10px;">Print</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -96,14 +93,14 @@
                             <td class="hide-mobile-print-mobile" style="padding:8px 10px;">{{ invoice.client.first_name }} {% if invoice.client.last_name %}{{ invoice.client.last_name }}{% endif %}</td>
                             <td class="hide-mobile-print" style="padding:8px 10px;">{{ invoice.created_at|date:'d-m-Y' }}</td>
                             <td style="padding:8px 10px;">{{ invoice.amount }}</td>
-                            <td class="hide-mobile-print-mobile" style="padding:8px 10px;">{% if invoice.paid %}<span style="color:#28a745;font-weight:bold;">مدفوعة</span>{% else %}<span style="color:#c00;font-weight:bold;">غير مدفوعة</span>{% endif %}</td>
+                            <td class="hide-mobile-print-mobile" style="padding:8px 10px;">{% if invoice.paid %}<span style="color:#28a745;font-weight:bold;">Paid</span>{% else %}<span style="color:#c00;font-weight:bold;">Unpaid</span>{% endif %}</td>
                             <td style="padding:8px 10px;">
-                                <button type="button" class="print-invoice-btn" data-invoice-id="{{ invoice.id }}" style="background:#1976d2;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;text-decoration:none;">طباعة</button>
+                                <button type="button" class="print-invoice-btn" data-invoice-id="{{ invoice.id }}" style="background:#1976d2;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;text-decoration:none;">Print</button>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" style="text-align:center;color:#c00;">لا توجد فواتير لهذا البحث.</td>
+                            <td colspan="7" style="text-align:left;color:#c00;">No invoices found for this search.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -116,12 +113,12 @@
     <!-- نافذة الفاتورة المنبثقة (واحدة فقط) -->
     <div id="invoice-modal" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);align-items:center;justify-content:center;">
         <div id="invoice-modal-content" style="background:#fff;max-width:900px;width:98vw;max-height:96vh;overflow:auto;padding:0;border-radius:10px;box-shadow:0 2px 16px #888;position:relative;">
-            <button onclick="closeInvoiceModal()" style="position:absolute;top:8px;left:8px;background:#c00;color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:1.1em;z-index:2;">إغلاق</button>
+            <button onclick="closeInvoiceModal()" style="position:absolute;top:8px;left:8px;background:#c00;color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:1.1em;z-index:2;">Close</button>
             <div id="invoice-modal-html"></div>
             <div id="modal-actions" style="text-align:center;margin:18px 0 12px 0;">
-                <button id="modal-share-btn" class="modal-action-btn" style="background:#43a047;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;margin:0 8px;">مشاركة</button>
-                <button id="modal-print-btn" class="modal-action-btn" style="background:#1976d2;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;margin:0 8px;">طباعة</button>
-                <button onclick="closeInvoiceModal()" class="modal-action-btn" style="background:#e53935;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;margin:0 8px;">إغلاق</button>
+                <button id="modal-share-btn" class="modal-action-btn" style="background:#43a047;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;margin:0 8px;">Share</button>
+                <button id="modal-print-btn" class="modal-action-btn" style="background:#1976d2;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;margin:0 8px;">Print</button>
+                <button onclick="closeInvoiceModal()" class="modal-action-btn" style="background:#e53935;color:#fff;padding:6px 18px;border-radius:6px;font-weight:bold;margin:0 8px;">Close</button>
             </div>
         </div>
     </div>
@@ -154,9 +151,9 @@
                                     shareBtn.style.display = 'inline-block';
                                     shareBtn.onclick = function() {
                                         var receipt = document.getElementById('invoice-modal-html').innerText;
-                                        var invoiceText = 'فاتورة العميل:\n' + receipt;
+                                        var invoiceText = 'Client Invoice:\n' + receipt;
                                         navigator.share({
-                                            title: 'فاتورة العميل',
+                                            title: 'Client Invoice',
                                             text: invoiceText
                                         });
                                     };
@@ -168,15 +165,15 @@
                                     printBtn.onclick = function() {
                                         var element = document.getElementById('invoice-modal-html').firstElementChild;
                                         if (typeof html2pdf === 'undefined') {
-                                            alert('خطأ: مكتبة PDF غير متوفرة! تأكد من الاتصال بالإنترنت أو أعد تحميل الصفحة.');
+                                            alert('Error: PDF library not available! Ensure internet connection or reload the page.');
                                             return;
                                         }
                                         if (!element) {
-                                            alert('خطأ: لم يتم العثور على الفاتورة للطباعة!');
+                                            alert('Error: Invoice not found to print!');
                                             return;
                                         }
                                         printBtn.disabled = true;
-                                        // استخراج رقم السيارة من الفاتورة
+                                        // extract car number from invoice
                                         var carNumber = '';
                                         var carNumberElem = document.querySelector('#invoice-modal-html [data-car-number]');
                                         if (carNumberElem) {

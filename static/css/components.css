@@ -40,3 +40,8 @@
 	font-weight: normal !important;
 	text-decoration: none !important;
 }
+
+/* Shared 'Add New' action pill used on suppliers, bills, payments pages */
+.add-supplier-pill { display:inline-flex; align-items:center; gap:10px; padding:8px 14px; background: linear-gradient(180deg,#4a7df5,#1976d2); color:#fff; border-radius:10px; text-decoration:none; font-weight:600; box-shadow:0 2px 6px rgba(0,0,0,0.12); }
+.add-supplier-pill .icon { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; font-size:18px; }
+.add-supplier-pill .label { font-size:14px; line-height:1; }

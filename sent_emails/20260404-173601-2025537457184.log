@@ -1,0 +1,78 @@
+Content-Type: multipart/alternative;
+ boundary="===============7688510032380083807=="
+MIME-Version: 1.0
+Subject: =?utf-8?q?Altaakhi_Workshop_=E2=80=94_Password_reset_instructions?=
+From: Altaakhi Workshop <dreamtop@gmail.com>
+To: altaakhitowers@gmail.com
+Date: Sat, 04 Apr 2026 14:36:01 -0000
+Message-ID: <177531336170.3300.13004475355413459460@smahdi>
+
+--===============7688510032380083807==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Password reset</title>
+  </head>
+  <body style="font-family:Arial,Helvetica,sans-serif;background:#f6f8fb;padding:20px;">
+    <table width="100%" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e6e9ef;">
+      <tr style="background:#32405a;color:#f6c23e;"><td style="padding:18px;">
+        <strong>Altaakhi Workshop</strong>
+      </td></tr>
+      <tr><td style="padding:24px;color:#333;">
+        <h2 style="margin:0 0 8px 0;color:#1976d2">Password reset requested</h2>
+        <p style="margin:0 0 12px 0;">Hello Mahdi Hussain,</p>
+        <p style="margin:0 0 18px 0;">We received a request to reset your password for your Altaakhi account. Click the button below to reset it. If you didn't request this, you can safely ignore this email.</p>
+        <p style="text-align:center;margin:24px 0;">
+          <a href="http://127.0.0.1:8000/accounts/reset/NDI/d6iu81-207b8c0626a740b9fde78f9e57b085ba/" style="display:inline-block;padding:12px 20px;background:#1976d2;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">Reset Password</a>
+        </p>
+        <p style="color:#666;font-size:0.95em;">If the button doesn't work, copy and paste the following URL into your browser:</p>
+        <p style="word-break:break-all;color:#333;font-size:0.9em;">http://127.0.0.1:8000/accounts/reset/NDI/d6iu81-207b8c0626a740b9fde78f9e57b085ba/</p>
+        <hr style="border:none;border-top:1px solid #eef2f6;margin:18px 0;" />
+        <p style="color:#999;font-size:0.85em;margin:0;">Thanks — Altaakhi Workshop</p>
+      </td></tr>
+    </table>
+  </body>
+</html>
+
+--===============7688510032380083807==
+Content-Type: text/html; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Password reset</title>
+  </head>
+  <body style="font-family:Arial,Helvetica,sans-serif;background:#f6f8fb;padding:20px;">
+    <table width="100%" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e6e9ef;">
+      <tr style="background:#32405a;color:#f6c23e;"><td style="padding:18px;">
+        <strong>Altaakhi Workshop</strong>
+      </td></tr>
+      <tr><td style="padding:24px;color:#333;">
+        <h2 style="margin:0 0 8px 0;color:#1976d2">Password reset requested</h2>
+        <p style="margin:0 0 12px 0;">Hello Mahdi Hussain,</p>
+        <p style="margin:0 0 18px 0;">We received a request to reset your password for your Altaakhi account. Click the button below to reset it. If you didn't request this, you can safely ignore this email.</p>
+        <p style="text-align:center;margin:24px 0;">
+          <a href="http://127.0.0.1:8000/accounts/reset/NDI/d6iu81-207b8c0626a740b9fde78f9e57b085ba/" style="display:inline-block;padding:12px 20px;background:#1976d2;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">Reset Password</a>
+        </p>
+        <p style="color:#666;font-size:0.95em;">If the button doesn't work, copy and paste the following URL into your browser:</p>
+        <p style="word-break:break-all;color:#333;font-size:0.9em;">http://127.0.0.1:8000/accounts/reset/NDI/d6iu81-207b8c0626a740b9fde78f9e57b085ba/</p>
+        <hr style="border:none;border-top:1px solid #eef2f6;margin:18px 0;" />
+        <p style="color:#999;font-size:0.85em;margin:0;">Thanks — Altaakhi Workshop</p>
+      </td></tr>
+    </table>
+  </body>
+</html>
+
+--===============7688510032380083807==--
+
+-------------------------------------------------------------------------------

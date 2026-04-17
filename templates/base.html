@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>{% trans "Workshop Dashboard" %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}">
     <style>
         body { font-family: Tahoma, Arial, sans-serif; background: #f4f6fa; margin: 0; padding: 0; }
         .dashboard-container { display: flex; min-height: 100vh; direction: ltr; }
@@ -19,7 +20,7 @@
         .sidebar ul li ul li { padding: 6px 0; font-size: 0.95em; }
         .sidebar ul li ul li a { padding-left: 0 !important; display: block; }
         .sidebar ul li .fa-chevron-down { margin-left: 7px; }
-        .main-content { flex: 1; padding: 70px 40px 40px 40px; }
+        .main-content { flex: 1; padding: 90px 40px 40px 40px; }
         .mobile-sidebar-toggle {
             display: none;
             position: absolute;
@@ -83,7 +84,9 @@
                 display: block !important;
             }
             .main-content {
-                padding: 12px 4px 24px 4px !important;
+                /* Ensure content clears the fixed topbar on small screens so cards
+                   are visible and not touching the header. Increase top padding. */
+                padding: 84px 8px 24px 8px !important;
             }
             .topbar {
                 flex-direction: row;
@@ -97,28 +100,67 @@
                 margin-left: 0;
             }
         }
-        /* Make topbar full-bleed (no left/right gaps) while keeping page content padded */
-        .topbar {
-            width: 100vw !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            z-index: 1002 !important;
-            /* shift the full-bleed element so its left edge aligns with the viewport left */
-            margin-left: calc((100% - 100vw) / 2) !important;
-            margin-right: calc((100% - 100vw) / 2) !important;
-            box-sizing: border-box;
-            background: #32405a; /* ensure visible background when fixed */
+        /* Mobile-specific: force LTR topbar and hamburger on the left */
+        @media (max-width: 700px) {
+                .topbar { direction: ltr !important; padding-left: 56px !important; }
+                /* Keep the hamburger absolutely positioned but vertically centered
+                    and leave left padding on the topbar so the logo/content don't sit under it. */
+                .mobile-sidebar-toggle { display: block !important; position: absolute !important; left: 12px !important; top: 50% !important; transform: translateY(-50%) !important; right: auto !important; }
+            /* Ensure sidebar slides from the LEFT on mobile regardless of page RTL */
+            .sidebar { left: -260px !important; right: auto !important; }
+            .sidebar.mobile-visible { left: 0 !important; right: auto !important; }
+            /* Prevent body scroll when sidebar open on mobile */
+            body.sidebar-open { overflow: hidden; }
+                /* Shift the workshop logo slightly right on mobile so it sits beside the hamburger.
+                    Reduced from 5ch to 2ch to visually move the logo left closer to the hamburger. */
+                .topbar .workshop-logo { margin-left: 2ch !important; margin-right: 1ch !important; }
+            /* Mobile: shift the search (magnifier) slightly left by ~2 spaces */
+            #topbar-search { margin-left: -2ch !important; }
+                /* Make the search input expand when explicitly opened; keep it hidden by default on mobile
+                    so only the magnifier is visible. The toggle button will reveal the input. */
+                #global-search-input { display: none !important; width: calc(100% - 56px) !important; }
+            #global-search-results {
+                position: fixed !important;
+                top: 70px !important;
+                left: 0 !important;
+                right: 0 !important;
+                z-index: 1200 !important;
+                background: #fff !important;
+                border-radius: 0 !important;
+                max-height: calc(100vh - 70px) !important;
+                overflow: auto !important;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.12) !important;
+                padding: 12px !important;
+            }
         }
-        /* Inner container aligns topbar content with main page padding */
-        .topbar-inner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 40px 0 0; /* flush to the left edge */
-            box-sizing: border-box;
-            width: 100%;
-            max-width: none;
+        /* Consolidated topbar style: single authoritative definition */
+        .topbar{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+
+            position:fixed;
+            top:0;
+            left:0;
+
+            width:100%;
+            height:70px;
+
+            padding:18px 20px;
+            background:#32405a;
+            border-bottom:1px solid #2d3a4a;
+
+            z-index:1305;
+            direction:ltr;
+            box-sizing:border-box;
+        }
+        /* Inner container: controls horizontal spacing only */
+        .topbar-inner{
+            width:100%;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            padding:0 40px;
         }
         @media (max-width: 900px) {
             .topbar-inner { padding: 0 20px 0 0; }
@@ -126,20 +168,10 @@
         @media (max-width: 700px) {
             .topbar-inner { padding: 0 8px 0 0; }
         }
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 18px 0 10px 0;
-            background: #32405a;
-            border-bottom: 1px solid #2d3a4a;
-            min-height: 60px;
-            width: 100%;
-            margin-right: 0;
-            margin-left: 0;
-            direction: ltr;
-            gap: 16px;
-        }
+        /* iPad / tablet sizes: remove left/right page padding so content
+           appears flush beneath the fixed header (no side margins). Keep
+           the sidebar offset (margin-left) so the menu remains visible. */
+        /* Removed duplicate .topbar block (consolidated above) */
         .topbar .workshop-logo {
             display: flex;
             align-items: center;
@@ -149,6 +181,8 @@
             color: #f6c23e;
             letter-spacing: 1px;
         }
+        /* Remove any extra left offset on the logo so header content is flush */
+        .topbar .workshop-logo { margin-left: 0 !important; }
         .topbar .topbar-right {
             display: flex;
             align-items: center;
@@ -157,7 +191,7 @@
         .mobile-sidebar-toggle {
             display: none;
             position: absolute;
-            right: 20px;
+            left: 20px;
             top: 18px;
             background: none;
             border: none;
@@ -206,18 +240,134 @@
             margin-left: 8px;
             letter-spacing: 1px;
         }
-            .topbar {
-                width: 100%;
-                margin-right: 0;
-                margin-left: 0;
-                direction: rtl;
-            }
+            /* Removed small duplicate .topbar override (would have forced RTL). */
         @media (max-width: 700px) {
             .main-logo-title {
                 font-size: 15px;
             }
         }
+        /* Responsive table helper: keeps wide tables from expanding the page
+           and enables touch-friendly horizontal scrolling inside a container. */
+        .table-responsive {
+            width: 100%;
+            box-sizing: border-box;
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+        }
+        .table-responsive > table {
+            /* allow table to size to content but not force page overflow */
+            width: max-content;
+            min-width: 100%;
+            border-collapse: collapse;
+        }
+        /* iPad Pro / Tablets - finer tuning for 11" and 12.9" iPad resolutions */
+        /* Targets common iPad widths: 1024, 1112, 1194, 1366 */
+        @media (min-width: 768px) and (max-width: 1366px) {
+
+            .sidebar{
+                width: 210px;
+            }
+
+            .main-content{
+                margin-left:210px;
+                padding:80px 20px 30px 20px;
+            }
+
+            .topbar-inner{
+                padding:0 20px;
+            }
+
+            .topbar{
+                padding:16px 0;
+            }
+
+            .workshop-logo img{
+                height:34px;
+                width:34px;
+            }
+
+            .main-logo-title{
+                font-size:18px;
+            }
+
+            #topbar-search{
+                max-width:420px;
+            }
+
+        }
+
+        /* Dashboard cards layout tweak for tablets */
+        @media (max-width: 1366px){
+            .cards{
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        /* Fix action buttons on tablet: wrap and resize so they don't overflow bottom */
+        @media (max-width: 1024px){
+
+            .form-actions,
+            .invoice-actions,
+            .action-buttons{
+                display:flex;
+                flex-wrap:wrap;
+                gap:10px;
+                align-items:center;
+                /* Ensure these action containers remain in normal document flow
+                   (not fixed/absolute) so they don't stick outside the page viewport
+                   on tablet/phone emulation. The !important guards avoid overrides
+                   from page-specific inline styles. */
+                position: static !important;
+            }
+
+            .form-actions button,
+            .invoice-actions button,
+            .action-buttons button{
+                flex:1 1 45%;
+                min-width:150px;
+            }
+
+            .total-amount{
+                width:100%;
+                margin-top:10px;
+                font-weight:bold;
+            }
+
+            /* Provide extra bottom padding so any sticky/absolute action bars
+               do not overlap page content when viewport height is small
+               (tablet/phone). Tweak this value if your action bar is taller. */
+            .main-content{
+                padding-bottom:140px;
+            }
+
+        }
     </style>
+        <style>
+            /* Toast notifications */
+            .toast-container { position: fixed; top: 84px; right: 24px; z-index: 1400; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+            .toast { min-width: 260px; max-width: 420px; padding: 10px 14px; border-radius: 8px; color: #fff; box-shadow: 0 12px 30px rgba(0,0,0,0.12); display:flex; align-items:center; gap:10px; transform: translateX(12px); opacity: 0; transition: transform 320ms cubic-bezier(.2,.9,.2,1), opacity 320ms ease; pointer-events: auto; }
+            .toast.show { transform: translateX(0); opacity: 1; }
+            .toast.hide { transform: translateX(120%); opacity: 0; }
+            .toast.success { background: linear-gradient(90deg,#2e7d32,#60ad5e); }
+            .toast.error { background: linear-gradient(90deg,#c62828,#ef5350); }
+            .toast.info { background: linear-gradient(90deg,#1565c0,#42a5f5); }
+            .toast .msg { flex:1; font-size:0.95em; word-break:break-word; }
+            .toast .close { cursor:pointer; opacity:0.95; margin-left:8px; }
+            .toast .count-badge { background: rgba(0,0,0,0.12); color: #fff; padding: 3px 8px; border-radius: 999px; font-weight: 600; margin-left: 6px; font-size: 0.85em; display:inline-block; min-width:32px; text-align:center; }
+            @media (max-width: 700px) {
+                .toast-container { left: 12px; right: 12px; top: 74px; align-items: stretch; }
+                .toast { min-width: auto; max-width: none; width: 100%; border-radius: 10px; }
+            }
+        </style>
+        <style>
+            /* Row highlight animation for optimistic unlock */
+            .row-unlocked { animation: rowHighlight 1.2s ease; }
+            @keyframes rowHighlight {
+                0% { background: #e8f8ec; }
+                50% { background: #f0fff4; }
+                100% { background: transparent; }
+            }
+        </style>
     <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
     <!-- Favicon: explicit static path + inline SVG fallback to avoid /favicon.ico 404 -->
     <link rel="icon" href="{% static 'images/favicon.ico' %}" />
@@ -231,80 +381,142 @@
             <h2>Al-Takhi Auto Repair</h2>
             <ul style="position:relative;">
                 <li onclick="location.href='{% url 'dashboard' %}'"><i class="fa fa-tachometer"></i>Dashboard</li>
-                <li><i class="fa fa-users"></i>User Management</li>
+                <li onclick="location.href='{% url 'users_list' %}'"><i class="fa fa-users"></i>User Management</li>
                 <li><i class="fa fa-cogs"></i>General Settings</li>
                 <li><a href="/inventory/" style="color:inherit;text-decoration:none;"><i class="fa fa-archive"></i> Items</a></li>
                 <li id="services-section" style="position:relative;cursor:pointer;">
                     <i class="fa fa-wrench"></i>Services
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
                     <ul id="brands-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/brands/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Car Manufacturers</a></li>
+                        <li><a href="/brands/" class="cars-submenu-link">Car Manufacturers</a></li>
                     </ul>
                 </li>
                 <li id="clients-section" style="position:relative;cursor:pointer;">
-                    <i class="fa fa-user"></i>Sales
+                    <i class="fa fa-user"></i>Customers
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
                     <ul id="clients-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/clients/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Customers</a></li>
-                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
-                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Received</a></li>
+                        <li><a href="/clients/" class="clients-submenu-link">Customers</a></li>
                     </ul>
                 </li>
 
                 <li id="purchases-section" style="position:relative;cursor:pointer;">
                     <i class="fa fa-truck"></i>Purchases
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
-                    <ul id="purchases-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/suppliers/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Vendors</a></li>
-                        <li><a href="/bills/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Bills</a></li>
-                        <li><a href="/vendors/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Made</a></li>
+                    <ul id="purchases-submenu" style="display:{% if request.path|slice:':11' == '/suppliers/' or request.path|slice:':7' == '/bills/' or request.path|slice:':17' == '/vendors/payments/' %}block{% else %}none{% endif %};list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li><a href="/suppliers/" class="purchases-submenu-link {% if request.path|slice:':11' == '/suppliers/' %}active{% endif %}">Vendors</a></li>
+                        <li style="position:relative;">
+                            <a href="/bills/" class="purchases-submenu-link {% if request.path|slice:':7' == '/bills/' %}active{% endif %}">Bills</a>
+                            <a class="submenu-add-btn" href="/bills/add/" title="Add Bill" aria-label="Add Bill">+</a>
+                        </li>
+                        <li style="position:relative;">
+                            <a href="/vendors/payments/" class="purchases-submenu-link {% if request.path|slice:':17' == '/vendors/payments/' %}active{% endif %}">Payments Made</a>
+                            <a class="submenu-add-btn" href="/vendors/payments/add/" title="Add Payment" aria-label="Add Payment">+</a>
+                        </li>
                     </ul>
                 </li>
                 <style>
                 /* show add button on hover for submenu items */
-                #cars-submenu li { position: relative; padding-right: 40px; }
-                    #cars-submenu li .submenu-add-btn { display: inline-flex; align-items: center; justify-content: center; position: absolute; right: -6px; top: 50%; transform: translateY(-50%); background: #1976d2; color: #fff; width: 30px; height: 30px; border-radius: 50%; text-decoration: none; font-weight: 800; font-size: 1.05em; line-height: 1; }
+                    #cars-submenu li, #purchases-submenu li { position: relative; padding-right: 40px; }
+                    /* hide add-circle by default; show on hover for discoverability */
+                    #cars-submenu li .submenu-add-btn, #purchases-submenu li .submenu-add-btn { display: none; align-items: center; justify-content: center; position: absolute; right: -6px; top: 50%; transform: translateY(-50%); background: #1976d2; color: #fff; width: 30px; height: 30px; border-radius: 50%; text-decoration: none; font-weight: 800; font-size: 1.05em; line-height: 1; }
+                    /* show when hovering the submenu item */
+                    #cars-submenu li:hover .submenu-add-btn, #purchases-submenu li:hover .submenu-add-btn { display: inline-flex; }
+                    /* if the submenu link is active, keep the circle visible */
+                    #cars-submenu li .cars-submenu-link.active + .submenu-add-btn, #purchases-submenu li .purchases-submenu-link.active + .submenu-add-btn { display: inline-flex; }
+                    /* Active purchases submenu link blue style */
+                    #purchases-submenu li .purchases-submenu-link.active { background: #4b86ff; color: #fff; font-weight: 600; }
                 /* submenu link styles: hover = gray, active = blue, pointer cursor */
                 /* default submenu text is light for contrast (was yellow) */
                 /* default submenu text: white for best contrast */
                 #cars-submenu li .cars-submenu-link { color: #ffffff; text-decoration: none; display: block; padding: 8px 12px 8px 36px; font-size:0.95em; cursor: pointer; border-radius:8px; }
+                /* Purchases submenu links should match Maintenance submenu visuals */
+                #purchases-submenu li .purchases-submenu-link { color: #ffffff; text-decoration: none; display: block; padding: 8px 12px 8px 36px; font-size:0.95em; cursor: pointer; border-radius:8px; }
                 /* Hover: light rounded background + gray text and small indicator dot */
                 /* indicator moved to the left gutter so it doesn't cover text */
-                #cars-submenu li .cars-submenu-link { }
+                    #cars-submenu li .cars-submenu-link { }
                 /* Hover: only show circular indicator in gutter; do not change text color or add background */
                 #cars-submenu li .cars-submenu-link:hover { background: transparent; color: #ffffff; }
-                /* indicator dot in gutter */
+                #purchases-submenu li .purchases-submenu-link:hover { background: transparent; color: #ffffff; }
+                    /* invoices submenu add-button styles (reuse purchases/cars behavior) */
+                    #invoices-submenu li, #clients-submenu li { position: relative; padding-right: 40px; }
+                    #invoices-submenu li .submenu-add-btn, #clients-submenu li .submenu-add-btn { display: none; align-items: center; justify-content: center; position: absolute; right: -6px; top: 50%; transform: translateY(-50%); background: #1976d2; color: #fff; width: 30px; height: 30px; border-radius: 50%; text-decoration: none; font-weight: 800; font-size: 1.05em; line-height: 1; }
+                    #invoices-submenu li:hover .submenu-add-btn, #clients-submenu li:hover .submenu-add-btn { display: inline-flex; }
+                    #invoices-submenu li .invoices-submenu-link.active + .submenu-add-btn, #clients-submenu li .clients-submenu-link.active + .submenu-add-btn { display: inline-flex; }
+
+                    /* Top-level Invoices add button */
+                    /* Top-level invoices add button removed to avoid duplicate + icon; submenu add remains */
+                    #invoices-section { position: relative; }
+                /* indicator dot in gutter for cars submenu */
                 #cars-submenu li:hover::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
+                /* indicator dot in gutter for purchases submenu (gray) */
+                #purchases-submenu li:hover::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; background: #9e9e9e; border-radius: 50%; pointer-events: none; }
                 /* Active/selected: blue rounded background with white text */
                 #cars-submenu li .cars-submenu-link.active { background: #4b86ff; color: #fff; font-weight: 600; }
+                #purchases-submenu li .purchases-submenu-link.active { background: #4b86ff; color: #fff; font-weight: 600; }
+                /* Make Sales/invoices submenu match Cars submenu visuals */
+                #invoices-submenu li .invoices-submenu-link, #clients-submenu li .clients-submenu-link, #brands-submenu li .cars-submenu-link { color: #ffffff; text-decoration: none; display: block; padding: 8px 12px 8px 36px; font-size:0.95em; cursor: pointer; border-radius:8px; }
+                #invoices-submenu li .invoices-submenu-link:hover, #clients-submenu li .clients-submenu-link:hover, #brands-submenu li .cars-submenu-link:hover { background: transparent; color: #ffffff; }
+                #invoices-submenu li .invoices-submenu-link.active, #clients-submenu li .clients-submenu-link.active, #brands-submenu li .cars-submenu-link.active { background: #4b86ff; color: #fff; font-weight: 600; }
+                /* Ensure link/visited/focus/active states remain white (override browser defaults) */
+                #sidebarMenu a.cars-submenu-link, #sidebarMenu a.invoices-submenu-link, #sidebarMenu a.clients-submenu-link, #sidebarMenu a.purchases-submenu-link { color: #ffffff; }
+                #sidebarMenu a.cars-submenu-link:visited, #sidebarMenu a.invoices-submenu-link:visited, #sidebarMenu a.clients-submenu-link:visited, #sidebarMenu a.purchases-submenu-link:visited { color: #ffffff; }
+                #sidebarMenu a.cars-submenu-link:focus, #sidebarMenu a.invoices-submenu-link:focus, #sidebarMenu a.clients-submenu-link:focus, #sidebarMenu a.purchases-submenu-link:focus { color: #ffffff; outline: none; }
+                #sidebarMenu a.cars-submenu-link:hover, #sidebarMenu a.invoices-submenu-link:hover, #sidebarMenu a.clients-submenu-link:hover, #sidebarMenu a.purchases-submenu-link:hover { color: #ffffff; background: transparent; }
+                /* indicator dot in gutter for invoices submenu (same as cars) */
+                #invoices-submenu li:hover::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
                 </style>
 
                 <li id="cars-section" style="position:relative;cursor:pointer;">
-                    <i class="fa fa-car"></i>Maintenance
+                    <i class="fa fa-car"></i>Cars
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
-                    <ul id="cars-submenu" style="display:{% if request.path|slice:':6' == '/cars/' or request.path|slice:':13' == '/maintenance/' or request.path|slice:':10' == '/bookings/' or request.path|slice:':10' == '/services/' %}block{% else %}none{% endif %};list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                    <ul id="cars-submenu" style="display:{% if request.path|slice:':6' == '/cars/' or request.path|slice:':13' == '/maintenance/' or request.path|slice:':10' == '/bookings/' or request.path|slice:':10' == '/inventory/' %}block{% else %}none{% endif %};list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
                         <li><a href="/cars/" class="cars-submenu-link {% if request.path|slice:':6' == '/cars/' %}active{% endif %}">Cars</a></li>
                         <li style="position:relative;">
                             <a href="/maintenance/" class="cars-submenu-link {% if request.path|slice:':13' == '/maintenance/' %}active{% endif %}">Maintenance</a>
                             <a class="submenu-add-btn" href="/maintenance/add/">+</a>
                         </li>
-                        <li><a href="/invoices/payments/" class="cars-submenu-link {% if request.path|slice:':17' == '/invoices/payments' %}active{% endif %}">Payments</a></li>
+                        <li><a href="/invoices/payments/" class="cars-submenu-link {% if request.path|slice:':18' == '/invoices/payments' %}active{% endif %}">Payments</a></li>
                         <li><a href="/bookings/" class="cars-submenu-link {% if request.path|slice:':10' == '/bookings/' %}active{% endif %}">Bookings</a></li>
-                        <li><a href="/services/" class="cars-submenu-link {% if request.path|slice:':10' == '/services/' %}active{% endif %}">Services</a></li>
+                        <li><a href="/inventory/" class="cars-submenu-link {% if request.path|slice:':10' == '/inventory/' %}active{% endif %}">Services</a></li>
                     </ul>
                 </li>
                 <li id="invoices-section" style="position:relative;cursor:pointer;">
-                    <i class="fa fa-file-invoice-dollar"></i>Invoices & Payments
+                    <i class="fa fa-dollar-sign"></i>Sales
+                    
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
-                    <ul id="invoices-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Payments</a></li>
-                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
-                        <li><a href="/invoices/print/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Print Invoice</a></li>
-                        <li><a href="/invoices/account-statement/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Account Statement</a></li>
+                    <ul id="invoices-submenu" style="display:{% if request.path|slice:':9' == '/invoices' and 'financial' not in request.path and 'reports' not in request.path %}block{% else %}none{% endif %};list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
+                        <li style="position:relative;">
+                            <a href="/clients/" class="clients-submenu-link">Customers</a>
+                        </li>
+                        <li style="position:relative;">
+                            <a href="/invoices/" class="invoices-submenu-link">Invoices</a>
+                            <a class="submenu-add-btn" href="/invoices/add/" title="Add Invoice" aria-label="Add Invoice">+</a>
+                        </li>
+                        <li style="position:relative;">
+                            <a href="/invoices/payments/" class="invoices-submenu-link">Payments</a>
+                            <a class="submenu-add-btn" href="/invoices/payments/add/" title="Add Payment" aria-label="Add Payment">+</a>
+                        </li>
+                        <li style="position:relative;">
+                            <a href="/invoices/print/" class="invoices-submenu-link">Print Invoice</a>
+                        </li>
+                        <li style="position:relative;">
+                            <a href="/invoices/account-statement/" class="invoices-submenu-link">Account Statement</a>
+                        </li>
+                        <li style="position:relative;">
+                            <a href="/invoices/expenses/" class="invoices-submenu-link">Expenses</a>
+                            <a class="submenu-add-btn" href="/invoices/expenses/add/" title="Add Expense" aria-label="Add Expense">+</a>
+                        </li>
+                        <li style="position:relative;">
+                            <a href="/invoices/recurring/" class="invoices-submenu-link">Recurring Expenses</a>
+                        </li>
                     </ul>
                 </li>
-                <li><i class="fa fa-chart-bar"></i>Financial Management</li>
-                <li><i class="fa fa-file-alt"></i>Reports</li>
+                <li style="position:relative;">
+                    <a href="/invoices/financial/" class="invoices-submenu-link">
+                        <i class="fa fa-chart-bar"></i>Financial Management
+                    </a>
+                </li>
+                <li><a href="/invoices/reports/" style="color:inherit;text-decoration:none;display:block;padding:8px 0 8px 10px;font-size:0.95em;"><i class="fa fa-file-alt"></i>Reports</a></li>
             </ul>
         </div>
         <div class="main-content">
@@ -354,15 +566,20 @@
                 <div class="user-info">
                     <button class="icon-btn" title="{% trans "Settings" %}"><i class="fa fa-cog"></i></button>
                     <button class="icon-btn" title="{% trans "Notifications" %}"><i class="fa fa-bell"></i></button>
-                    <span class="admin-name">
-                        {% if request.user.is_authenticated %}
-                            <a href="{% url 'logout' %}" class="icon-btn" title="{% trans "Log out" %}" style="margin-right:8px;">
-                                <i class="fa fa-sign-out-alt"></i>
-                            </a>
-                        {% else %}
-                            {% trans "Guest" %}
-                        {% endif %}
-                    </span>
+                    {% if request.user.is_authenticated %}
+                        <span class="admin-name">
+                            {% if request.user.first_name %}
+                                {{ request.user.first_name }}
+                            {% else %}
+                                {{ request.user.username }}
+                            {% endif %}
+                        </span>
+                        <a href="{% url 'logout' %}" class="icon-btn" title="{% trans "Log out" %}" style="margin-right:8px;">
+                            <i class="fa fa-sign-out-alt"></i>
+                        </a>
+                    {% else %}
+                        <span class="admin-name">{% trans "Guest" %}</span>
+                    {% endif %}
                 </div>
             </div>
             {# تم نقل القائمة المنسدلة إلى الشريط الجانبي الرئيسي #}
@@ -414,15 +631,32 @@
                         }
                     };
                 }
-                sidebar.onclick = function(e) { e.stopPropagation(); };
+                if (sidebar) sidebar.onclick = function(e) { e.stopPropagation(); };
+                // Restore last-open section from localStorage (keeps submenu open across navigation)
+                var lastOpenSection = null;
+                try { lastOpenSection = localStorage.getItem('openSidebarSection'); } catch(ex) { lastOpenSection = null; }
                 submenus.forEach(function(item){
                     var section = document.getElementById(item.section);
                     var submenu = document.getElementById(item.submenu);
                     if(section && submenu) {
+                        // If template or localStorage says this submenu should be open, ensure it's visible
+                        if((lastOpenSection && lastOpenSection === item.section) || submenu.style.display === 'block') {
+                            submenu.style.display = 'block';
+                        }
                         section.onclick = function(e) {
+                            // only react when the clicked <li> is this section itself (ignore clicks on other list items)
+                            var clickedLi = e.target && e.target.closest ? e.target.closest('li') : null;
+                            if (!clickedLi || clickedLi.id !== item.section) return;
+                            // ignore clicks on links inside the section (let links navigate)
+                            if (e.target && e.target.closest && e.target.closest('a')) return;
                             e.stopPropagation();
+                            // toggle this submenu while closing others
+                            var willBeOpen = (submenu.style.display !== 'block');
                             closeAllSubmenus();
-                            submenu.style.display = (submenu.style.display === 'block') ? 'none' : 'block';
+                            submenu.style.display = willBeOpen ? 'block' : 'none';
+                            try {
+                                if(willBeOpen) localStorage.setItem('openSidebarSection', item.section); else localStorage.removeItem('openSidebarSection');
+                            } catch(ex) {}
                         };
                         submenu.onclick = function(e) { e.stopPropagation(); };
                     }
@@ -491,8 +725,7 @@
                             // show loading
                             loading.style.display='block'; empty.style.display='none'; groups.style.display='none';
                             // fetch results from API (implement server-side later)
-                            fetch('/global-search/?q=' + encodeURIComponent(q))
-                                .then(r => r.ok ? r.json() : Promise.reject())
+                            window.fetchJson('/global-search/?q=' + encodeURIComponent(q))
                                 .then(data => {
                                     loading.style.display='none';
                                     // expected data: { customers: [...], items: [...], quotes: [...], invoices: [...], vendors: [...] }
@@ -605,6 +838,127 @@
                 })();
             });
             </script>
+            <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+            <script>
+                (function(){
+                    function _onSwipeStart(e, meta){
+                        meta.startX = e.touches ? e.touches[0].clientX : e.clientX;
+                        meta.startY = e.touches ? e.touches[0].clientY : e.clientY;
+                        meta.dragging = true;
+                    }
+                    function _onSwipeMove(e, el, meta){
+                        if(!meta.dragging) return;
+                        var x = e.touches ? e.touches[0].clientX : e.clientX;
+                        var dx = x - meta.startX;
+                        // allow only horizontal swipes
+                        el.style.transform = 'translateX(' + Math.max(dx, 0) + 'px)';
+                        el.style.opacity = String(Math.max(0.2, 1 - Math.abs(dx) / 200));
+                    }
+                    function _onSwipeEnd(e, el, meta){
+                        meta.dragging = false;
+                        var endX = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientX : e.clientX;
+                        var dx = endX - (meta.startX || 0);
+                        if(Math.abs(dx) > 64){
+                            // dismiss
+                            el.classList.add('hide');
+                            setTimeout(function(){ try{ el.remove(); }catch(e){} }, 320);
+                        } else {
+                            // revert
+                            el.style.transform = '';
+                            el.style.opacity = '';
+                        }
+                    }
+
+                    // toast manager: prevent duplicates and limit visible toasts
+                    var _TOASTS = window._TOASTS = window._TOASTS || { map: new Map(), order: [] };
+                    var TOAST_MAX = 4;
+
+                    function createToast(text, level){
+                        var container = document.getElementById('toastContainer');
+                        if(!container) return;
+
+                        // dedupe: if same text exists, increment counter and reset its timer
+                        if(_TOASTS.map.has(text)){
+                            var info = _TOASTS.map.get(text);
+                            info.count = (info.count || 1) + 1;
+                            if(info.badge) info.badge.textContent = 'x' + info.count;
+                            // reset auto-remove timer
+                            clearTimeout(info.timer);
+                            info.timer = setTimeout(function(){ removeToast(info.el, text); }, 6000);
+                            // bump to top (move to end)
+                            try{
+                                container.appendChild(info.el);
+                            }catch(e){}
+                            return info.el;
+                        }
+
+                        // enforce max visible toasts
+                        if(_TOASTS.order.length >= TOAST_MAX){
+                            // remove oldest
+                            var oldestKey = _TOASTS.order.shift();
+                            var oldestInfo = _TOASTS.map.get(oldestKey);
+                            if(oldestInfo){ removeToast(oldestInfo.el, oldestKey); }
+                        }
+
+                        var t = document.createElement('div');
+                        t.className = 'toast ' + (level || 'info');
+                        t.setAttribute('role','status');
+                        t.setAttribute('aria-live','polite');
+                        t.setAttribute('aria-atomic','true');
+
+                        var msg = document.createElement('div'); msg.className='msg'; msg.textContent = text;
+                        var badge = document.createElement('div'); badge.className = 'count-badge'; badge.style.display='none'; badge.textContent = '';
+                        var close = document.createElement('div'); close.className='close'; close.innerHTML='&#10005;';
+                        close.onclick = function(){ removeToast(t, text); };
+                        t.appendChild(msg); t.appendChild(badge); t.appendChild(close);
+                        container.appendChild(t);
+
+                        // register
+                        _TOASTS.map.set(text, { el: t, badge: badge, count: 1, timer: null });
+                        _TOASTS.order.push(text);
+
+                        // trigger enter animation
+                        requestAnimationFrame(function(){ t.classList.add('show'); });
+
+                        // auto remove with pause on hover / touch
+                        var removed = false;
+                        function remove(){ if(removed) return; removed = true; t.classList.add('hide'); setTimeout(function(){ try{ t.remove(); }catch(e){} ; _cleanup(text); }, 320); }
+                        var timer = setTimeout(remove, 6000);
+                        _TOASTS.map.get(text).timer = timer;
+                        function _cleanup(key){ var info = _TOASTS.map.get(key); if(info){ clearTimeout(info.timer); _TOASTS.map.delete(key); var idx = _TOASTS.order.indexOf(key); if(idx !== -1) _TOASTS.order.splice(idx,1); } }
+
+                        t.addEventListener('mouseenter', function(){ clearTimeout(timer); });
+                        t.addEventListener('mouseleave', function(){ if(!removed) timer = setTimeout(remove, 2500); _TOASTS.map.get(text).timer = timer; });
+
+                        // touch swipe handlers for mobile dismiss
+                        var meta = { startX:0, startY:0, dragging:false };
+                        t.addEventListener('touchstart', function(ev){ _onSwipeStart(ev, meta); clearTimeout(timer); }, {passive:true});
+                        t.addEventListener('touchmove', function(ev){ _onSwipeMove(ev, t, meta); }, {passive:true});
+                        t.addEventListener('touchend', function(ev){ _onSwipeEnd(ev, t, meta); }, {passive:true});
+
+                        // also support mouse drag for desktop
+                        t.addEventListener('mousedown', function(ev){ _onSwipeStart(ev, meta); clearTimeout(timer); ev.preventDefault(); });
+                        document.addEventListener('mousemove', function(ev){ if(meta.dragging) _onSwipeMove(ev, t, meta); });
+                        document.addEventListener('mouseup', function(ev){ if(meta.dragging) _onSwipeEnd(ev, t, meta); });
+
+                        return t;
+                    }
+
+                    function removeToast(el, text){ try{ el.classList.add('hide'); }catch(e){}; setTimeout(function(){ try{ el.remove(); }catch(e){}; if(text) { var info=_TOASTS.map.get(text); if(info){ clearTimeout(info.timer); _TOASTS.map.delete(text); var i=_TOASTS.order.indexOf(text); if(i!==-1) _TOASTS.order.splice(i,1); } } }, 320); }
+                    // expose globally so other scripts can call it
+                    window.createToast = createToast;
+
+                    // Render Django messages as toasts
+                    try{
+                        var dj_msgs = [
+                            {% for message in messages %}
+                                {text: {{ message|escapejs|safe }}, level: '{{ message.tags }}' },
+                            {% endfor %}
+                        ];
+                        dj_msgs.forEach(function(m){ createToast(m.text, m.level || 'info'); });
+                    }catch(e){ /* no messages or template not loaded */ }
+                })();
+            </script>
             {% block content %}{% endblock %}
         </div>
     </div>
@@ -647,6 +1001,42 @@ document.addEventListener('click', function (e) {
 
     form.submit();
 });
+</script>
+<!-- Global safe JSON fetch helper: returns parsed JSON or throws with .text for debugging -->
+<script>
+window.fetchJson = function(url, opts){
+    opts = opts || {};
+    if(!('credentials' in opts)) opts.credentials = 'same-origin';
+    return fetch(url, opts).then(function(resp){
+        var ct = (resp.headers.get('content-type')||'').toLowerCase();
+        if(!resp.ok){
+            return resp.text().then(function(txt){
+                try{ console.error('fetchJson HTTP error', { url: url, status: resp.status, text: txt }); }catch(e){}
+                var err = new Error('HTTP '+resp.status+' fetching '+url);
+                err.status = resp.status; err.url = resp.url; err.text = txt; throw err;
+            });
+        }
+        if(ct.indexOf('application/json') === -1){
+            return resp.text().then(function(txt){
+                try{ console.error('fetchJson expected JSON but got', { url: url, status: resp.status, text: txt }); }catch(e){}
+                var err = new Error('Expected JSON response from '+url);
+                err.status = resp.status; err.url = resp.url; err.text = txt; throw err;
+            });
+        }
+        // parse JSON safely: if server claims JSON but returns HTML or invalid JSON,
+        // capture the raw text to aid debugging instead of letting a SyntaxError
+        // escape as an uncaught exception during parsing.
+        return resp.text().then(function(txt){
+            try{
+                return JSON.parse(txt);
+            }catch(parseErr){
+                try{ console.error('fetchJson invalid JSON', { url: url, status: resp.status, text: txt, parseError: parseErr }); }catch(e){}
+                var err = new Error('Invalid JSON response from '+url);
+                err.status = resp.status; err.url = resp.url; err.text = txt; err.parseError = parseErr; throw err;
+            }
+        });
+    });
+};
 </script>
 </body>
 </html>

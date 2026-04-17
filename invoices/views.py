@@ -10,6 +10,65 @@ from django.http import JsonResponse
 from django.db.models.functions import TruncMonth
 from django.db.models.functions import Substr, Cast
 from django.db.models import IntegerField
+import logging
+
+# module logger for invoice hardening audit
+logger = logging.getLogger(__name__)
+
+@login_required
+def add_expense_category_ajax(request):
+    """AJAX endpoint to quickly create an ExpenseCategory from forms.
+    Expects POST with 'name' (and optional 'description'). Returns JSON {success,id,name}.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+    name = (request.POST.get('name') or '').strip()
+    desc = (request.POST.get('description') or '').strip()
+    if not name:
+        return JsonResponse({'success': False, 'error': 'Name required'}, status=400)
+    try:
+        from .models import ExpenseCategory
+        cat = ExpenseCategory.objects.create(name=name, description=desc or None)
+        return JsonResponse({'success': True, 'id': cat.id, 'name': cat.name})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=500)
+
+
+@login_required
+def edit_expense_category_ajax(request, cat_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+    name = (request.POST.get('name') or '').strip()
+    if not name:
+        return JsonResponse({'success': False, 'error': 'Name required'}, status=400)
+    try:
+        from .models import ExpenseCategory
+        cat = ExpenseCategory.objects.get(pk=cat_id)
+        cat.name = name
+        cat.save()
+        return JsonResponse({'success': True, 'id': cat.id, 'name': cat.name})
+    except ExpenseCategory.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Not found'}, status=404)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=500)
+
+
+@login_required
+def delete_expense_category_ajax(request, cat_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+    try:
+        from .models import ExpenseCategory
+        cat = ExpenseCategory.objects.get(pk=cat_id)
+        # prevent deletion if used
+        if cat.expenses.exists() or cat.recurrings.exists():
+            return JsonResponse({'success': False, 'error': 'Category in use'}, status=400)
+        cat.delete()
+        return JsonResponse({'success': True})
+    except ExpenseCategory.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Not found'}, status=404)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=500)
 
 # كشف حساب عميل (للطباعة)
 @login_required
@@ -448,7 +507,21 @@ def expenses_list(request):
         pass
 
     total = qs.aggregate(total=Sum('amount'))['total'] or 0
-    return render(request, 'expenses_list.html', {'expenses': qs[:200], 'total': total, 'from_date': fd, 'to_date': td})
+
+    # build rows with recipient for display
+    rows = []
+    for e in qs[:200]:
+        recipient = ''
+        try:
+            if e.note and 'To:' in e.note:
+                recipient = e.note.split('To:')[-1].strip()
+            else:
+                recipient = e.payee or ''
+        except Exception:
+            recipient = e.payee or ''
+        rows.append({'expense': e, 'recipient': recipient})
+
+    return render(request, 'expenses_list.html', {'rows': rows, 'total': total, 'from_date': fd, 'to_date': td})
 
 
 @login_required
@@ -456,17 +529,382 @@ def add_expense(request):
     from .forms import ExpenseForm
     if request.method == 'POST':
         form = ExpenseForm(request.POST)
+        # Do not include the 'bill' field on the Add page
+        if 'bill' in form.fields:
+            form.fields.pop('bill')
         if form.is_valid():
             exp = form.save(commit=False)
             try:
                 exp.created_by = request.user
             except Exception:
                 pass
+            # if a separate payee_recipient was provided, append to note for display
+            try:
+                recipient = (request.POST.get('payee_recipient') or '').strip()
+                if recipient:
+                    base_note = (exp.note or '').strip()
+                    if base_note:
+                        exp.note = base_note + '\nTo: ' + recipient
+                    else:
+                        exp.note = 'To: ' + recipient
+            except Exception:
+                pass
+            # fallback: ensure exp.payee set from payee_recipient if payee input was empty
+            try:
+                if not (exp.payee and str(exp.payee).strip()):
+                    rec = (request.POST.get('payee_recipient') or '').strip()
+                    if rec:
+                        exp.payee = rec
+            except Exception:
+                pass
             exp.save()
             return redirect('expenses_list')
     else:
         form = ExpenseForm()
-    return render(request, 'expenses_add.html', {'form': form})
+        # Hide the bill selector on creation page — not needed for add
+        if 'bill' in form.fields:
+            form.fields.pop('bill')
+    # provide user list for Payee dynamic dropdown (used when Payee = 'salary')
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        users_qs = User.objects.all().values('id', 'first_name', 'last_name', 'username')
+        payee_users = []
+        for u in users_qs:
+            name = (u.get('first_name') or '').strip() or (u.get('username') or '')
+            if u.get('last_name'):
+                ln = (u.get('last_name') or '').strip()
+                if ln:
+                    name = (name + ' ' + ln).strip()
+            payee_users.append({'id': u['id'], 'name': name})
+    except Exception:
+        payee_users = []
+
+    return render(request, 'expenses_add.html', {'form': form, 'payee_users': payee_users})
+
+
+@login_required
+def edit_expense(request, expense_id):
+    from .forms import ExpenseForm
+    from .models import Expense
+    exp = get_object_or_404(Expense, id=expense_id)
+    if request.method == 'POST':
+        form = ExpenseForm(request.POST, instance=exp)
+        # Hide the bill selector on edit page — not needed
+        if 'bill' in form.fields:
+            form.fields.pop('bill')
+        if form.is_valid():
+            obj = form.save(commit=False)
+            # ensure payee is preserved: prefer posted hidden payee_recipient, else parse posted note, else keep existing
+            try:
+                posted_note = (request.POST.get('note') or '').strip()
+                posted_rec = (request.POST.get('payee_recipient') or '').strip()
+                parsed_rec = ''
+                if posted_note and 'To:' in posted_note and not posted_rec:
+                    parsed_rec = posted_note.split('To:')[-1].strip()
+                use_rec = posted_rec or parsed_rec or (obj.payee or '')
+                if use_rec:
+                    obj.payee = use_rec
+            except Exception:
+                pass
+            # fallback: ensure obj.payee populated from payee_recipient if missing
+            try:
+                if not (obj.payee and str(obj.payee).strip()):
+                    rec = (request.POST.get('payee_recipient') or '').strip()
+                    if rec:
+                        obj.payee = rec
+            except Exception:
+                pass
+            try:
+                # handle payee_recipient on edit as well
+                try:
+                    recipient = (request.POST.get('payee_recipient') or '').strip()
+                    posted_note = (request.POST.get('note') or '').strip()
+                    # If user edited the note (posted_note non-empty and not just a To: line), keep it.
+                    import re
+                    if posted_note:
+                        # if posted_note is only a To: line (or contains To: as last part), and we have a recipient, normalize it
+                        if recipient and re.match(r'^\s*To:\s*', posted_note):
+                            parts = re.split(r'\nTo:\s*', posted_note, maxsplit=1)
+                            base = parts[0].strip() if len(parts) == 2 else ''
+                            if base:
+                                obj.note = base + '\nTo: ' + recipient
+                            else:
+                                obj.note = 'To: ' + recipient
+                        else:
+                            # user provided a custom note — preserve it
+                            obj.note = posted_note
+                    else:
+                        # no posted note; if recipient provided, update or add To: part based on existing note
+                        if recipient:
+                            base_note = (obj.note or '').strip()
+                            if base_note and 'To:' in base_note:
+                                parts = base_note.split('To:')
+                                base = parts[0].strip()
+                                obj.note = (base + '\nTo: ' + recipient).strip()
+                            elif base_note:
+                                obj.note = base_note + '\nTo: ' + recipient
+                            else:
+                                obj.note = 'To: ' + recipient
+                except Exception:
+                    pass
+                obj.save()
+            except Exception:
+                pass
+            return redirect('expenses_list')
+    else:
+        form = ExpenseForm(instance=exp)
+        # Hide the bill selector on edit page — not needed
+        if 'bill' in form.fields:
+            form.fields.pop('bill')
+    # include payee users for edit page as well
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        users_qs = User.objects.all().values('id', 'first_name', 'last_name', 'username')
+        payee_users = []
+        for u in users_qs:
+            name = (u.get('first_name') or '').strip() or (u.get('username') or '')
+            if u.get('last_name'):
+                ln = (u.get('last_name') or '').strip()
+                if ln:
+                    name = (name + ' ' + ln).strip()
+            payee_users.append({'id': u['id'], 'name': name})
+    except Exception:
+        payee_users = []
+
+    # derive existing_recipient from note for template prefill
+    try:
+        existing_recipient = ''
+        if exp.note and 'To:' in exp.note:
+            existing_recipient = exp.note.split('To:')[-1].strip()
+        else:
+            existing_recipient = exp.payee or ''
+    except Exception:
+        existing_recipient = exp.payee or ''
+
+    return render(request, 'expenses_add.html', {'form': form, 'editing': True, 'expense': exp, 'payee_users': payee_users, 'existing_recipient': existing_recipient})
+
+
+@login_required
+def delete_expense(request, expense_id):
+    from .models import Expense
+    from django.contrib import messages
+    exp = get_object_or_404(Expense, id=expense_id)
+    if request.method == 'POST':
+        try:
+            exp.delete()
+            messages.success(request, 'Expense deleted.')
+        except Exception:
+            messages.error(request, 'Could not delete expense.')
+        return redirect('expenses_list')
+    return render(request, 'expenses_delete.html', {'expense': exp})
+
+
+@login_required
+def complete_expense(request, expense_id):
+    from .models import Expense
+    from .forms import CompleteExpenseForm
+    from django.contrib import messages
+    exp = get_object_or_404(Expense, id=expense_id)
+    if request.method == 'POST':
+        form = CompleteExpenseForm(request.POST, instance=exp)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.status = 'posted'
+            try:
+                obj.save()
+                messages.success(request, 'Expense completed and posted.')
+            except Exception:
+                messages.error(request, 'Could not complete expense.')
+            return redirect('expenses_list')
+    else:
+        form = CompleteExpenseForm(instance=exp)
+    return render(request, 'expenses_complete.html', {'form': form, 'expense': exp})
+
+
+@login_required
+def recurring_list(request):
+    from .models import RecurringExpense
+    qs = RecurringExpense.objects.select_related('category').order_by('-start_date')
+    return render(request, 'recurring_list.html', {'recurrings': qs})
+
+
+@login_required
+def add_recurring(request):
+    from .forms import RecurringExpenseForm
+    if request.method == 'POST':
+        form = RecurringExpenseForm(request.POST)
+        if form.is_valid():
+            rec = form.save(commit=False)
+            try:
+                rec.created_by = request.user
+            except Exception:
+                pass
+            rec.save()
+            return redirect('recurring_list')
+    else:
+        # prefill next_date and start_date with today
+        from django.utils import timezone
+        today = timezone.now().date()
+        form = RecurringExpenseForm(initial={'start_date': today, 'next_date': today})
+    # provide user list for Payee dynamic dropdown (used when Payee = 'salary')
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        users_qs = User.objects.all().values('id', 'first_name', 'last_name', 'username')
+        payee_users = []
+        for u in users_qs:
+            name = (u.get('first_name') or '').strip() or (u.get('username') or '')
+            if u.get('last_name'):
+                ln = (u.get('last_name') or '').strip()
+                if ln:
+                    name = (name + ' ' + ln).strip()
+            payee_users.append({'id': u['id'], 'name': name})
+    except Exception:
+        payee_users = []
+
+    # remove payee fields from the form rendering so they don't appear as separate rows
+    # we'll render hidden inputs in the template and let JS update them
+    try:
+        for f in ('payee', 'payee_recipient', 'payee_month'):
+            if f in form.fields:
+                form.fields.pop(f)
+    except Exception:
+        pass
+
+    return render(request, 'recurring_add.html', {'form': form, 'payee_users': payee_users})
+
+
+@login_required
+def run_recurring_once(request):
+    # staff-only utility endpoint to run due recurrences immediately (for testing)
+    if not getattr(request.user, 'is_staff', False):
+        return redirect('invoices_list')
+    from .models import RecurringExpense, Expense
+    import datetime
+    from django.utils import timezone
+    today = timezone.now().date()
+    created = 0
+    def advance_date(d, freq, interval=1):
+        # simple advancer without external deps
+        if freq == 'daily':
+            return d + datetime.timedelta(days=interval)
+        if freq == 'weekly':
+            return d + datetime.timedelta(weeks=interval)
+        if freq == 'monthly':
+            # roll months
+            month = d.month - 1 + interval
+            year = d.year + month // 12
+            month = month % 12 + 1
+            day = min(d.day, 28)
+            return datetime.date(year, month, day)
+        if freq == 'yearly':
+            try:
+                return d.replace(year=d.year + interval)
+            except Exception:
+                return d
+        return d
+
+    qs = RecurringExpense.objects.filter(active=True).filter(next_date__lte=today)
+    for r in qs:
+        # ensure not past end_date
+        if r.end_date and r.next_date > r.end_date:
+            continue
+        try:
+            if getattr(r, 'reminder_only', False):
+                Expense.objects.create(date=r.next_date, amount=None, category=r.category, note=(r.note or '') + ' (Reminder)', created_by=request.user, status='draft')
+            else:
+                Expense.objects.create(date=r.next_date, amount=r.amount, category=r.category, note=r.note, created_by=request.user)
+            created += 1
+        except Exception:
+            continue
+        # update next_date and last_run
+        try:
+            next_d = advance_date(r.next_date, r.frequency, r.interval)
+            r.next_date = next_d
+            from django.utils import timezone as _tz
+            r.last_run = _tz.now()
+            r.save()
+        except Exception:
+            pass
+
+    return render(request, 'recurring_run_result.html', {'created': created})
+
+
+@login_required
+def edit_recurring(request, recurring_id):
+    from .models import RecurringExpense
+    from .forms import RecurringExpenseForm
+    rec = get_object_or_404(RecurringExpense, id=recurring_id)
+    if request.method == 'POST':
+        form = RecurringExpenseForm(request.POST, instance=rec)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            try:
+                obj.save()
+            except Exception:
+                pass
+            return redirect('recurring_list')
+    else:
+        form = RecurringExpenseForm(instance=rec)
+    # provide user list for Payee dynamic dropdown (used when Payee = 'salary')
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        users_qs = User.objects.all().values('id', 'first_name', 'last_name', 'username')
+        payee_users = []
+        for u in users_qs:
+            name = (u.get('first_name') or '').strip() or (u.get('username') or '')
+            if u.get('last_name'):
+                ln = (u.get('last_name') or '').strip()
+                if ln:
+                    name = (name + ' ' + ln).strip()
+            payee_users.append({'id': u['id'], 'name': name})
+    except Exception:
+        payee_users = []
+
+    # remove payee fields from the form rendering so they don't appear as separate rows
+    try:
+        for f in ('payee', 'payee_recipient', 'payee_month'):
+            if f in form.fields:
+                form.fields.pop(f)
+    except Exception:
+        pass
+
+    return render(request, 'recurring_add.html', {'form': form, 'editing': True, 'recurring': rec, 'payee_users': payee_users})
+
+
+@login_required
+def delete_recurring(request, recurring_id):
+    from .models import RecurringExpense
+    from django.contrib import messages
+    rec = get_object_or_404(RecurringExpense, id=recurring_id)
+    if request.method == 'POST':
+        try:
+            rec.delete()
+            messages.success(request, 'Recurring expense deleted.')
+        except Exception:
+            messages.error(request, 'Could not delete recurring expense.')
+        return redirect('recurring_list')
+    return render(request, 'recurring_delete.html', {'recurring': rec})
+
+
+@login_required
+def create_recurring_now(request, recurring_id):
+    # create an Expense now from a RecurringExpense (manual action)
+    from .models import RecurringExpense
+    from django.contrib import messages
+    rec = get_object_or_404(RecurringExpense, id=recurring_id)
+    if request.method == 'POST':
+        try:
+            e = rec.create_expense(user=request.user)
+            messages.success(request, f'Expense created (id={e.id}).')
+        except Exception as exc:
+            messages.error(request, f'Could not create expense: {exc}')
+        return redirect('recurring_list')
+    # If GET, just redirect back (or could show a confirmation)
+    return redirect('recurring_list')
 
 
 @login_required
@@ -873,8 +1311,40 @@ def add_invoice(request):
                 line_total = (qty * rate * (Decimal('1') - (discount / Decimal('100')))).quantize(Decimal('0.001'))
                 if not desc and qty == 0 and rate == 0:
                     continue
+                # Ignore service entries on stock invoice (frontend may send them)
+                service_id = it.get('service_id') if isinstance(it, dict) else None
+                part_id = it.get('part_id') if isinstance(it, dict) else None
+                if service_id:
+                    # safe-ignore services in stock sale
+                    continue
+
+                # try to resolve part if provided
+                part = None
+                try:
+                    if part_id:
+                        from inventory.models import Part as InventoryPart
+                        part = InventoryPart.objects.filter(id=part_id).first()
+                except Exception:
+                    part = None
+
+                # Only create invoice item for parts (stock sale)
+                # Require `part_id` resolution from the frontend; do not fallback to name
+                if not part:
+                    # Enforce: reject any stock invoice that includes an item
+                    # without a resolved `part_id`. This prevents ambiguous
+                    # legacy name-only rows from being accepted in new data.
+                    try:
+                        logger.warning(
+                            f"Invoice rejected: missing part_id | user={getattr(request, 'user', None)} | data={request.POST.dict() if hasattr(request.POST, 'dict') else str(request.POST)}"
+                        )
+                    except Exception:
+                        pass
+                    return HttpResponseBadRequest('Part selection required for all items in stock invoice')
+
                 InvoiceItem.objects.create(
                     invoice=invoice,
+                    part=part,
+                    item_type='part',
                     description=desc,
                     quantity=qty,
                     rate=rate,
@@ -882,6 +1352,10 @@ def add_invoice(request):
                     total=line_total
                 )
                 total_amount += line_total
+
+                # inventory adjustments are applied in batch below via
+                # `apply_inventory_changes_for_invoice(items, decrement=True)`
+                # to avoid double-decrement and keep rounding consistent.
 
             # apply inventory decrement for stock sale
             apply_inventory_changes_for_invoice(items, decrement=True)

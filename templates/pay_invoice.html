@@ -13,7 +13,7 @@
                 <div><strong>Car Plate:</strong> {{ car.plate_number }}</div>
             </div>
             <hr style="margin:12px 0;border:none;border-top:1px solid #e9f1fb;"/>
-            <div><strong>Invoice Total:</strong> <span style="color:#c00;font-weight:bold;">{{ invoice.amount }}</span></div>
+            <div><strong>Invoice Total:</strong> <span style="color:#c00;font-weight:bold;">{{ invoice.amount|floatformat:3 }}</span></div>
         </div>
 
         <!-- Payment summary removed as requested -->
@@ -53,22 +53,22 @@
             <tbody>
                 {% for it in invoice_items_qs %}
                 <tr>
-                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;min-width:140px;">{{ it.created_at|date:'Y-m-d' }}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;min-width:140px;">{{ invoice.created_at|date:'d/m/Y' }}</td>
                     <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;min-width:320px;white-space:normal;overflow-wrap:break-word;word-break:break-word;">{% if it.description %}{{ it.description }}{% elif it.service %}{{ it.service.name }}{% else %}-{% endif %}</td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ it.quantity }}</td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ it.rate }}</td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;min-width:200px;">{{ it.discount }}</td>
-                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ it.total }}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ it.quantity|floatformat:0 }}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ it.rate|floatformat:3 }}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;min-width:200px;">{{ it.discount|floatformat:3 }}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ it.total|floatformat:3 }}</td>
                 </tr>
                 {% empty %}
                     {% for r in invoice.maintenance_records.all %}
                     <tr>
-                        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;min-width:140px;">{{ r.created_at|date:'Y-m-d' }}</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;min-width:140px;">{{ invoice.created_at|date:'d/m/Y' }}</td>
                         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;min-width:320px;white-space:normal;overflow-wrap:break-word;word-break:break-word;">{% if r.service %}{{ r.service.name }}{% else %}-{% endif %}</td>
                         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">1</td>
-                        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ r.price }}</td>
-                        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;min-width:200px;">0</td>
-                        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ r.price }}</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ r.price|floatformat:3 }}</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;min-width:200px;">0.000</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ r.price|floatformat:3 }}</td>
                     </tr>
                     {% endfor %}
                     {% if not invoice.maintenance_records.all %}
@@ -87,7 +87,7 @@
                 <div style="margin-top:10px;">
                     <label style="display:block;font-weight:600;margin-bottom:6px;">Amount</label>
                     {{ form.amount }}
-                    <div style="color:#666;font-size:0.9em;margin-top:6px;">Remaining balance: <strong id="remaining-balance">{{ remaining_balance }}</strong></div>
+                    <div style="color:#666;font-size:0.9em;margin-top:6px;">Remaining balance: <strong id="remaining-balance">{{ remaining_balance|floatformat:3 }}</strong></div>
                 </div>
             </div>
             <div style="flex:1;min-width:220px;">
@@ -116,7 +116,7 @@
         <div style="display:flex;align-items:center;gap:12px;">
             <div style="color:#6b7280;font-size:13px;">Make Recurring</div>
             <div style="background:transparent;border-radius:6px;padding:8px 10px;font-weight:600;display:flex;gap:12px;align-items:center;">
-                <div>Total Amount: <span id="bottom-total">BHD {{ invoice.amount }}</span></div>
+                <div>Total Amount: <span id="bottom-total">BHD {{ invoice.amount|floatformat:3 }}</span></div>
             </div>
         </div>
     </div>
@@ -125,12 +125,15 @@
 <script>
 document.addEventListener('DOMContentLoaded', function(){
     // set amount to remaining balance if empty
-    try{
-        var amtField = document.getElementById('id_amount');
-        if(amtField && (!amtField.value || amtField.value === '')){
-            amtField.value = '{{ remaining_balance }}';
-        }
-    }catch(e){}
+        try{
+            var amtField = document.getElementById('id_amount');
+            if(amtField){
+                // normalize displayed amount to 3 decimals (use existing value or remaining_balance fallback)
+                var initial = amtField.value && amtField.value !== '' ? parseFloat(amtField.value) : parseFloat('{{ remaining_balance|default:"0" }}');
+                if(isNaN(initial)) initial = 0;
+                try{ amtField.value = initial.toFixed(3); }catch(e){}
+            }
+        }catch(e){}
 
     // ensure date input has a value (set to today if empty)
     try{
@@ -156,9 +159,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 var v = parseFloat(amtField.value);
                 if(isNaN(v)) v = 0;
                 var rem = invoiceTotal - v;
-                // allow negative rem but show 0.00 if negative
+                // allow negative rem but show 0.000 if negative
                 if(rem < 0) rem = 0;
-                if(remainingEl) remainingEl.textContent = rem.toFixed(2);
+                if(remainingEl) remainingEl.textContent = rem.toFixed(3);
             };
             amtField.addEventListener('input', updateRemaining);
             // initial sync

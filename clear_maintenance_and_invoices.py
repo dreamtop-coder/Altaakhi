@@ -19,6 +19,6 @@ print('  Invoice:', Invoice.objects.count())
 if confirm:
 	MaintenanceRecord.objects.all().delete()
 	Invoice.objects.all().delete()
-	print('تم حذف جميع سجلات الصيانة والفواتير بنجاح.')
+	print('All maintenance records and invoices deleted successfully.')
 else:
 	print('No destructive action taken. Pass --confirm to actually delete.')

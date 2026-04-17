@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<style>
+/* Shared styles are in static/css/components.css (add-supplier-pill, responsive tables) */
+
+/* Allow table to grow and scroll horizontally */
+.table-wrapper { overflow-x: auto; }
+
+/* Use fixed layout for predictable cell widths, but allow table to size to content */
+.table-head-wrap table,
+.table-body-scroll table { table-layout: auto; width: 100% !important; }
+
+th, td { border:1px solid #eee; padding:8px; white-space:nowrap; }
+thead tr { background:#e9ecef; font-weight:bold; }
+
+/* sticky header */
+#bills-table-head th { position: sticky; top: 132px; z-index: 900; background:#e9ecef; }
+
+/* Resize handle */
+.table-head-wrap th { position: relative; }
+.resize-handle { position:absolute; right:0; top:0; width:18px; margin-right:-8px; height:100%; cursor:col-resize; z-index:11000; touch-action:none; user-select:none; background:transparent; }
+.resize-handle:hover { background: rgba(0,0,0,0.04); }
+
+.table-body-scroll { max-height:60vh; overflow:auto; }
+#bills-table-body tr:hover { background:#f5f5f5; cursor:pointer; }
+
+</style>
+
+<div id="bills-header-bar" style="position:sticky; top:70px; z-index:1000; background:#f4f6fa; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #e6e6e6; height:56px;">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <h2 style="margin:0; font-size:1.6em; font-weight:700; color:#222;">Bills</h2>
+    </div>
+    <a href="/bills/add/" class="add-supplier-pill" title="Add Bill" aria-label="Add Bill">
+        <span class="icon">+</span>
+        <span class="label">New</span>
+    </a>
+</div>
+
+<div id="bulk-actions-bar" style="display:none;position:sticky;top:70px;z-index:1001;background:#fff;border:1px solid #e0e0e0;padding:10px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+    <div id="selected-count" style="font-weight:bold;">0 Selected</div>
+    <div>
+        <button id="bulk-edit" style="display:none;background:#007bff;color:#fff;padding:6px 12px;border-radius:5px;border:none;margin-right:8px;">Edit</button>
+        <button id="bulk-delete" style="background:#dc3545;color:#fff;padding:6px 12px;border-radius:5px;border:none;">Delete</button>
+    </div>
+</div>
+
+<div class="table-wrapper">
+    <div class="table-head-wrap">
+        <table id="bills-table-head" class="responsive-table">
+            <thead>
+                <tr>
+                    <th style="padding:12px 0;border-left:1.5px solid #c2c7d0;"><input type="checkbox" id="select-all-bills" /><div class="resize-handle" data-col="select"></div></th>
+                    <th style="padding:12px 0;">Date<div class="resize-handle" data-col="date"></div></th>
+                    <th style="padding:12px 0;">Bill#<div class="resize-handle" data-col="bill"></div></th>
+                    <th style="padding:12px 0;">Vendor<div class="resize-handle" data-col="vendor"></div></th>
+                    <th style="padding:12px 0;">Status<div class="resize-handle" data-col="status"></div></th>
+                    <th style="padding:12px 0;">Due<div class="resize-handle" data-col="due"></div></th>
+                    <th style="padding:12px 0;">Amount<div class="resize-handle" data-col="amount"></div></th>
+                    <th style="padding:12px 0;">Balance<div class="resize-handle" data-col="balance"></div></th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+
+    <div class="table-body-scroll">
+        <table id="bills-table-body" class="responsive-table">
+            <tbody>
+                {% for b in bills %}
+                <tr data-index="{{ b.id }}">
+                    <td><input type="checkbox" class="bill-row-checkbox" value="{{ b.id }}"></td>
+                    <td>{{ b.date }}</td>
+                    <td>{{ b.number }}</td>
+                    <td>{{ b.vendor_name }}</td>
+                    <td>{{ b.status }}</td>
+                    <td>{{ b.due_date }}</td>
+                    <td style="text-align:right;">{{ b.amount }}</td>
+                    <td style="text-align:right;">{{ b.balance_due }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" style="text-align:center;">No bills</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="responsive-table-wrapper" style="padding-left:0;padding-right:12px;margin-top:12px;padding-top:6px;">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}">
+    <div class="per-page-align" style="direction:ltr; width:100%;">
+        <style>.per-page-align { display:flex; justify-content:flex-end; } .per-page-align .table-footer { justify-content: flex-end !important; }</style>
+        {% include 'partials/per_page_pagination.html' with per_page=per_page per_page_options=per_page_options page_obj=page_obj search=None %}
+    </div>
+    <script src="{% static 'js/per_page_dropdown.js' %}"></script>
+</div>
+
+<script>
+// Toolbar behavior (select, bulk actions, row navigation)
+document.addEventListener('DOMContentLoaded', function(){
+    // Row click navigation: ignore clicks on form controls so checkbox clicks don't trigger navigation
+    document.querySelectorAll('#bills-table-body tr').forEach(tr=>{
+        tr.addEventListener('click', function(e){ if(e.target.closest && e.target.closest('input,button,a,select,textarea')) return; const id = tr.dataset.index; if(id) window.location.href = '/bills/edit/' + id + '/'; });
+    });
+
+    const selectAll = document.getElementById('select-all-bills');
+    const bulkBar = document.getElementById('bulk-actions-bar');
+    const selectedCount = document.getElementById('selected-count');
+    const editBtn = document.getElementById('bulk-edit');
+    const deleteBtn = document.getElementById('bulk-delete');
+
+    function getCSRF(){ return (document.cookie.match(/csrftoken=([^;]+)/)||[])[1]; }
+    function updateToolbar(){ const checked = Array.from(document.querySelectorAll('.bill-row-checkbox')).filter(c=>c.checked); if(!bulkBar||!selectedCount) return; if(checked.length>0){ bulkBar.style.display='flex'; selectedCount.textContent = checked.length + ' Selected'; if(editBtn) editBtn.style.display = (checked.length===1)?'inline-block':'none'; } else { bulkBar.style.display='none'; if(editBtn) editBtn.style.display='none'; } }
+
+    // Use event delegation on the table body so dynamic rows still trigger updates
+    const bodyTable = document.getElementById('bills-table-body');
+    if(bodyTable){
+        bodyTable.addEventListener('change', function(e){ const cb = e.target.closest && e.target.closest('.bill-row-checkbox'); if(!cb) return; const tr = cb.closest('tr'); if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected'); updateToolbar(); });
+    }
+
+    // Keep per-checkbox listeners for keyboard/accessibility
+    document.querySelectorAll('.bill-row-checkbox').forEach(cb=> cb.addEventListener('change', function(){ const tr = cb.closest('tr'); if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected'); updateToolbar(); }));
+
+    if(selectAll){ selectAll.addEventListener('change', function(){ document.querySelectorAll('.bill-row-checkbox').forEach(cb=>{ cb.checked = selectAll.checked; cb.dispatchEvent(new Event('change',{bubbles:true})); }); updateToolbar(); }); }
+    if(editBtn){ editBtn.addEventListener('click', function(){ const checked = Array.from(document.querySelectorAll('.bill-row-checkbox')).filter(c=>c.checked).map(c=>c.value); if(checked.length!==1) return; window.location.href = '/bills/edit/' + checked[0] + '/'; }); }
+    if(deleteBtn){ deleteBtn.addEventListener('click', function(){ const selected = Array.from(document.querySelectorAll('.bill-row-checkbox')).filter(c=>c.checked).map(c=>c.value); if(selected.length===0) return; if(!confirm('Delete '+selected.length+' selected bills?')) return; fetch('/bills/delete/', { method:'POST', headers:{ 'Content-Type':'application/json', 'X-CSRFToken': getCSRF() }, body: JSON.stringify({ selected: selected }) }).then(res=>{ if(res.ok) window.location.reload(); else alert('Delete failed'); }).catch(()=> alert('Delete failed')); }); }
+
+    updateToolbar();
+});
+
+// Resizable columns (head/body sync). Exposed as window.forceBillsInit() for manual trigger.
+(function(){
+    const STORAGE_KEY = 'bills_table_col_widths_v1';
+
+    function applyTotalWidth(head, body, total){
+        head.style.width = total + 'px'; body.style.width = total + 'px';
+        if(head.parentElement) head.parentElement.style.width = total + 'px';
+        if(body.parentElement) body.parentElement.style.width = total + 'px';
+    }
+
+    function initResizableColumns(){
+        const head = document.getElementById('bills-table-head');
+        const body = document.getElementById('bills-table-body');
+        if(!head || !body) return;
+        const ths = Array.from(head.querySelectorAll('th'));
+        const bodyRows = Array.from(body.querySelectorAll('tbody tr'));
+
+        try{
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if(saved){ const map = JSON.parse(saved); ths.forEach((th,i)=>{ const w = map[i] || (Math.round(th.getBoundingClientRect().width) + 'px'); th.style.width = w; bodyRows.forEach(r=>{ const c = r.children[i]; if(c) c.style.width = w; }); }); }
+                else if(bodyRows.length>0){ const first = bodyRows[0]; let total=0; ths.forEach((th,i)=>{ const bodyCell = first.children[i]; const w = (bodyCell && (Math.round(bodyCell.getBoundingClientRect().width) + 'px')) || (Math.round(th.getBoundingClientRect().width) + 'px'); th.style.width = w; bodyRows.forEach(r=>{ const c=r.children[i]; if(c) c.style.width = w; }); total += parseInt(w,10)||0; }); applyTotalWidth(head, body, total); }
+                else { let total=0; ths.forEach((th,i)=>{ const w = Math.round(th.getBoundingClientRect().width) + 'px'; th.style.width = w; bodyRows.forEach(r=>{ const c=r.children[i]; if(c) c.style.width = w; }); total += parseInt(w,10)||0; }); applyTotalWidth(head, body, total); }
+        }catch(e){}
+
+        // attach handles
+        const handles = head.querySelectorAll('.resize-handle');
+        handles.forEach(handle=>{
+            const th = handle.closest('th'); if(!th) return; const idx = Array.from(th.parentNode.children).indexOf(th);
+
+            // mouse
+            handle.addEventListener('mousedown', function(e){ e.preventDefault(); const startX = e.pageX; const startW = Math.round(th.getBoundingClientRect().width); function onMove(ev){ const dx = ev.pageX - startX; const newW = Math.max(40, startW + dx); th.style.width = newW + 'px'; bodyRows.forEach(r=>{ const c = r.children[idx]; if(c) c.style.width = newW + 'px'; }); let total=0; ths.forEach(t=>{ total += parseInt(t.style.width,10) || Math.round(t.getBoundingClientRect().width); }); applyTotalWidth(head, body, total); } function onUp(){ try{ const widths={}; ths.forEach((t,ii)=>{ widths[ii]= t.style.width || (Math.round(t.getBoundingClientRect().width) + 'px'); }); localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); }catch(e){} document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); } document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp); });
+
+            // touch
+            handle.addEventListener('touchstart', function(ts){ ts.preventDefault(); const startX = ts.touches[0].pageX; const startW = Math.round(th.getBoundingClientRect().width); function onTouchMove(ev){ const dx = ev.touches[0].pageX - startX; const newW = Math.max(40, startW + dx); th.style.width = newW + 'px'; bodyRows.forEach(r=>{ const c = r.children[idx]; if(c) c.style.width = newW + 'px'; }); let total=0; ths.forEach(t=>{ total += parseInt(t.style.width,10) || Math.round(t.getBoundingClientRect().width); }); applyTotalWidth(head, body, total); } function onTouchEnd(){ try{ const widths={}; ths.forEach((t,ii)=>{ widths[ii]= t.style.width || (Math.round(t.getBoundingClientRect().width) + 'px'); }); localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); }catch(e){} document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('touchend', onTouchEnd); } document.addEventListener('touchmove', onTouchMove, {passive:false}); document.addEventListener('touchend', onTouchEnd); }, {passive:false});
+        });
+    }
+
+    // run with retries and expose manual trigger
+    try{ document.addEventListener('DOMContentLoaded', initResizableColumns); }catch(e){}
+    try{ window.addEventListener('load', initResizableColumns); }catch(e){}
+    try{ setTimeout(initResizableColumns, 200); setTimeout(initResizableColumns, 800); }catch(e){}
+    try{ window.forceBillsInit = initResizableColumns; }catch(e){}
+})();
+</script>
+{% endblock %}

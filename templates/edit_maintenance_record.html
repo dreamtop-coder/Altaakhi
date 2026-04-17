@@ -1,45 +1,86 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="max-width:600px;margin:auto;background:#f9f9f9;padding:32px 36px 28px 36px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:rtl;">
-    <div style="text-align:center;margin-bottom:20px;">
-        <span style="font-size:22px;font-weight:bold;color:#333;">تعديل سجل الصيانة</span>
+<div class="edit-maintenance-container" style="max-width:700px;margin:24px 0 24px 24px;background:transparent;padding:28px;border-radius:10px;box-shadow:none;direction:ltr;text-align:left;">
+    <style>
+        /* make form inputs blend with page (no white background) */
+        .edit-maintenance-container input[type="text"],
+        .edit-maintenance-container input[type="date"],
+        .edit-maintenance-container input[type="number"],
+        .edit-maintenance-container input[type="datetime-local"],
+        .edit-maintenance-container select,
+        .edit-maintenance-container textarea {
+            background: transparent !important;
+            border: 1px solid #ddd !important;
+            padding: 8px !important;
+            border-radius: 6px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            color: #111 !important;
+        }
+        .edit-maintenance-container a.cancel-link { background: transparent !important; }
+    </style>
+    <div style="text-align:left;margin-bottom:18px;">
+        <span style="font-size:22px;font-weight:bold;color:#333;">Edit Maintenance Record</span>
+    </div>
+    <div style="padding:12px;border-radius:8px;margin-bottom:14px;background:transparent;border:none;">
+        <div style="display:flex;gap:18px;flex-wrap:wrap;">
+            <div style="min-width:220px;">
+                <div style="font-size:12px;color:#666;">Customer Name</div>
+                <div style="font-weight:700;color:#111;margin-top:4px;">{% if record.car and record.car.client %}{{ record.car.client.first_name }}{% if record.car.client.last_name %} {{ record.car.client.last_name }}{% endif %}{% else %}-{% endif %}</div>
+            </div>
+            <div style="min-width:140px;">
+                <div style="font-size:12px;color:#666;">Plate Number</div>
+                <div style="font-weight:700;color:#111;margin-top:4px;">{% if record.car %}{{ record.car.plate_number }}{% else %}-{% endif %}</div>
+            </div>
+            <div style="min-width:160px;">
+                <div style="font-size:12px;color:#666;">Model</div>
+                <div style="font-weight:700;color:#111;margin-top:4px;">{% if record.car and record.car.model %}{{ record.car.model.name }}{% else %}-{% endif %}</div>
+            </div>
+            <div style="min-width:160px;">
+                <div style="font-size:12px;color:#666;">Brand</div>
+                <div style="font-weight:700;color:#111;margin-top:4px;">{% if record.car and record.car.brand %}{{ record.car.brand.name }}{% else %}-{% endif %}</div>
+            </div>
+            <div style="min-width:100px;">
+                <div style="font-size:12px;color:#666;">Year</div>
+                <div style="font-weight:700;color:#111;margin-top:4px;">{% if record.car and record.car.year %}{{ record.car.year }}{% else %}-{% endif %}</div>
+            </div>
+        </div>
     </div>
     <form method="post">
         {% csrf_token %}
-        <div style="margin-bottom:18px;">
-            <label style="font-weight:bold;">نوع الخدمة:</label>
-            {{ form.service }}
-        </div>
-        <div style="margin-bottom:18px;">
-            <label style="font-weight:bold;">السعر:</label>
+        {# service removed from edit form UI per request #}
+        <div style="margin-bottom:14px;">
+            <label style="font-weight:bold;display:block;margin-bottom:6px;">Price:</label>
             {{ form.price }}
         </div>
-        <div style="margin-bottom:18px;">
-            <label style="font-weight:bold;">تاريخ الصيانة:</label>
+        <div style="margin-bottom:14px;">
+            <label style="font-weight:bold;display:block;margin-bottom:6px;">Maintenance Date:</label>
             {{ form.created_at }}
         </div>
-        <div style="margin-bottom:18px;">
-            <label style="font-weight:bold;">تاريخ تسليم المركبة:</label>
+        <div style="margin-bottom:14px;">
+            <label style="font-weight:bold;display:block;margin-bottom:6px;">Delivery Date:</label>
             {{ form.delivery_date }}
         </div>
-        <div style="margin-bottom:18px;">
-            <label style="font-weight:bold;">ملاحظات:</label>
+        <div style="margin-bottom:14px;">
+            <label style="font-weight:bold;display:block;margin-bottom:6px;">Notes:</label>
             {{ form.notes }}
         </div>
-        <div style="text-align:center;">
-            <button type="submit" style="background:#1976d2;color:#fff;padding:10px 32px;border:none;border-radius:8px;font-weight:bold;font-size:16px;">حفظ التعديلات</button>
-            <a href="{% url 'cars:maintenance_list' %}" style="background:#fff;color:#1976d2;border:1px solid #1976d2;padding:10px 24px;border-radius:8px;font-weight:bold;font-size:15px;text-decoration:none;margin-right:8px;">إلغاء</a>
+        <div style="text-align:left; display:flex; gap:8px; align-items:center; margin-top:8px;">
+            <button type="submit" style="background:#1976d2;color:#fff;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;font-size:15px;">Save changes</button>
+            <a class="cancel-link" href="{% url 'cars:maintenance_list' %}" style="color:#1976d2;border:1px solid #1976d2;padding:8px 18px;border-radius:8px;font-weight:bold;font-size:14px;text-decoration:none;">Cancel</a>
         </div>
     </form>
-        <div style="text-align:center;margin-top:12px;">
+        <div style="text-align:left;margin-top:12px;">
             {% if not record.is_finished %}
             <form method="post" action="{% url 'cars:finish_maintenance_record' record.id %}" style="display:inline-block;">
                 {% csrf_token %}
-                <button type="submit" style="background:#f59e0b;color:#fff;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;font-size:15px;">إنهاء الخدمة</button>
+                <input type="date" name="date" style="margin-right:8px;padding:6px;border-radius:6px;border:1px solid #ddd;" title="Select finish date (optional)">
+                <button type="submit" style="background:#f59e0b;color:#fff;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;font-size:15px;">Finish Service</button>
             </form>
             {% else %}
-            <div style="padding:8px 12px;background:#ecfccb;border-radius:8px;font-weight:700;color:#22543d;display:inline-block;">تم إنهاء الخدمة</div>
+            <div style="padding:8px 12px;background:#ecfccb;border-radius:8px;font-weight:700;color:#22543d;display:inline-block;">Service finished</div>
             {% endif %}
         </div>
 </div>
 {% endblock %}
+

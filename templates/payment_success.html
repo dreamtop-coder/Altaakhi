@@ -8,7 +8,7 @@
         max-width: 210mm !important;
         margin: 0 !important;
         padding: 0 !important;
-        background: #fff !important;
+        background: transparent !important;
         box-shadow: none !important;
         border-radius: 0 !important;
         display: block !important;
@@ -17,27 +17,22 @@
         width: 210mm !important;
         min-width: 210mm !important;
         max-width: 210mm !important;
-        margin: 0 auto !important;
+        margin: 0 0 !important;
         padding: 24px 18px 24px 18px !important;
         box-shadow: none !important;
         border-radius: 0 !important;
         position: relative !important;
         min-height: 297mm !important;
         height: auto !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: flex-start !important;
+        display: block !important;
+        text-align: left !important;
     }
-    #receipt-print * {
-        box-sizing: border-box !important;
-        max-width: 100% !important;
-    }
+    #receipt-print * { box-sizing: border-box !important; max-width: 100% !important; }
     .invoice-totals {
         position: absolute !important;
         bottom: 32px !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        width: 80% !important;
+        right: 0 !important;
+        width: auto !important;
         background: #f7fafd !important;
         padding: 18px 32px 14px 32px !important;
         border-radius: 10px !important;
@@ -46,17 +41,30 @@
         text-align: right !important;
         font-size: 1.2em !important;
     }
+    /* Hide the rest of the app UI and show only the invoice container when printing */
+    body * { visibility: hidden !important; }
+    #receipt-print, #receipt-print * { visibility: visible !important; }
+    /* Ensure receipt prints at top-left of the page */
+    #receipt-print { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; }
+    /* Also hide fixed UI elements just in case */
+    .topbar, .sidebar, .mobile-sidebar-toggle { display: none !important; }
 }
 body {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
+    min-height: 100vh;
+    background: transparent;
 }
+/* Ensure on-screen invoice uses the site's gray background and left-aligns
+   (keep print stylesheet above unchanged). */
+.main-content #receipt-print,
+#receipt-print,
+#receipt-print * {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+#receipt-print { margin: 0 0 24px 0; padding: 24px 18px; max-width: 980px; }
 </style>
-<div id="receipt-print" style="max-width:900px;margin:auto;background:#fff;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:ltr;">
+<div id="receipt-print" style="max-width:900px;margin:0;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:none;border:none;direction:ltr;">
     <div class="header-flex" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;">
         <div style="flex:1;">
             <h1 style="color:#bcbcbc;font-size:2.2em;margin:0 0 8px 0;letter-spacing:2px;">Al-Takhi Auto Repair</h1>
@@ -89,7 +97,7 @@ body {
         </div>
     </div>
     <h3 style="color:#1976d2;margin-bottom:8px;">Invoice Details</h3>
-        <table style="width:100%;background:#fff;border-radius:6px;border:1px solid #e0e0e0;margin-bottom:10px;direction:ltr;">
+        <table style="width:100%;background:transparent;border-radius:6px;border:1px solid #e0e0e0;margin-bottom:10px;direction:ltr;">
             <thead>
                 <tr style="background:#e3eafc;color:#1a237e;">
                     <th style="padding:8px 6px;text-align:center;">DESCRIPTION</th>
@@ -101,7 +109,7 @@ body {
             </thead>
             <tbody>
                 {# Prefer explicit InvoiceItem rows if present #}
-                {% if invoice.items.all %}
+                    {% if invoice.items.all %}
                     {% for it in invoice.items.all %}
                     <tr>
                         <td style="padding:8px 6px;text-align:center;">
@@ -113,10 +121,10 @@ body {
                                 -
                             {% endif %}
                         </td>
-                        <td style="padding:8px 6px;text-align:center;">{{ it.quantity }}</td>
-                        <td style="padding:8px 6px;text-align:center;">{{ it.rate }}</td>
-                        <td style="padding:8px 6px;text-align:center;">0</td>
-                        <td style="padding:8px 6px;text-align:center;">{{ it.total }}</td>
+                        <td style="padding:8px 6px;text-align:center;">{{ it.quantity|floatformat:0 }}</td>
+                        <td style="padding:8px 6px;text-align:center;">{{ it.rate|floatformat:3 }}</td>
+                        <td style="padding:8px 6px;text-align:center;">0.000</td>
+                        <td style="padding:8px 6px;text-align:center;">{{ it.total|floatformat:3 }}</td>
                     </tr>
                     {% endfor %}
                 {% elif invoice.services.all %}
@@ -124,9 +132,9 @@ body {
                     <tr>
                         <td style="padding:8px 6px;text-align:center;">{{ service.name }}</td>
                         <td style="padding:8px 6px;text-align:center;">1</td>
-                        <td style="padding:8px 6px;text-align:center;">{{ service.sale_price|default:service.default_price }}</td>
-                        <td style="padding:8px 6px;text-align:center;">0</td>
-                        <td style="padding:8px 6px;text-align:center;">{{ service.sale_price|default:service.default_price }}</td>
+                        <td style="padding:8px 6px;text-align:center;">{{ service.sale_price|default:service.default_price|floatformat:3 }}</td>
+                        <td style="padding:8px 6px;text-align:center;">0.000</td>
+                        <td style="padding:8px 6px;text-align:center;">{{ service.sale_price|default:service.default_price|floatformat:3 }}</td>
                     </tr>
                     {% endfor %}
                 {% elif invoice.maintenance_records.all %}
@@ -134,9 +142,9 @@ body {
                     <tr>
                         <td style="padding:8px 6px;text-align:center;">{% if r.service %}{{ r.service.name }}{% else %}-{% endif %}</td>
                         <td style="padding:8px 6px;text-align:center;">1</td>
-                        <td style="padding:8px 6px;text-align:center;">{{ r.price }}</td>
-                        <td style="padding:8px 6px;text-align:center;">0</td>
-                        <td style="padding:8px 6px;text-align:center;">{{ r.price }}</td>
+                        <td style="padding:8px 6px;text-align:center;">{{ r.price|floatformat:3 }}</td>
+                        <td style="padding:8px 6px;text-align:center;">0.000</td>
+                        <td style="padding:8px 6px;text-align:center;">{{ r.price|floatformat:3 }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
@@ -145,24 +153,24 @@ body {
             </tbody>
         </table>
         <div style="width:320px;float:left;margin-top:10px;">
-            <table style="width:100%;border:1px solid #e0e0e0;background:#fafafa;">
-                <tr><td>SUBTOTAL</td><td style="text-align:right;">{{ invoice.amount }}</td></tr>
-                <tr><td>TAX 10%</td><td style="text-align:right;">0</td></tr>
-                <tr><td>DISCOUNT</td><td style="text-align:right;">0</td></tr>
-                <tr><td style="font-weight:bold;background:#eee;">TOTAL</td><td style="font-weight:bold;text-align:right;background:#eee;">{% if paid_amount %}{{ paid_amount }}{% else %}0{% endif %}</td></tr>
+            <table style="width:100%;border:1px solid #e0e0e0;background:transparent;">
+                <tr><td>SUBTOTAL</td><td style="text-align:right;">{{ invoice.amount|floatformat:3 }}</td></tr>
+                <tr><td>TAX 10%</td><td style="text-align:right;">0.000</td></tr>
+                <tr><td>DISCOUNT</td><td style="text-align:right;">0.000</td></tr>
+                <tr><td style="font-weight:bold;background:#eee;">TOTAL</td><td style="font-weight:bold;text-align:right;background:#eee;">{% if paid_amount %}{{ paid_amount|floatformat:3 }}{% else %}0.000{% endif %}</td></tr>
             </table>
         </div>
         <div style="clear:both;"></div>
         <div style="margin-top:40px;font-style:italic;color:#888;">THANK YOU FOR YOUR BUSINESS!</div>
         <div class="invoice-totals">
-            <div style="margin-bottom:7px;"><b>Original Total:</b> <span style="color:#1976d2;font-weight:bold;">{{ invoice.amount }}</span></div>
-            <div style="margin-bottom:7px;"><b>Paid Amount:</b> <span style="color:#28a745;font-weight:bold;">{% if paid_amount %}{{ paid_amount }}{% else %}0{% endif %}</span></div>
-            <div><b>Remaining Balance:</b> <span style="color:#c00;font-weight:bold;">{% if remaining_balance %}{{ remaining_balance }}{% else %}0{% endif %}</span></div>
+            <div style="margin-bottom:7px;"><b>Original Total:</b> <span style="color:#1976d2;font-weight:bold;">{{ invoice.amount|floatformat:3 }}</span></div>
+            <div style="margin-bottom:7px;"><b>Paid Amount:</b> <span style="color:#28a745;font-weight:bold;">{% if paid_amount %}{{ paid_amount|floatformat:3 }}{% else %}0.000{% endif %}</span></div>
+            <div><b>Remaining Balance:</b> <span style="color:#c00;font-weight:bold;">{% if remaining_balance %}{{ remaining_balance|floatformat:3 }}{% else %}0.000{% endif %}</span></div>
         </div>
     </div>
         <div style="text-align:center;margin-top:24px;">
-            <button onclick="window.print()" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;">طباعة الإيصال</button>
-            <button id="download-pdf" style="background:#28a745;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;margin-right:12px;">تنزيل PDF</button>
+            <button onclick="window.print()" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;">Print Receipt</button>
+            <button id="download-pdf" style="background:#28a745;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;margin-right:12px;">Download PDF</button>
         </div>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
                 <script>

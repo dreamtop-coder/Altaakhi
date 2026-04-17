@@ -66,7 +66,7 @@
 }
 </style>
 
-<div class="bookings-list">
+<div class="bookings-list" dir="ltr" style="text-align:left;">
 {% for booking in bookings %}
     <form method="post" action="{% url 'booking_start_maintenance' booking.id %}" class="booking-box booking-maintenance-form" style="cursor:pointer;">
         <div class="booking-icon" style="margin-bottom:10px;">
@@ -79,7 +79,7 @@
         <button type="submit" style="display:none;">بدء الصيانة</button>
     </form>
 {% empty %}
-    <div>لا توجد حجوزات</div>
+    <div>No bookings</div>
 {% endfor %}
 
 <script>

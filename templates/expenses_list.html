@@ -1,30 +1,42 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="max-width:900px;margin:0 auto;padding:20px;">
+<div style="max-width:900px;margin:0;padding:20px;">
   <h2>Expenses</h2>
-  <div style="margin-bottom:12px;">Total: <strong>{{ total|default:0|floatformat:2 }}</strong></div>
+  <div style="margin-bottom:12px;">Total: <strong>{{ total|default:0|floatformat:3 }}</strong></div>
   <div style="margin-bottom:12px;"><a href="{% url 'add_expense' %}" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;">+ Add Expense</a></div>
   <table style="width:100%;border-collapse:collapse;">
     <thead>
       <tr style="background:#f6f9ff;color:#1a237e;">
         <th style="padding:8px;border-bottom:1px solid #eee;text-align:left;">Date</th>
         <th style="padding:8px;border-bottom:1px solid #eee;text-align:left;">Category</th>
+        <th style="padding:8px;border-bottom:1px solid #eee;text-align:left;">Recipient</th>
         <th style="padding:8px;border-bottom:1px solid #eee;text-align:left;">Payee</th>
         <th style="padding:8px;border-bottom:1px solid #eee;text-align:right;">Amount</th>
         <th style="padding:8px;border-bottom:1px solid #eee;text-align:left;">Note</th>
       </tr>
     </thead>
     <tbody>
-      {% for e in expenses %}
+      {% for r in rows %}
       <tr>
-        <td style="padding:8px;border-bottom:1px solid #f0f0f0;">{{ e.date }}</td>
-        <td style="padding:8px;border-bottom:1px solid #f0f0f0;">{{ e.category.name }}</td>
-        <td style="padding:8px;border-bottom:1px solid #f0f0f0;">{{ e.payee }}</td>
-        <td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:right;">{{ e.amount|floatformat:2 }}</td>
-        <td style="padding:8px;border-bottom:1px solid #f0f0f0;">{{ e.note|default:'-' }}</td>
+        <td style="padding:8px;border-bottom:1px solid #f0f0f0;">{{ r.expense.date|date:"d/m/Y" }}</td>
+        <td style="padding:8px;border-bottom:1px solid #f0f0f0;">{{ r.expense.category.name }}</td>
+        <td style="padding:8px;border-bottom:1px solid #f0f0f0;">{{ r.recipient }}</td>
+        <td style="padding:8px;border-bottom:1px solid #f0f0f0;">{{ r.expense.payee }}</td>
+        <td style="padding:8px;border-bottom:1px solid #f0f0f0;text-align:right;">{% if r.expense.amount %}{{ r.expense.amount|floatformat:3 }}{% else %}<span style="color:#777;">—</span>{% endif %}</td>
+        <td style="padding:8px;border-bottom:1px solid #f0f0f0;">
+          {{ r.expense.note|default:'-' }}
+          <div style="margin-top:6px;white-space:nowrap;text-align:right;">
+            {% if r.expense.status == 'draft' %}
+              <span style="background:#fff3cd;color:#856404;padding:4px 8px;border-radius:12px;font-weight:700;margin-right:8px;">Draft</span>
+              <a href="{% url 'complete_expense' r.expense.id %}" style="background:#ff9800;color:#fff;padding:6px 8px;border-radius:6px;text-decoration:none;margin-right:8px;">Complete</a>
+            {% endif %}
+            <a href="{% url 'edit_expense' r.expense.id %}" style="color:#1976d2;text-decoration:none;margin-right:8px;">Edit</a>
+            <a href="{% url 'delete_expense' r.expense.id %}" style="color:#c62828;text-decoration:none;">Delete</a>
+          </div>
+        </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" style="padding:12px;color:#666;">No expenses found.</td></tr>
+      <tr><td colspan="6" style="padding:12px;color:#666;">No expenses found.</td></tr>
       {% endfor %}
     </tbody>
   </table>

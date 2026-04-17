@@ -21,11 +21,11 @@ def brands_list(request):
             brand, created = CarBrand.objects.get_or_create(name=brand_name)
             if not CarModel.objects.filter(brand=brand, name=model_name).exists():
                 CarModel.objects.create(brand=brand, name=model_name)
-                message = 'تم الحفظ بنجاح.'
+                message = 'Saved successfully.'
             else:
-                message = 'الموديل موجود بالفعل لهذه الشركة.'
+                message = 'Model already exists for this brand.'
         else:
-            message = 'يرجى إدخال اسم الشركة واسم الموديل.'
+            message = 'Please enter brand name and model name.'
     brands = CarBrand.objects.all()
     models = CarModel.objects.select_related('brand').order_by('brand__name', 'name')
     return render(request, 'brands_list.html', {'brands': brands, 'models': models, 'message': message})
@@ -111,8 +111,16 @@ def edit_model(request, model_id):
     if request.method == 'POST':
         form = CarModelForm(request.POST, instance=model)
         if form.is_valid():
-            form.save()
+            model = form.save()
+            # support AJAX requests returning JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'id': model.id, 'name': model.name, 'brand_id': model.brand.id})
             return redirect('models_list')
+        else:
+            # for AJAX, return errors as JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                errors = form.errors.get('name') or form.non_field_errors() or ["Invalid input"]
+                return JsonResponse({'success': False, 'errors': errors})
     else:
         form = CarModelForm(instance=model)
     return render(request, 'edit_model.html', {'form': form, 'model': model})

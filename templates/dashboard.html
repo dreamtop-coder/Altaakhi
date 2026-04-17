@@ -9,8 +9,8 @@
 <style>
 .cards {
     display: grid;
-    gap: 20px;
-    margin-top: 30px;
+    gap: 10px; /* reduced gap to fit more cards */
+    margin-top: 20px;
     grid-template-columns: repeat(6, 1fr); /* 6 بطاقات في السطر على الكمبيوتر */
 }
 
@@ -29,7 +29,7 @@
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 2px 8px #0001;
-    padding: 36px 20px 20px;
+    padding: 18px 12px 12px; /* reduce padding to decrease card height */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -42,15 +42,15 @@
 }
 /* توسيط الأيقونة داخل البطاقة دائماً */
 .card .icon {
-    font-size: 1.2em;
+    font-size: 1.1em;
     color: #fff;
-    width: 35px;
-    height: 35px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
     box-shadow: 0 2px 8px #0002;
     position: relative; /* مهم على الجوال */
 }
@@ -61,10 +61,10 @@
 .card.invoices { background: linear-gradient(135deg,#f6c23e,#dda20a); }
 .card.revenue { background: linear-gradient(135deg,#e74a3b,#be2617); }
 .card .value {
-    font-size: 2em;
+    font-size: 1.6em;
     font-weight: bold;
     color: #fff;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 .card .label {
     color: #fff;
@@ -97,10 +97,10 @@
         <div class="label">{% trans "Bookings" %}</div>
     </a>
     {% endif %}
-    <a href="/services/" class="card services" style="text-decoration:none;cursor:pointer;">
+    <a href="/inventory/" class="card services" style="text-decoration:none;cursor:pointer;">
         <div class="icon"><i class="fa fa-wrench"></i></div>
         <div class="value">{{ services_count }}</div>
-        <div class="label">{% trans "Services" %}</div>
+        <div class="label">Services / Item</div>
     </a>
     <a href="/invoices/" class="card invoices" style="text-decoration:none;cursor:pointer;">
         <div class="icon"><i class="fa fa-file-invoice-dollar"></i></div>
@@ -190,6 +190,19 @@
             loadScript(localSrc, function(){ console.log('Chart.js loaded'); if(window._initRevenueChart) window._initRevenueChart(); });
         })();
 
+        // Robust loader that guarantees Chart.js is available (tries CDN)
+        function loadChartJsFromCdn() {
+            return new Promise(function(resolve, reject){
+                if (typeof Chart !== 'undefined') return resolve();
+                var s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                s.async = false;
+                s.onload = function(){ console.log('Chart.js loaded from CDN'); resolve(); };
+                s.onerror = function(){ reject(new Error('Failed to load Chart.js')); };
+                document.head.appendChild(s);
+            });
+        }
+
         function loadDashboardFilter(status) {
             if (status === 'bookings') {
                 fetch('/cars/ajax/bookings_clients/')
@@ -210,12 +223,13 @@
         }
         // تم إعادة الرابط لبطاقة الحجوزات العلوية، لا حاجة لتعطيل التحويل بعد الآن
     // Defer revenue chart initialization until Chart.js is available
+    var revenueChart = null;
     window._initRevenueChart = function(){
         try{
             const canvas = document.getElementById('revenueChart');
             if (!canvas || typeof Chart === 'undefined') return;
             const ctx = canvas.getContext('2d');
-            const revenueChart = new Chart(ctx, {
+            revenueChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: {{ monthly_revenue_labels|safe }},
@@ -241,6 +255,8 @@
                     }
                 }
             });
+                // If the canvas was hidden when created, force a resize after layout
+                setTimeout(function(){ try{ revenueChart.resize(); }catch(e){} }, 80);
         }catch(e){ console.error('Revenue chart init failed', e); }
     };
     // If Chart already loaded, init now
@@ -283,14 +299,14 @@
             btn.addEventListener('click', function(e){
                 e.preventDefault();
                 var carId = this.dataset.carId;
-                if(!confirm('هل أنت متأكد من إنهاء جميع سجلات الصيانة لهذه المركبة؟')) return;
+                if(!confirm('Are you sure you want to finish all maintenance records for this vehicle?')) return;
                 try {
                     var form = document.createElement('form');
                     form.method = 'POST';
                     form.action = '/cars/finish/' + carId + '/';
                     var csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value=getCookie('csrftoken');
                     form.appendChild(csrf); document.body.appendChild(form); form.submit();
-                } catch (err) { alert('خطأ أثناء إرسال الطلب: ' + err); }
+                } catch (err) { alert('Error sending request: ' + err); }
             });
         });
     }
@@ -299,22 +315,89 @@
         const fromVal = document.getElementById('revenue-from').value;
         const toVal = document.getElementById('revenue-to').value;
         if (!fromVal || !toVal) {
-            alert('يرجى اختيار الفترة كاملة');
+            alert('Please select both start and end dates');
             return;
         }
-        fetch(`/dashboard/revenue_monthly_ajax/?from=${fromVal}&to=${toVal}`)
-            .then(response => response.json())
+        // Ensure the revenue panel is visible before creating/updating the chart
+        try {
+            revenueSection.style.display = 'block';
+            revenueHeaderToggle.innerHTML = '&lt;';
+            revenueVisible = true;
+        } catch (e) { /* ignore if elements missing */ }
+        window.fetchJson(`/dashboard/revenue_monthly_ajax/?from=${fromVal}&to=${toVal}`)
             .then(data => {
                 if (data.error) {
                     alert(data.error);
                     return;
                 }
-                // تحديث بيانات الرسم البياني
-                revenueChart.data.labels = data.labels;
-                revenueChart.data.datasets[0].data = data.data;
-                revenueChart.update();
+                // تحديث بيانات الرسم البياني — إذا لم يكن الرسم موجودًا فأنشئه
+                try {
+                    const canvas = document.getElementById('revenueChart');
+                    if (!revenueChart) {
+                        if (typeof Chart === 'undefined') {
+                            // Load Chart.js from CDN then create the chart
+                            return loadChartJsFromCdn().then(function(){
+                                if (typeof Chart === 'undefined') throw new Error('Chart.js still unavailable after load');
+                                if (!canvas) throw new Error('Canvas element missing');
+                                const ctx = canvas.getContext('2d');
+                                revenueChart = new Chart(ctx, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: data.labels,
+                                        datasets: [{
+                                            label: 'Revenue (SAR)',
+                                            data: data.data,
+                                            backgroundColor: 'rgba(30, 200, 138, 0.7)',
+                                            borderColor: 'rgba(30, 200, 138, 1)',
+                                            borderWidth: 2,
+                                            borderRadius: 6,
+                                            maxBarThickness: 32,
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        plugins: { legend: { display: false }, title: { display: false } },
+                                        scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: '#eee' } } }
+                                    }
+                                });
+                            }).catch(function(err){ throw err; });
+                        }
+                        if (typeof Chart !== 'undefined' && canvas) {
+                            const ctx = canvas.getContext('2d');
+                            revenueChart = new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: data.labels,
+                                    datasets: [{
+                                        label: 'Revenue (SAR)',
+                                        data: data.data,
+                                        backgroundColor: 'rgba(30, 200, 138, 0.7)',
+                                        borderColor: 'rgba(30, 200, 138, 1)',
+                                        borderWidth: 2,
+                                        borderRadius: 6,
+                                        maxBarThickness: 32,
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    plugins: { legend: { display: false }, title: { display: false } },
+                                    scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: '#eee' } } }
+                                }
+                            });
+                        } else {
+                            throw new Error('Chart.js not available');
+                        }
+                    } else {
+                        revenueChart.data.labels = data.labels;
+                        revenueChart.data.datasets[0].data = data.data;
+                        revenueChart.update();
+                    }
+                } catch (err) {
+                    console.error('Failed to update revenue chart', err);
+                    alert('Error updating chart: ' + (err && err.message));
+                }
             })
-            .catch(() => alert('حدث خطأ أثناء جلب البيانات'));
+            .catch(() => alert('Error fetching data'));
     };
 
     // منطق إظهار/إخفاء الإيرادات الشهرية
@@ -468,20 +551,18 @@
     max-width: 100%;
     box-sizing: border-box;
 }
-/* Ensure our cars mobile wrapper keeps its intended layout when injected into #cars-list-container */
+/* Ensure injected .cars-mobile-wrapper preserves the grid layout and doesn't get forced to flex */
 #cars-list-container > .cars-mobile-wrapper {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
+    display: grid !important;
     gap: 12px !important;
-    align-items: stretch !important;
     padding: 0 !important;
 }
-#cars-list-container > .cars-mobile-wrapper > .car-card { margin: 6px !important; }
+/* Remove extra margins on cards so grid column sizing remains stable */
+#cars-list-container > .cars-mobile-wrapper > .car-card { margin: 0 !important; }
 
-/* Stronger overrides in case global rules elsewhere override margins/gap */
-#cars-list-container .cars-mobile-wrapper { gap: 16px !important; row-gap:16px !important; column-gap:16px !important; }
-#cars-list-container .cars-mobile-wrapper .car-card { margin: 12px !important; }
+/* Prevent overly-aggressive overrides from other global styles */
+#cars-list-container .cars-mobile-wrapper { gap: 12px !important; row-gap:12px !important; column-gap:12px !important; }
+#cars-list-container .cars-mobile-wrapper .car-card { margin: 0 !important; }
 #cars-list-container .cars-mobile-wrapper .car-card > div { box-shadow: 0 6px 18px rgba(2,6,23,0.06); }
 @media (max-width: 600px) {
     #cars-list-container > div i.fa,

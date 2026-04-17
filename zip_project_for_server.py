@@ -33,11 +33,11 @@ def zip_project():
                 if should_include(file_path):
                     arcname = os.path.relpath(file_path, PROJECT_DIR)
                     zipf.write(file_path, arcname)
-    print(f'تم إنشاء الملف المضغوط: {zip_path}')
+    print(f'Created zip file: {zip_path}')
 
 if __name__ == '__main__':
-    print('تنظيف الملفات المؤقتة...')
+    print('Cleaning temporary files...')
     os.system('python clean_temp_files.py')
-    print('ضغط المشروع مع قاعدة البيانات...')
+    print('Zipping project with database...')
     zip_project()
-    print('تم بنجاح! يمكنك الآن إرسال altaakhi_project_with_db.zip إلى السيرفر.')
+    print('Done! You can now send altaakhi_project_with_db.zip to the server.')

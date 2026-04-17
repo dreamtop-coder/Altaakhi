@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 {% block content %}
 <div dir="ltr" style="direction:ltr;text-align:left">
 
@@ -9,7 +10,7 @@
     <p><b>Phone:</b> {{ client.phone_number }}</p>
     <p><b>Email:</b> {{ client.email }}</p>
     <p><b>Address:</b> {{ client.address }}</p>
-    <p><b>Status:</b> {{ client.get_status_display }}</p>
+    <p><b>Status:</b> {{ client.status|status_en }}</p>
     <p><b>Added On:</b> {{ client.created_at|date:'Y-m-d' }}</p>
     <a href="{% url 'edit_client' client.id %}" style="background:#28a745;color:#fff;padding:7px 18px;border-radius:5px;text-decoration:none;font-weight:bold;">Edit</a>
     <a href="{% url 'clients_list' %}" style="background:#007bff;color:#fff;padding:7px 18px;border-radius:5px;text-decoration:none;font-weight:bold;">Back to list</a>
@@ -73,13 +74,27 @@
         <tbody>
             {% for item in car_data.maintenance_records %}
             <tr>
-                <td>{% if item.record.invoice %}{{ item.record.invoice.invoice_number }}{% else %}-{% endif %}</td>
+                <td>{% if item.record.invoice %}<a href="{% url 'edit_invoice' item.record.invoice.id %}" style="color:#1976d2;text-decoration:underline;">{{ item.record.invoice.invoice_number }}</a>{% else %}-{% endif %}</td>
                 <td>{{ car_data.car.plate_number }}</td>
                 <td>{{ client.first_name }}{% if client.last_name %} {{ client.last_name }}{% endif %}</td>
                 <td>{{ item.record.service }}</td>
-                <td>{{ item.record.price }}</td>
-                <td>{{ item.record.created_at|date:'Y-m-d' }}</td>
-                <td>{% if item.record.delivery_date %}{{ item.record.delivery_date|date:'Y-m-d H:i' }}{% else %}-{% endif %}</td>
+                <td>{{ item.record.price|floatformat:3 }}</td>
+                <td>
+                    {% if item.record.invoice and item.record.invoice.created_at %}
+                        {{ item.record.invoice.created_at|date:'Y-m-d' }}
+                    {% else %}
+                        {{ item.record.created_at|date:'Y-m-d' }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% with last_payment=item.payment_dates|slice:"-1:" %}
+                        {% if last_payment and last_payment.0 %}
+                            {{ last_payment.0|date:'Y-m-d H:i' }}
+                        {% else %}
+                            {% if item.record.delivery_date %}{{ item.record.delivery_date|date:'Y-m-d H:i' }}{% else %}-{% endif %}
+                        {% endif %}
+                    {% endwith %}
+                </td>
             </tr>
             {% empty %}
             <tr><td colspan="7" style="text-align:center;">No maintenance records for this vehicle.</td></tr>

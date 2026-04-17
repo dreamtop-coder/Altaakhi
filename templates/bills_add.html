@@ -1,0 +1,596 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+{% if messages %}
+    <div style="max-width:1200px;margin:0 auto;padding:8px 18px;">
+        {% for message in messages %}
+            <div style="padding:10px;border-radius:6px;margin-bottom:8px;{% if message.tags == 'error' %}background:#ffe8e8;border:1px solid #f5c2c2;color:#811;{% else %}background:#eef7ff;border:1px solid #cfe8ff;color:#0a3;{% endif %}">{{ message }}</div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% comment %}Expose suppliers_sample and bill_json to client-side for edit hydration and debugging{% endcomment %}
+<script>
+    try{
+        // Safely parse server-provided JSON using escapejs to avoid breaking the script
+        try{ window.suppliers_sample = JSON.parse('{{ suppliers_sample|default:'[]'|escapejs }}'); }catch(e){ window.suppliers_sample = []; }
+        try{ window._bill_json_debug = (function(){ try{ return JSON.parse('{{ bill_json|default:'null'|escapejs }}'); }catch(e){ return null; } })(); }catch(e){ window._bill_json_debug = null; }
+        try{ console.log('suppliers_sample', window.suppliers_sample); console.log('bill_json', window._bill_json_debug); }catch(e){}
+    }catch(e){ console.error('inject suppliers/bill_json failed', e); }
+</script>
+<script>
+    // Opt-in: allow selecting out-of-stock items in inventory autocomplete
+    // (used for purchase bills where adding incoming stock with current 0 quantity is valid)
+    window.inventory_allow_out_of_stock = true;
+</script>
+<!-- Debug banner removed: bill_json debug output hidden in template to avoid duplicate header text -->
+<style>
+    .maintenance-card {
+        max-width: 1200px;
+        margin-left: 0;
+        margin-right: auto;
+        background: transparent;
+        padding: 8px 18px 80px 18px;
+        border-radius: 0;
+        box-shadow: none;
+        direction: ltr;
+        font-family: 'Cairo', Tahoma, Arial, sans-serif;
+        width: 100%;
+    }
+    .maintenance-title {
+        text-align: left;
+        margin-bottom: 24px;
+        font-size: 26px;
+        font-weight: bold;
+        color: #1a237e;
+        letter-spacing: 1px;
+    }
+    .maintenance-form {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+    .maintenance-label {
+        font-weight: bold;
+        margin-bottom: 6px;
+        color: #333;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .maintenance-input,
+    .maintenance-form select,
+    .maintenance-form textarea {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 7px 12px;
+        border: 1.5px solid #bdbdbd;
+        border-radius: 7px;
+        font-size: 15px;
+        background: #f5f7fa;
+        transition: border 0.2s;
+        margin-top: 2px;
+    }
+    .maintenance-input:focus,
+    .maintenance-form select:focus,
+    .maintenance-form textarea:focus {
+        border-color: #1976d2;
+        outline: none;
+        background: #fff;
+    }
+    .maintenance-actions {
+        margin-top: 24px;
+        text-align: center;
+    }
+    .maintenance-btn {
+        background: linear-gradient(90deg,#1976d2 60%,#2196f3 100%);
+        color: #fff;
+        padding: 10px 32px;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 16px;
+        box-shadow: 0 2px 8px #e3e3e3;
+        cursor: pointer;
+        margin-left: 8px;
+        transition: background 0.2s;
+    }
+    .maintenance-btn:hover {
+        background: linear-gradient(90deg,#1565c0 60%,#1976d2 100%);
+    }
+    .maintenance-cancel {
+        background: #fff;
+        color: #1976d2;
+        border: 1px solid #1976d2;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 15px;
+        cursor: pointer;
+        margin-right: 8px;
+        transition: background 0.2s, color 0.2s;
+    }
+    .maintenance-cancel:hover {
+        background: #e3f2fd;
+        color: #0d47a1;
+    }
+    @media (max-width: 700px) {
+        .maintenance-card {
+            max-width: 98vw;
+            padding: 18px 6vw 18px 6vw;
+        }
+        .maintenance-title {
+            font-size: 20px;
+        }
+        .maintenance-form > div, .maintenance-form label, .maintenance-form input, .maintenance-form textarea, .maintenance-form select {
+            font-size: 15px !important;
+        }
+    }
+    @media (max-width: 480px) {
+        .maintenance-card {
+            max-width: 100vw;
+            padding: 10px 1vw 10px 20vw;
+        }
+        .maintenance-title {
+            font-size: 17px;
+        }
+        .maintenance-form > div, .maintenance-form label, .maintenance-form input, .maintenance-form textarea, .maintenance-form select {
+            font-size: 13px !important;
+        }
+    }
+    /* Invoice-like table and summary styles */
+    #items-table thead th { background:#fafafa; font-weight:600; color:#374151; padding:12px 8px; }
+    #items-table tbody td { padding:8px; border-bottom:1px solid #f1f5f9; }
+    #items-table input { border:1px solid #e6e9ee; padding:6px; border-radius:6px; }
+    #items-table .item-amount[readonly] { background:#f8fafc; border-color:#eceff4; }
+    .invoice-summary-card { background:transparent;border-radius:0;border:0;padding:8px; }
+    #bottom-action-bar { box-shadow:0 -4px 18px rgba(15,23,42,0.03); }
+    /* customer selector look */
+    .customer-selector { display:flex;align-items:center;gap:8px;border:1px solid #e6e6e6;background:#fff;padding:8px;border-radius:8px; justify-content:flex-start; position:relative; z-index:220; }
+     /* ensure suggestions box positions itself relative to this container
+         and render Arabic names right-to-left inside the suggestion list */
+    #customer-suggestions { position: relative; direction: rtl; width:100%; }
+    /* limit height of the rendered suggestions listbox and allow scrolling */
+    #customer-suggestions div[role="listbox"] { max-height: 400px; overflow-y: auto; }
+    /* inventory suggestions for item description inputs */
+    .inventory-suggestions { position: absolute; z-index: 800; background:#fff;border:1px solid #e6e6e6;border-radius:6px;margin-top:6px; width:100%; max-height:240px; overflow:auto; box-shadow:0 8px 24px rgba(2,6,23,0.08); }
+    .inventory-suggestions div.item-row-suggest{ padding:8px; border-bottom:1px solid #f1f5f9; cursor:pointer }
+    .inventory-suggestions div.item-row-suggest:last-child{ border-bottom:0 }
+    .customer-selector input { border:0;background:transparent;padding:6px 8px; padding-right:72px; font-size:16px; font-weight:600; flex:1; min-width:0; }
+    /* place arrow toggle and magnifier inside the input area; make arrow full-height clickable */
+    .customer-selector #customer-suggest-toggle { position:absolute; right:48px; top:0; height:100%; width:36px; display:flex; align-items:center; justify-content:center; padding:0; border-radius:6px; background:transparent; border:0; cursor:pointer; font-size:16px; z-index:230; }
+    .customer-selector #customer-search-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:6px 8px; border-radius:6px; z-index:230; }
+    /* supplier-specific positions (for bills_add) */
+    .customer-selector #supplier-suggest-toggle { position:absolute; right:48px; top:0; height:100%; width:36px; display:flex; align-items:center; justify-content:center; padding:0; border-radius:6px; background:transparent; border:0; cursor:pointer; font-size:16px; z-index:230; }
+    .customer-selector #supplier-search-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:6px 8px; border-radius:6px; z-index:230; }
+    .customer-selector button { pointer-events:auto; }
+    .small-muted { color:#6b7280; font-size:13px; }
+    /* Modal styles for advanced search */
+    .modal-backdrop{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:1200}
+    .modal-card{background:#fff;border-radius:8px;max-width:820px;width:96%;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.2)}
+    .modal-card .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .modal-card table{width:100%;border-collapse:collapse}
+    .modal-card th, .modal-card td{padding:8px;border-bottom:1px solid #f1f5f9;text-align:left}
+</style>
+<div class="maintenance-card">
+    <div class="maintenance-title">Invoice</div>
+    <form method="post" id="bill-form" action="/bills/add/">
+        {% csrf_token %}
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+            <div style="flex:1;">
+                <label class="maintenance-label">Supplier Name</label>
+                <div class="customer-selector">
+                    <input id="supplier-search" type="text" placeholder="Click to search suppliers" autocomplete="off" oninput="showInlineSupplierSuggestions(this.value);" onclick="showInlineSupplierSuggestions('');" value="{{ bill.supplier_name|default:'' }}" />
+                    <button type="button" id="supplier-suggest-toggle" onclick="toggleSupplierSuggestions();">∨</button>
+                    <button type="button" id="supplier-search-btn" onclick="openSupplierModal('');" style="background:#1976d2;color:#fff;border:none;padding:6px 8px;border-radius:6px;">🔍</button>
+                </div>
+                <input type="hidden" name="selected_supplier_id" id="selected_supplier_id" value="{{ bill.supplier_id|default:'' }}" />
+                <script>
+                (function(){
+                    function clearInline(){ try{ document.querySelectorAll('.customer-selector > [role="listbox"]').forEach(function(el){ if(el && el.parentNode) el.parentNode.removeChild(el); }); }catch(e){}
+                    }
+                    function renderInline(list){ try{ clearInline(); if(!list || !list.length) return; var container = document.querySelector('.customer-selector'); if(!container) container = document.body; var box = document.createElement('div'); box.setAttribute('role','listbox'); box.style.position='absolute'; box.style.top='100%'; box.style.left='0'; box.style.width='100%'; box.style.zIndex=800; box.style.background='#fff'; box.style.border='1px solid #e6e6e6'; box.style.borderRadius='6px'; box.style.maxHeight='320px'; box.style.overflow='auto'; list.forEach(function(item){ var row=document.createElement('div'); row.style.padding='8px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid #f1f5f9'; var title=document.createElement('div'); title.style.fontWeight='600'; title.textContent = item.name || ''; var meta=document.createElement('div'); meta.className='small-muted'; meta.style.fontSize='13px'; meta.textContent = item.phone || ''; row.appendChild(title); row.appendChild(meta); row.addEventListener('click', function(e){ e.stopPropagation(); try{ var sid = document.getElementById('selected_supplier_id'); if(sid) sid.value = item.id; var supInput = document.getElementById('supplier-search'); if(supInput){ supInput.value = item.name || ''; supInput.title = item.name || ''; } var loc = document.getElementById('id_selected_supplier_location'); if(loc){ loc.innerHTML=''; if(item.locations && item.locations.length){ item.locations.forEach(function(l){ var o=document.createElement('option'); o.value = l.id || l.name || ''; o.text = l.name || l.address || ''; loc.appendChild(o); }); } else if(item.address){ var o=document.createElement('option'); o.value=''; o.text = item.address || ''; loc.appendChild(o); } } }catch(e){} clearInline(); }); box.appendChild(row); }); container.appendChild(box); try{ var local = box.querySelector('input[type="search"]'); if(local) local.focus(); }catch(e){} }catch(er){ console.error(er); } }
+                    function fetchAndShow(q){ q = (q||'').trim(); window.fetchJson('/suppliers/json/?q=' + encodeURIComponent(q)).then(function(data){ var list = data.results || data || []; renderInline(list); }).catch(function(err){ console.error('inline fallback supplier fetch failed', err); }); }
+                    var supInput = document.getElementById('supplier-search'); var supToggle = document.getElementById('supplier-suggest-toggle'); var supBtn = document.getElementById('supplier-search-btn');
+                    if(supInput){ supInput.addEventListener('click', function(e){ e.stopPropagation(); fetchAndShow(''); }); supInput.addEventListener('input', function(e){ fetchAndShow(this.value||''); }); }
+                    if(supToggle){ supToggle.addEventListener('click', function(e){ e.stopPropagation(); var container = (supInput && supInput.parentNode) ? supInput.parentNode : document.body; var isOpen = !!container.querySelector('[role="listbox"]'); if(isOpen){ clearInline(); } else { fetchAndShow(''); } }); }
+                    if(supBtn){ supBtn.addEventListener('click', function(e){ e.stopPropagation(); var q = (supInput && supInput.value) ? supInput.value : ''; fetchAndShow(q); }); }
+                    document.addEventListener('click', function(e){ if(e.target && e.target.closest && e.target.closest('.customer-selector')) return; clearInline(); });
+                })();
+                </script>
+                <div style="margin-top:8px;">
+                    <label class="maintenance-label">Select Supplier's Location (if any)</label>
+                    <select id="id_selected_supplier_location" name="selected_supplier_location" class="maintenance-input"></select>
+                </div>
+            </div>
+            <div style="width:200px;">
+                <label class="maintenance-label">Bill#</label>
+                <input name="bill_number" id="id_bill_number" type="text" class="maintenance-input" value="{{ bill.bill_number|default:next_bill_number }}" placeholder="BIL-000001" />
+            </div>
+            <div style="width:180px;">
+                <label class="maintenance-label">Bill Date</label>
+                <input id="id_bill_date" type="date" name="bill_date" class="maintenance-input" value="{{ bill.bill_date|default:'' }}" />
+            </div>
+        </div>
+        <div style="margin-bottom:12px;">
+            <label class="maintenance-label">Subject</label>
+            <textarea name="notes" class="maintenance-input" rows="3">{{ bill.notes|default:'' }}</textarea>
+        </div>
+        <div class="invoice-box" style="padding:12px;">
+            <div class="maintenance-label" style="margin-bottom:8px;">Item Table</div>
+            <table id="items-table" style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:14px;">
+                <thead>
+                    <tr style="text-align:left;color:#444;border-bottom:1px solid #eee;">
+                        <th style="padding:8px 6px;width:45%">Item Details</th>
+                        <th style="padding:8px 6px;width:12%">Quantity</th>
+                        <th style="padding:8px 6px;width:12%">Rate</th>
+                        <th style="padding:8px 6px;width:12%">Discount %</th>
+                        <th style="padding:8px 6px;width:12%">Type</th>
+                        <th style="padding:8px 6px;width:12%">Amount</th>
+                        <th style="padding:8px 6px;width:7%"></th>
+                    </tr>
+                </thead>
+                <tbody id="items-body">
+                    {% if bill and bill.items %}
+                        {% for it in bill.items %}
+                        <tr class="item-row" data-inventory-id="{{ it.id|default:'' }}">
+                            <td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="{{ it.description|default:'' }}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
+                            <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="{{ it.qty|default:'1' }}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
+                            <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="{{ it.rate|default:'0.000' }}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
+                            <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="{{ it.discount|default:'0.000' }}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
+                            <td style="padding:6px;width:12%;">
+                                <select class="item-account-type maintenance-input" style="width:100%;">
+                                    <option value="inventory" {% if it.account_type|default:'inventory' == 'inventory' %}selected{% endif %}>Inventory</option>
+                                    <option value="expense" {% if it.account_type == 'expense' %}selected{% endif %}>Expense</option>
+                                </select>
+                            </td>
+                            <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="{{ it.amount|default:'0.000' }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>
+                            <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
+                        </tr>
+                        {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+            <div style="display:flex;gap:12px;justify-content:flex-start;align-items:center;margin-bottom:8px;"><button type="button" id="add-row" class="maintenance-btn" style="background:#6c757d;padding:8px 12px;color:#fff;border-radius:6px;">Add New Row</button></div>
+            <input type="hidden" name="items_json" id="items_json" />
+            <input type="hidden" name="account" id="id_account" value="{{ bill.account|default:'' }}" />
+            <input type="hidden" name="client_grand_total" id="client_grand_total" value="0" />
+            <input type="hidden" name="bill_id" id="id_bill_id" value="{{ bill.id|default:'' }}" />
+            <div class="invoice-summary-card" style="margin-top:12px;padding:12px;border-top:1px solid #e6e6e6;">
+                <div style="font-weight:600;margin-bottom:10px;">Bill Summary</div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Sub Total</div><div id="sub-total">0.000</div></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Discount</div><div id="total-discount">0.000</div></div>
+                <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:16px;margin-bottom:12px;"><div>Total ( BHD )</div><div id="grand-total">0.000</div></div>
+            </div>
+        </div>
+        <!-- hidden real submit so bottom buttons can trigger submit -->
+        <button type="submit" id="bill-form-submit" style="display:none"></button>
+        <button type="submit" id="hidden-save-draft" name="action" value="save_draft" style="display:none"></button>
+        <button type="submit" id="hidden-save-send" name="action" value="save_send" style="display:none"></button>
+    </form>
+    <!-- sticky bottom action bar matching maintenance layout -->
+    <div id="bottom-action-bar" style="position:fixed;left:0;right:0;bottom:0;background:linear-gradient(90deg, #fff, #fff);border-top:1px solid #e6e6e6;padding:10px 18px;">
+        <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button type="button" class="maintenance-cancel" onclick="(function(f){ try{ if(window.serializeBillItems) window.serializeBillItems(); }catch(e){} var hidden=document.getElementById('hidden-save-draft'); if(hidden){ hidden.click(); } else { if(f.requestSubmit) { f.requestSubmit(); } else if(document.getElementById('bill-form-submit')) { document.getElementById('bill-form-submit').click(); } else { f.submit(); } } })(document.getElementById('bill-form'))" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;">Save as Draft</button>
+                <button type="button" class="maintenance-btn" onclick="(function(f){ try{ if(window.serializeBillItems) window.serializeBillItems(); }catch(e){} var hidden=document.getElementById('hidden-save-send'); if(hidden){ hidden.click(); } else { if(f.requestSubmit) { f.requestSubmit(); } else if(document.getElementById('bill-form-submit')) { document.getElementById('bill-form-submit').click(); } else { f.submit(); } } })(document.getElementById('bill-form'))" style="padding:8px 14px;">Save and Send</button>
+                <a href="/bills/" class="maintenance-cancel" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;color:#1976d2;text-decoration:none;">Cancel</a>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="color:#6b7280;font-size:13px;">Make Recurring</div>
+                <div style="background:#f3f4f6;border-radius:6px;padding:8px 10px;font-weight:600;">Total Amount: <span id="bottom-total">BHD 0.000</span></div>
+            </div>
+        </div>
+    </div>
+    </form>
+</div>
+
+<script src="{% static 'js/inventory-autocomplete.js' %}"></script>
+<script>
+// Minimal JS to add one empty row and compute totals like maintenance template
+document.addEventListener('DOMContentLoaded', function(){
+    function parseFloatSafe(v){var n=parseFloat(v);return isNaN(n)?0:n}
+            function createItemRow(){var tbody=document.getElementById('items-body');var tr=document.createElement('tr');tr.className='item-row';tr.innerHTML = `\
+                        <td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+                        <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+                        <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+                        <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+                        <td style="padding:6px;width:12%;">\
+                            <select class="item-account-type maintenance-input" style="width:100%;">\
+                                <option value="inventory" selected>Inventory</option>\
+                                <option value="expense">Expense</option>\
+                            </select>\
+                        </td>\
+                        <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
+                        <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;tbody.appendChild(tr);try{var newInput=tr.querySelector('.item-desc');if(newInput){try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); newInput.focus();}catch(e){}}}catch(e){}return tr}
+    function updateRowAmount(row){var q=parseFloatSafe(row.querySelector('.item-qty').value);var r=parseFloatSafe(row.querySelector('.item-rate').value);var d=parseFloatSafe(row.querySelector('.item-discount').value);var amt=q*r*(1-d/100);row.querySelector('.item-amount').value=amt.toFixed(3);return amt}
+    function recomputeTotals(){var subtotal=0;var discount=0;document.querySelectorAll('#items-body .item-row').forEach(function(row){var q=parseFloatSafe(row.querySelector('.item-qty').value);var r=parseFloatSafe(row.querySelector('.item-rate').value);var d=parseFloatSafe(row.querySelector('.item-discount').value);var line=q*r;var amt=updateRowAmount(row);subtotal+=line;discount+=(line-amt)});document.getElementById('sub-total').textContent=subtotal.toFixed(3);document.getElementById('total-discount').textContent=discount.toFixed(3);var grand=(subtotal-discount).toFixed(3);document.getElementById('grand-total').textContent=grand;try{var bottom=document.getElementById('bottom-total'); if(bottom) bottom.textContent = 'BHD ' + (parseFloat(grand)||0).toFixed(3);}catch(e){}
+    }
+    document.getElementById('items-body').addEventListener('click',function(e){if(e.target.classList.contains('remove-row')){e.target.closest('.item-row').remove();recomputeTotals()}})
+    document.getElementById('items-body').addEventListener('input',function(e){if(e.target.classList.contains('item-qty')||e.target.classList.contains('item-rate')||e.target.classList.contains('item-discount')){updateRowAmount(e.target.closest('.item-row'));recomputeTotals()}})
+    document.getElementById('add-row').addEventListener('click',function(){createItemRow();recomputeTotals();})
+    if(document.querySelectorAll('#items-body .item-row').length===0) {
+        createItemRow();
+        recomputeTotals();
+    } else {
+        // If server-rendered rows exist (edit page), ensure each row's amount is updated
+        try{
+            document.querySelectorAll('#items-body .item-row').forEach(function(row){ try{ updateRowAmount(row); }catch(e){} });
+        }catch(e){}
+        try{ recomputeTotals(); }catch(e){}
+    }
+    document.getElementById('bill-form').addEventListener('submit',function(e){
+        recomputeTotals();
+        var items=[];
+        document.querySelectorAll('#items-body .item-row').forEach(function(row){
+            var acct = 'inventory';
+            try{ var sel = row.querySelector('.item-account-type'); if(sel) acct = sel.value || acct; }catch(e){}
+            items.push({
+                description:row.querySelector('.item-desc').value,
+                qty:parseFloatSafe(row.querySelector('.item-qty').value),
+                rate:parseFloatSafe(row.querySelector('.item-rate').value),
+                discount:parseFloatSafe(row.querySelector('.item-discount').value),
+                account_type: acct,
+                amount:parseFloatSafe(row.querySelector('.item-amount').value)
+            })
+        });
+        document.getElementById('items_json').value=JSON.stringify(items);
+        try{ var grandHidden = document.getElementById('client_grand_total'); if(grandHidden){ grandHidden.value = parseFloat(document.getElementById('grand-total').textContent) || 0; } }catch(e){}
+        // Ensure server-required account field is populated (use selected supplier id as default)
+        try{ var acc = document.getElementById('id_account'); var sid = document.getElementById('selected_supplier_id'); if(acc && sid){ acc.value = sid.value || acc.value || ''; } }catch(er){}
+    })
+
+    // expose serializer used by bottom action buttons
+        window.serializeBillItems = function(){ try{ recomputeTotals(); var items=[]; document.querySelectorAll('#items-body .item-row').forEach(function(row){ var acct='inventory'; try{ var s=row.querySelector('.item-account-type'); if(s) acct = s.value || acct; }catch(e){} items.push({description:row.querySelector('.item-desc').value,qty:parseFloatSafe(row.querySelector('.item-qty').value),rate:parseFloatSafe(row.querySelector('.item-rate').value),discount:parseFloatSafe(row.querySelector('.item-discount').value),account_type:acct,amount:parseFloatSafe(row.querySelector('.item-amount').value)}); }); document.getElementById('items_json').value = JSON.stringify(items); // set account as well
+            try{ var grandHidden = document.getElementById('client_grand_total'); if(grandHidden){ grandHidden.value = parseFloat(document.getElementById('grand-total').textContent) || 0; } }catch(e){}
+            try{ var acc = document.getElementById('id_account'); var sid = document.getElementById('selected_supplier_id'); if(acc && sid){ acc.value = sid.value || acc.value || ''; } }catch(er){}
+            document.getElementById('bottom-total').textContent = 'BHD ' + (parseFloat(document.getElementById('grand-total').textContent)||0).toFixed(3); }catch(e){} }
+    // Use shared inventory autocomplete from static/js/inventory-autocomplete.js
+    try{
+        if(window.initInventoryAutocomplete){
+            document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ window.initInventoryAutocomplete(inp); }catch(e){} });
+        } else {
+            console.warn('initInventoryAutocomplete not available yet');
+        }
+        // close inventory suggestions when clicking elsewhere
+        document.addEventListener('click', function(ev){ if(ev.target && ev.target.closest && ev.target.closest('.inventory-suggestions')) return; document.querySelectorAll('.inventory-suggestions').forEach(function(b){ b.parentNode && b.parentNode.removeChild(b); }); });
+    }catch(e){}
+});
+</script>
+<script>
+// set default Bill Date to today (editable)
+document.addEventListener('DOMContentLoaded', function(){
+    try{
+        var d = document.getElementById('id_bill_date') || document.querySelector('input[name="bill_date"]');
+        if(d && !d.value){
+            var today = new Date();
+            var mm = String(today.getMonth()+1).padStart(2,'0');
+            var dd = String(today.getDate()).padStart(2,'0');
+            d.value = today.getFullYear() + '-' + mm + '-' + dd;
+        }
+    }catch(e){}
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    var supInput = document.getElementById('supplier-search');
+    var supToggle = document.getElementById('supplier-suggest-toggle');
+    var supBtn = document.getElementById('supplier-search-btn');
+
+    function clearSupplierSuggestions(){
+        try{ document.querySelectorAll('.customer-selector > [role="listbox"]').forEach(function(el){ if(el && el.parentNode) el.parentNode.removeChild(el); }); }catch(e){}
+        try{ if(document.getElementById('supplier-suggest-toggle')) document.getElementById('supplier-suggest-toggle').textContent = '∨'; }catch(e){}
+    }
+
+    function renderSupplierSuggestions(list){
+        try{
+            clearSupplierSuggestions();
+            if(!list || !list.length) return;
+            var container = (supInput && supInput.parentNode) ? supInput.parentNode : document.body;
+            try{ container.style.position = container.style.position || 'relative'; }catch(e){}
+            var box = document.createElement('div');
+            box.setAttribute('role','listbox');
+            box.style.position = 'absolute'; box.style.top = '100%'; box.style.left = '0'; box.style.width = '100%';
+            box.style.zIndex = 800; box.style.background = '#fff'; box.style.border = '1px solid #e6e6e6'; box.style.borderRadius = '6px';
+            var searchWrapper = document.createElement('div'); searchWrapper.style.padding = '8px';
+            var local = document.createElement('input'); local.type='search'; local.placeholder='Search'; local.style.width='100%'; local.style.padding='8px'; local.style.boxSizing='border-box'; local.style.border='1px solid #e6e6e6'; local.style.borderRadius='6px';
+            searchWrapper.appendChild(local); box.appendChild(searchWrapper);
+            var rows = document.createElement('div');
+            list.forEach(function(item){
+                var row = document.createElement('div'); row.style.padding='8px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid #f1f5f9';
+                var title = document.createElement('div'); title.style.fontWeight='600'; title.textContent = item.name || '';
+                var meta = document.createElement('div'); meta.className='small-muted'; meta.style.fontSize='13px'; meta.textContent = item.phone || '';
+                row.appendChild(title); row.appendChild(meta);
+                row.addEventListener('click', function(e){ e.stopPropagation(); try{ if(document.getElementById('selected_supplier_id')) document.getElementById('selected_supplier_id').value = item.id; if(supInput){ supInput.value = item.name; supInput.title = item.name || ''; } // populate locations select if provided, fallback to supplier address
+                    try{ var loc = document.getElementById('id_selected_supplier_location'); if(loc){ loc.innerHTML = ''; if(item.locations && item.locations.length){ item.locations.forEach(function(l){ var o=document.createElement('option'); o.value = l.id || l.name || ''; o.text = l.name || l.address || ''; loc.appendChild(o); }); } else if(item.address){ var o=document.createElement('option'); o.value = ''; o.text = item.address || ''; loc.appendChild(o); } } }catch(e){} }catch(err){} clearSupplierSuggestions(); });
+                rows.appendChild(row);
+            });
+            box.appendChild(rows);
+            container.appendChild(box);
+            try{ local.focus(); }catch(e){}
+            try{ if(supToggle) supToggle.textContent = '∧'; }catch(e){}
+            local.addEventListener('input', function(){ var q = (local.value||'').trim(); if(!q){ buildRows(list); return; } var filtered = list.filter(function(it){ return (it.name||'').toLowerCase().indexOf(q.toLowerCase())!==-1 || (it.phone||'').indexOf(q)!==-1; }); buildRows(filtered); });
+            function buildRows(source){ rows.innerHTML=''; source.forEach(function(item){ var row=document.createElement('div'); row.style.padding='8px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid #f1f5f9'; var title=document.createElement('div'); title.style.fontWeight='600'; title.textContent=item.name||''; var meta=document.createElement('div'); meta.className='small-muted'; meta.style.fontSize='13px'; meta.textContent=item.phone||''; row.appendChild(title); row.appendChild(meta); row.addEventListener('click', function(e){ e.stopPropagation(); try{ if(document.getElementById('selected_supplier_id')) document.getElementById('selected_supplier_id').value = item.id; if(supInput){ supInput.value = item.name || ''; supInput.title = item.name || ''; } try{ var loc = document.getElementById('id_selected_supplier_location'); if(loc){ loc.innerHTML = ''; if(item.locations && item.locations.length){ item.locations.forEach(function(l){ var o=document.createElement('option'); o.value = l.id || l.name || ''; o.text = l.name || l.address || ''; loc.appendChild(o); }); } else if(item.address){ var o=document.createElement('option'); o.value = ''; o.text = item.address || ''; loc.appendChild(o); } } }catch(e){} }catch(err){} clearSupplierSuggestions(); }); rows.appendChild(row); }); }
+        }catch(err){ console.error('renderSupplierSuggestions', err); }
+    }
+
+    function showInlineSupplierSuggestions(q){
+        q = (q||'').trim();
+        // if preloaded list exists
+        if(window.suppliers_sample && window.suppliers_sample.length){
+            if(!q) return renderSupplierSuggestions(window.suppliers_sample.slice(0,500));
+            var filtered = window.suppliers_sample.filter(function(it){ return (it.name||'').toLowerCase().indexOf(q.toLowerCase())!==-1 || (it.phone||'').indexOf(q)!==-1; });
+            return renderSupplierSuggestions(filtered.slice(0,500));
+        }
+        // fallback: query server (JSON endpoint)
+        window.fetchJson('/suppliers/json/?q=' + encodeURIComponent(q)).then(function(data){ var list = data.results || data || []; renderSupplierSuggestions(list); }).catch(function(err){ try{ console.error('supplier fetch failed', err); }catch(e){} });
+    }
+
+    function toggleSupplierSuggestions(){
+        var container = (supInput && supInput.parentNode) ? supInput.parentNode : document.body;
+        var isOpen = !!container.querySelector('[role="listbox"]');
+        if(isOpen){ clearSupplierSuggestions(); } else { showInlineSupplierSuggestions(''); }
+    }
+
+    if(supInput){ supInput.addEventListener('focus', function(){ showInlineSupplierSuggestions(''); }); supInput.addEventListener('click', function(){ showInlineSupplierSuggestions(''); }); }
+    // magnifier: open advanced supplier search modal (like maintenance customer modal)
+    function openSupplierModal(prefill){
+        var backdrop = document.getElementById('supplier-modal-backdrop');
+        if(!backdrop) return;
+        var input = document.getElementById('modal-supplier-query');
+        var resultsBox = document.getElementById('modal-supplier-results');
+        input.value = prefill || '';
+        backdrop.style.display = 'flex';
+        input.focus();
+        performSupplierModalSearch(input.value||'');
+        var closeBtn = backdrop.querySelector('.modal-close');
+        if(closeBtn) closeBtn.onclick = closeSupplierModal;
+        backdrop.onclick = function(e){ if(e.target === backdrop) closeSupplierModal(); };
+        document.getElementById('modal-supplier-search-btn').onclick = function(){ performSupplierModalSearch(document.getElementById('modal-supplier-query').value||''); };
+    }
+    function closeSupplierModal(){ var backdrop = document.getElementById('supplier-modal-backdrop'); if(!backdrop) return; backdrop.style.display='none'; }
+    function performSupplierModalSearch(q){ var resultsBox = document.getElementById('modal-supplier-results'); if(!resultsBox) return; resultsBox.innerHTML = '<div style="padding:12px;color:#666">Searching...</div>'; window.fetchJson('/suppliers/json/?q=' + encodeURIComponent(q)).then(function(data){ renderSupplierModalResults(data.results || []); }).catch(function(){ resultsBox.innerHTML = '<div style="padding:12px;color:#c00">Search failed</div>'; }); }
+    function renderSupplierModalResults(list){ var resultsBox = document.getElementById('modal-supplier-results'); if(!resultsBox) return; resultsBox.innerHTML = ''; if(!list.length){ resultsBox.innerHTML = '<div style="padding:12px;color:#666">No results</div>'; return; } var tbl = document.createElement('table'); var thead = document.createElement('thead'); thead.innerHTML = '<tr><th>SUPPLIER NAME</th><th>PHONE</th></tr>'; tbl.appendChild(thead); var tbody = document.createElement('tbody'); list.forEach(function(it){ var tr = document.createElement('tr'); tr.style.cursor='pointer'; tr.innerHTML = '<td style="color:#1976d2;font-weight:600">'+(it.name||'')+'</td><td>'+(it.phone||'')+'</td>'; tr.addEventListener('click', function(){ selectSupplierFromModal(it); }); tbody.appendChild(tr); }); tbl.appendChild(tbody); resultsBox.appendChild(tbl); }
+    function selectSupplierFromModal(item){
+        try{
+            if(document.getElementById('selected_supplier_id')) document.getElementById('selected_supplier_id').value = item.id;
+            if(supInput){ supInput.value = item.name || ''; supInput.title = item.name || ''; }
+            // populate locations select if provided, fallback to address
+            try{
+                var loc = document.getElementById('id_selected_supplier_location');
+                if(loc){
+                    loc.innerHTML = '';
+                    if(item.locations && item.locations.length){
+                        item.locations.forEach(function(l){ var o=document.createElement('option'); o.value = l.id || l.name || ''; o.text = l.name || l.address || ''; loc.appendChild(o); });
+                    } else if(item.address){
+                        var o = document.createElement('option'); o.value = ''; o.text = item.address || ''; loc.appendChild(o);
+                    }
+                }
+            }catch(e){}
+        }catch(err){}
+        closeSupplierModal(); clearSupplierSuggestions();
+    }
+
+    if(supBtn){ supBtn.addEventListener('click', function(e){ e.stopPropagation(); openSupplierModal(supInput ? supInput.value : ''); }); supBtn.onclick = function(){ try{ openSupplierModal(supInput ? supInput.value : ''); }catch(err){ console.error(err); } }; }
+    if(supToggle){ supToggle.addEventListener('click', function(e){ e.stopPropagation(); toggleSupplierSuggestions(); }); }
+    // close when clicking elsewhere
+    document.addEventListener('click', function(e){ if(e.target && e.target.closest && e.target.closest('.customer-selector')) return; clearSupplierSuggestions(); });
+    // expose handlers globally so inline onclick works even if the DOMContentLoaded listener timing varies
+    try{ window.showInlineSupplierSuggestions = showInlineSupplierSuggestions; window.toggleSupplierSuggestions = toggleSupplierSuggestions; window.openSupplierModal = openSupplierModal; }catch(e){}
+});
+</script>
+<!-- Advanced supplier search modal -->
+<div id="supplier-modal-backdrop" class="modal-backdrop" role="dialog" aria-hidden="true" style="display:none">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 style="margin:0">Advanced Supplier Search</h3>
+            <button class="modal-close" style="background:transparent;border:0;font-size:20px;cursor:pointer">✕</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+            <select id="modal-supplier-search-field" style="padding:6px;border:1px solid #e6e6e6;border-radius:6px">
+                <option value="name">Name</option>
+                <option value="phone">Phone</option>
+            </select>
+            <input id="modal-supplier-query" placeholder="Search" style="flex:1;padding:8px;border:1px solid #e6e6e6;border-radius:6px" />
+            <button id="modal-supplier-search-btn" class="maintenance-btn" style="padding:8px 12px">Search</button>
+        </div>
+        <div id="modal-supplier-results" style="max-height:360px;overflow:auto"></div>
+    </div>
+</div>
+{% endblock %}
+
+    <script>
+    // If a supplier id is prefilled, fetch it and populate the locations select and input
+    document.addEventListener('DOMContentLoaded', function(){
+        try{
+            var sidEl = document.getElementById('selected_supplier_id');
+            if(!sidEl) return;
+            var sid = (sidEl.value||'').trim();
+            if(!sid) return;
+            // fetch supplier by id
+            window.fetchJson('/suppliers/json/?id=' + encodeURIComponent(sid)).then(function(data){
+                var list = data.results || [];
+                if(!list.length) return;
+                var item = list[0];
+                var supInput = document.getElementById('supplier-search');
+                if(supInput && !supInput.value){ supInput.value = item.name || ''; supInput.title = item.name || ''; }
+                try{
+                    var loc = document.getElementById('id_selected_supplier_location');
+                    if(loc){ loc.innerHTML = ''; if(item.locations && item.locations.length){ item.locations.forEach(function(l){ var o=document.createElement('option'); o.value = l.id || l.name || ''; o.text = l.name || l.address || ''; loc.appendChild(o); }); } else if(item.address){ var o=document.createElement('option'); o.value=''; o.text = item.address || ''; loc.appendChild(o); } }
+                }catch(e){ /* ignore */ }
+            }).catch(function(){ /* ignore */ });
+        }catch(e){}
+    });
+    </script>
+
+<!-- Hydrate form when editing an existing bill (server injects `bill_json`) -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    try{
+        var billData = (typeof window._bill_json_debug !== 'undefined' ? window._bill_json_debug : (function(){ try{ return JSON.parse('{{ bill_json|default:'null'|escapejs }}'); }catch(e){ return null; } })());
+        try{ console.log('hydrate: billData', billData); console.log('hydrate: supplier_id', billData && billData.supplier_id); console.log('hydrate: items_count', billData && billData.items && billData.items.length); }catch(e){}
+        if(!billData) return;
+        if(typeof billData === 'string'){
+            try{ billData = JSON.parse(billData); }catch(e){ console.error('Parsing bill_json failed', e); }
+        }
+
+        // supplier — set id and display name, then try to populate locations from server
+        try{
+            if(billData.supplier_id){
+                var sid = document.getElementById('selected_supplier_id'); if(sid) sid.value = billData.supplier_id;
+                var sinp = document.getElementById('supplier-search'); if(sinp) { sinp.value = billData.supplier_name || ''; sinp.title = billData.supplier_name || ''; }
+                try{
+                    // fetch supplier to populate locations select if endpoint available
+                    window.fetchJson('/suppliers/json/?id=' + encodeURIComponent(billData.supplier_id)).then(function(data){ var list = data.results || []; if(list && list.length){ var item = list[0]; var loc = document.getElementById('id_selected_supplier_location'); if(loc){ loc.innerHTML = ''; if(item.locations && item.locations.length){ item.locations.forEach(function(l){ var o = document.createElement('option'); o.value = l.id || l.name || ''; o.text = l.name || l.address || ''; loc.appendChild(o); }); } else if(item.address){ var o = document.createElement('option'); o.value = ''; o.text = item.address || ''; loc.appendChild(o); } } } }).catch(function(){ /* ignore */ });
+                }catch(e){}
+            }
+        }catch(e){}
+
+        // bill meta
+        try{ if(billData.number) document.getElementById('id_bill_number').value = billData.number; }catch(e){}
+        try{ if(billData.date) document.getElementById('id_bill_date').value = billData.date; }catch(e){}
+        try{ if(billData.notes) document.querySelector('textarea[name="notes"]').value = billData.notes; }catch(e){}
+
+        // populate item rows
+        try{
+            var tbody = document.getElementById('items-body'); if(!tbody) return; tbody.innerHTML = '';
+            billData.items.forEach(function(it){
+                var tr = document.createElement('tr'); tr.className = 'item-row';
+                tr.innerHTML = '' +
+                    '<td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
+                    '<td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
+                    '<td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
+                    '<td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
+                    '<td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>' +
+                    '<td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
+                tbody.appendChild(tr);
+                try{
+                    var desc = tr.querySelector('.item-desc'); var qty = tr.querySelector('.item-qty'); var rate = tr.querySelector('.item-rate'); var disc = tr.querySelector('.item-discount'); var amt = tr.querySelector('.item-amount');
+                    if(desc) desc.value = it.description || '';
+                    if(qty) qty.value = (it.qty!==undefined?String(it.qty):'1');
+                    if(rate) rate.value = (it.rate!==undefined?String(it.rate):'0');
+                    if(disc) disc.value = (it.discount!==undefined?String(it.discount):'0');
+                    if(amt) amt.value = (it.amount!==undefined?parseFloat(it.amount).toFixed(3):'0.000');
+                    try{ if(it.id) tr.dataset.inventoryId = it.id; }catch(e){}
+                    try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(desc); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(desc); }catch(e){}
+                    // ensure calculations update
+                    try{ if(window.serializeBillItems){ /* will be called after loop */ } else { [qty, rate, disc].forEach(function(el){ if(el) el.dispatchEvent(new Event('input',{bubbles:true})); }); }
+                    }catch(e){}
+                }
+                catch(e){}
+            });
+
+            // ensure totals and hidden items_json set (use serializer if available)
+            try{
+                try{
+                    if(window.serializeBillItems) { window.serializeBillItems(); }
+                    else { document.querySelectorAll('#items-body .item-qty, #items-body .item-rate, #items-body .item-discount').forEach(function(el){ el.dispatchEvent(new Event('input',{bubbles:true})); }); }
+                }catch(e){ console.error('ensure totals failed', e); }
+            }catch(e){ console.error('ensure totals failed', e); }
+        }catch(e){ console.error('hydrate items failed', e); }
+
+    }catch(err){ console.error(err); }
+});
+</script>

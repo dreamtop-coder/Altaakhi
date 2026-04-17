@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:700px;margin:0;padding:20px;direction:ltr;">
+    <h2>Add Recurring Expense</h2>
+    <form method="post">
+        {% csrf_token %}
+        <!-- hidden payee fields controlled by JS -->
+        <input type="hidden" name="payee" value="{% if recurring and recurring.payee %}{{ recurring.payee|escape }}{% endif %}">
+        <input type="hidden" name="payee_recipient" value="{% if recurring and recurring.payee_recipient %}{{ recurring.payee_recipient|escape }}{% endif %}">
+        <input type="hidden" name="payee_month" value="{% if recurring and recurring.payee_month %}{{ recurring.payee_month|escape }}{% endif %}">
+        <table style="width:100%;border-collapse:collapse;direction:ltr;" class="recurring-form-table">
+            <colgroup><col style="width:36%;"><col></colgroup>
+            <thead style="display:none;"></thead>
+            <tbody>
+                {{ form.as_table }}
+            </tbody>
+        </table>
+                <div style="margin-top:12px;"><button type="submit" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;border:none;">Save</button></div>
+        </form>
+
+        <!-- Modal for adding category (no description) -->
+        {{ payee_users|json_script:"payee-users" }}
+        <div id="category-modal" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:1400;">
+            <div style="max-width:420px;margin:80px auto;padding:20px;background:#fff;border-radius:8px;box-shadow:0 15px 40px rgba(0,0,0,0.2);">
+                <h2 style="margin-bottom:14px;text-align:center;">Add Category</h2>
+                <form id="category-form" style="display:flex;flex-direction:column;gap:10px;">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="">
+                    <div style="width:100%;text-align:center;">
+                        <label for="cat_name" style="display:block;font-weight:bold;margin-bottom:6px;">Category name</label>
+                        <input id="cat_name" name="name" type="text" style="width:100%;max-width:320px;padding:8px 10px;border-radius:6px;border:1px solid #ccc;" required />
+                    </div>
+                    <div style="display:flex;justify-content:center;gap:12px;margin-top:6px;">
+                        <button type="button" id="cat-cancel" style="background:#eee;color:#333;padding:8px 18px;border-radius:6px;border:none;">Cancel</button>
+                        <button type="submit" style="background:#007bff;color:#fff;padding:8px 18px;border:none;border-radius:6px;font-weight:bold;">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            (function(){
+                // Payee/month dynamic UI for Recurring form (copied/adapted from expenses_add)
+                function qs(s){return document.querySelector(s);} 
+                var PAYEE_USERS = (function(){ try{ var el = document.getElementById('payee-users'); return el && el.textContent ? JSON.parse(el.textContent) : []; }catch(e){ return []; } })();
+                var selectCat = qs('select[name="category"]');
+                var payeeInput = qs('[name="payee"]');
+                if(payeeInput){
+                    var payeeSelect = document.createElement('select'); payeeSelect.style.display='none'; payeeSelect.style.width='100%'; payeeSelect.style.boxSizing='border-box';
+                    var payeeRecipientInput = qs('[name="payee_recipient"]');
+                    var payeeMonthInput = qs('[name="payee_month"]');
+                    (function(){ var opts=['<option value="">-- Select user --</option>']; if(Array.isArray(PAYEE_USERS)&&PAYEE_USERS.length){ for(var i=0;i<PAYEE_USERS.length;i++){ var u=PAYEE_USERS[i]; opts.push('<option value="'+(u.name||'')+'">'+(u.name||'')+'</option>'); } } else { try{ fetch('/users/admin/users/json/', { credentials: 'same-origin', headers: { 'Accept':'application/json' } }).then(function(r){ return r.json(); }).then(function(j){ if(j && j.success && Array.isArray(j.users) && j.users.length){ opts.length=0; opts.push('<option value="">-- Select user --</option>'); j.users.forEach(function(u){ opts.push('<option value="'+(u.name||'')+'">'+(u.name||'')+'</option>'); }); payeeSelect.innerHTML = opts.join(''); } else { opts.push('<option value="" disabled>No employees found</option>'); payeeSelect.innerHTML = opts.join(''); } }).catch(function(){ opts.push('<option value="" disabled>No employees found</option>'); payeeSelect.innerHTML = opts.join(''); }); }catch(e){ opts.push('<option value="" disabled>No employees found</option>'); } } payeeSelect.innerHTML = opts.join(''); })();
+                    try{ payeeInput.parentNode.insertBefore(payeeSelect, payeeInput.nextSibling); }catch(e){ document.body.appendChild(payeeSelect); }
+                    // hide original form rows for recurring (we'll show only the select beneath Category)
+                    try{
+                        var p = payeeInput.closest('tr'); if(p) p.style.display='none';
+                        var pr = payeeRecipientInput ? payeeRecipientInput.closest('tr') : null; if(pr) pr.style.display='none';
+                        var pm = payeeMonthInput ? payeeMonthInput.closest('tr') : null; if(pm) pm.style.display='none';
+                    }catch(e){}
+                    // move payeeSelect into the category wrapper once it's created by the other script
+                    (function attachToCategory(){
+                        try{
+                            var sel = document.querySelector('select[name="category"]');
+                            if(!sel) { setTimeout(attachToCategory, 150); return; }
+                            // try to insert a new table row right after the category row
+                            try{
+                                var catTr = sel.closest('tr');
+                                    if(catTr && catTr.parentNode){
+                                    // avoid inserting twice
+                                    if(catTr.nextSibling && catTr.nextSibling.classList && catTr.nextSibling.classList.contains('payee-row')){
+                                        // already inserted
+                                    } else {
+                                        var newTr = document.createElement('tr');
+                                        newTr.classList.add('payee-row');
+                                        var tdLabel = document.createElement('td');
+                                        tdLabel.style.padding = getComputedStyle(catTr.querySelector('th')||catTr.querySelector('td')).padding || '8px';
+                                        tdLabel.innerHTML = '';
+                                        var tdField = document.createElement('td');
+                                        tdField.style.padding = getComputedStyle(catTr.querySelector('td')).padding || '8px';
+                                        tdField.appendChild(payeeSelect);
+                                        newTr.appendChild(tdLabel);
+                                        newTr.appendChild(tdField);
+                                        if(catTr.nextSibling) catTr.parentNode.insertBefore(newTr, catTr.nextSibling);
+                                        else catTr.parentNode.appendChild(newTr);
+                                    }
+                                    return;
+                                }
+                            }catch(e){}
+                            // fallback: append after select
+                            if(!payeeSelect.parentNode) sel.parentNode.insertBefore(payeeSelect, sel.nextSibling);
+                        }catch(e){ /* ignore */ }
+                    })();
+
+                    // preselect option from hidden payee_recipient if available (edit case)
+                    try{
+                        var existingRecipient = (document.querySelector('input[name="payee_recipient"]') || {}).value || '';
+                        if(existingRecipient){
+                            // wait a tick for options to be present
+                            setTimeout(function(){
+                                try{
+                                    var found = false;
+                                    Array.prototype.forEach.call(payeeSelect.options, function(o){ if(!o.value) return; if(o.value === existingRecipient || (o.text && o.text === existingRecipient)){ o.selected = true; found = true; } });
+                                    if(found){ payeeSelect.style.display = ''; try{ payeeInput.style.display = 'none'; }catch(e){} }
+                                }catch(e){}
+                            }, 100);
+                        }
+                    }catch(e){}
+                    // For recurring entries we do not show a month selector — only the payee list is needed
+                    var monthSelect = null;
+
+                    function updatePayeeVisibility(){
+                        try{
+                            var v = (payeeInput.value || '').trim().toLowerCase();
+                            var catText = '';
+                            try{ var so = selectCat.options[selectCat.selectedIndex]; catText = (so && so.text) ? String(so.text).toLowerCase() : ''; }catch(e){}
+                            if(v === 'salary' || catText.indexOf('salary') !== -1 || catText.indexOf('salar') !== -1 || catText.indexOf('راتب') !== -1 || catText.indexOf('رواتب') !== -1){ payeeSelect.style.display=''; payeeInput.style.display='none'; }
+                            else { payeeSelect.style.display='none'; payeeInput.style.display=''; }
+                        }catch(e){}
+                    }
+
+                    payeeInput.addEventListener('input', updatePayeeVisibility);
+                    payeeInput.addEventListener('change', updatePayeeVisibility);
+                    if(payeeSelect){ payeeSelect.addEventListener('change', function(){ try{ payeeInput.value = payeeSelect.value; if(payeeRecipientInput) payeeRecipientInput.value = payeeSelect.value; if(payeeMonthInput) payeeMonthInput.value = ''; }catch(e){}; }); }
+                    try{ selectCat.addEventListener('change', updatePayeeVisibility); }catch(e){}
+                    updatePayeeVisibility();
+                }
+            })();
+            (function(){
+                function qs(s){return document.querySelector(s);} 
+                var select = qs('select[name="category"]');
+                if(!select) return;
+
+                var btn = document.createElement('button');
+                btn.type = 'button'; btn.textContent = '+'; btn.title='Add category';
+                btn.style.marginLeft='6px'; btn.style.padding='4px 8px'; btn.style.borderRadius='4px'; btn.style.border='none'; btn.style.background='#007bff'; btn.style.color='#fff'; btn.style.cursor='pointer';
+                try{
+                    var wrapper = document.createElement('div');
+                    wrapper.style.display = 'inline-flex';
+                    wrapper.style.alignItems = 'center';
+                    wrapper.style.gap = '6px';
+                    wrapper.style.width = '100%';
+                    select.style.flex = '1'; select.style.minWidth = '0';
+                    select.parentNode.insertBefore(wrapper, select);
+                    wrapper.appendChild(select);
+                    wrapper.appendChild(btn);
+                    var manageBtn = document.createElement('button');
+                    manageBtn.type = 'button'; manageBtn.textContent = 'Manage'; manageBtn.title='Manage categories';
+                    manageBtn.style.marginLeft='6px'; manageBtn.style.padding='4px 8px'; manageBtn.style.borderRadius='4px'; manageBtn.style.border='1px solid transparent'; manageBtn.style.background='#f0f3ff'; manageBtn.style.color='#0b5ed7'; manageBtn.style.cursor='pointer';
+                    wrapper.appendChild(manageBtn);
+                }catch(e){ try{ select.insertAdjacentElement('afterend', btn); }catch(e2){ select.parentNode.appendChild(btn); } }
+
+                var modal = qs('#category-modal');
+                var form = qs('#category-form');
+                var cancel = qs('#cat-cancel');
+                var nameInput = qs('#cat_name');
+
+                function fetchJson(url, opts){
+                    return fetch(url, opts).then(function(resp){
+                        var ct = resp.headers.get('content-type') || '';
+                        if(ct.indexOf('application/json') !== -1){
+                            return resp.json().then(function(json){ if(!resp.ok) throw json; return json; });
+                        }
+                        return resp.text().then(function(text){ if(!resp.ok) throw { text: text, status: resp.status }; try{ return JSON.parse(text); }catch(e){ return { success: true, text: text }; } });
+                    });
+                }
+
+                var pageCsrf = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                if(pageCsrf){ var hidden = modal.querySelector('input[name="csrfmiddlewaretoken"]'); if(hidden) hidden.value = pageCsrf.value; }
+
+                btn.addEventListener('click', function(){ nameInput.value=''; modal.style.display='block'; nameInput.focus(); });
+                if(typeof manageBtn !== 'undefined') manageBtn.addEventListener('click', function(){ openManageModal(); });
+                cancel.addEventListener('click', function(){ modal.style.display='none'; });
+
+                form.addEventListener('submit', function(ev){
+                    ev.preventDefault();
+                    var name = nameInput.value.trim(); if(!name) { alert('Enter category name'); nameInput.focus(); return; }
+                    var data = new URLSearchParams(); data.append('name', name);
+                    fetchJson("{% url 'add_expense_category_ajax' %}", {
+                        method: 'POST', headers: { 'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '', 'Accept':'application/json', 'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8' }, body: data.toString()
+                    }).then(function(json){ if(json && json.success){ var opt = document.createElement('option'); opt.value = json.id; opt.textContent = json.name; select.appendChild(opt); select.value = json.id; modal.style.display='none'; } else { alert('Could not add category: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown')); } }).catch(function(err){ var msg = (err && (err.error || err.text || err.message)) || JSON.stringify(err); alert('Request failed: ' + msg); });
+                });
+
+                modal.addEventListener('click', function(e){ if(e.target === modal) modal.style.display='none'; });
+
+                function openManageModal(){
+                    var content = document.createElement('div');
+                    content.style.maxWidth='520px'; content.style.margin='80px auto'; content.style.background='#fff'; content.style.padding='18px'; content.style.borderRadius='8px'; content.style.boxShadow='0 15px 40px rgba(0,0,0,0.2)';
+                    var h = document.createElement('h2'); h.textContent = 'Manage Categories'; h.style.textAlign='center'; h.style.marginBottom='12px'; content.appendChild(h);
+                    var list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='8px';
+                    Array.from(select.options).filter(function(opt){ return opt.value && String(opt.value).trim() !== ''; }).forEach(function(opt){
+                        var row = document.createElement('div'); row.style.display='flex'; row.style.alignItems='center'; row.style.justifyContent='space-between'; row.style.gap='8px';
+                        var left = document.createElement('div'); left.style.flex='1'; left.textContent = opt.textContent;
+                        row.appendChild(left);
+                        var right = document.createElement('div'); right.style.whiteSpace='nowrap';
+                        var editBtn = document.createElement('button'); editBtn.type='button'; editBtn.textContent='Edit'; editBtn.style.marginRight='6px'; editBtn.style.padding='4px 8px';
+                        var delBtn = document.createElement('button'); delBtn.type='button'; delBtn.textContent='Delete'; delBtn.style.background='#c62828'; delBtn.style.color='#fff'; delBtn.style.border='none'; delBtn.style.padding='4px 8px'; delBtn.style.borderRadius='4px';
+                        editBtn.addEventListener('click', function(){ enterEdit(left, opt); });
+                        delBtn.addEventListener('click', function(){ doDelete(opt); });
+                        right.appendChild(editBtn); right.appendChild(delBtn);
+                        row.appendChild(right);
+                        list.appendChild(row);
+                    });
+                    content.appendChild(list);
+                    var close = document.createElement('div'); close.style.textAlign='center'; close.style.marginTop='12px';
+                    var closeBtn = document.createElement('button'); closeBtn.type='button'; closeBtn.textContent='Close'; closeBtn.style.padding='8px 14px'; closeBtn.style.borderRadius='6px'; closeBtn.style.border='none'; closeBtn.style.background='#eee';
+                    close.appendChild(closeBtn); content.appendChild(close);
+                    var manageOverlay = document.createElement('div'); manageOverlay.style.position='fixed'; manageOverlay.style.left='0'; manageOverlay.style.top='0'; manageOverlay.style.right='0'; manageOverlay.style.bottom='0'; manageOverlay.style.background='rgba(0,0,0,0.45)'; manageOverlay.style.zIndex='1450';
+                    manageOverlay.appendChild(content); document.body.appendChild(manageOverlay);
+                    manageOverlay.addEventListener('click', function(e){ if(e.target===manageOverlay) document.body.removeChild(manageOverlay); });
+                    closeBtn.addEventListener('click', function(){ document.body.removeChild(manageOverlay); });
+
+                    function enterEdit(container, opt){
+                        var old = container.textContent; container.textContent=''; container.style.display='flex'; container.style.alignItems='center'; container.style.gap='8px';
+                        var inp = document.createElement('input'); inp.type='text'; inp.value = old; inp.style.padding='6px'; inp.style.flex = '1 1 auto'; inp.style.maxWidth = '360px';
+                        var save = document.createElement('button'); save.type='button'; save.textContent='Save'; save.style.marginLeft='8px'; save.style.padding='6px 8px'; save.style.flex = '0 0 auto';
+                        var cancel = document.createElement('button'); cancel.type='button'; cancel.textContent='Cancel'; cancel.style.marginLeft='6px'; cancel.style.padding='6px 8px'; cancel.style.flex = '0 0 auto';
+                        container.appendChild(inp); container.appendChild(save); container.appendChild(cancel);
+                        save.addEventListener('click', function(){ var newName = inp.value.trim(); if(!newName){ alert('Enter name'); inp.focus(); return; } var data = new URLSearchParams(); data.append('name', newName); fetchJson("{% url 'edit_expense_category_ajax' 0 %}".replace('/0/', '/'+opt.value+'/'), { method:'POST', headers:{ 'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]')||{}).value||'', 'Content-Type':'application/x-www-form-urlencoded' }, body: data.toString() }).then(function(json){ if(json && json.success){ opt.text = json.name; container.textContent = json.name; } else { alert('Could not rename: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown')); container.textContent=old; } }).catch(function(err){ var msg = (err && (err.error||err.text||err.message))||JSON.stringify(err); alert('Request failed: '+msg); container.textContent=old; }); });
+                        cancel.addEventListener('click', function(){ container.textContent = old; });
+                    }
+
+                    function doDelete(opt){ if(!confirm('Delete category "'+opt.text+'"?')) return; fetchJson("{% url 'delete_expense_category_ajax' 0 %}".replace('/0/', '/'+opt.value+'/'), { method:'POST', headers:{ 'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]')||{}).value||'' } }).then(function(json){ if(json && json.success){ var parent = opt.parentNode; if(parent) parent.removeChild(opt); document.body.removeChild(manageOverlay); setTimeout(openManageModal,50); } else { alert('Could not delete: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown')); } }).catch(function(err){ var msg = (err && (err.error||err.text||err.message))||JSON.stringify(err); alert('Request failed: '+msg); }); }
+                }
+            })();
+        </script>
+
+        <style>
+                /* left-align labels and keep fields readable */
+                .recurring-form-table th { text-align: left; padding:8px 12px 8px 0; vertical-align:top; }
+                .recurring-form-table td { text-align: left; padding:8px 12px 8px 0; }
+                .recurring-form-table input, .recurring-form-table select, .recurring-form-table textarea { width:100%; box-sizing:border-box; }
+        </style>
+</div>
+{% endblock %}

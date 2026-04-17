@@ -36,7 +36,7 @@ def main():
         return
 
     with connection.cursor() as cursor:
-        # حذف جميع السجلات
+        # delete all rows
         cursor.execute("DELETE FROM cars_maintenancerecord;")
         cursor.execute("DELETE FROM invoices_invoice;")
         cursor.execute("DELETE FROM cars_car;")
@@ -49,7 +49,7 @@ def main():
         cursor.execute("DELETE FROM sqlite_sequence WHERE name='cars_service';")
         cursor.execute("DELETE FROM sqlite_sequence WHERE name='clients_client';")
 
-    print("تم حذف جميع السجلات وتصفير العدادات بنجاح. يمكنك الآن إدخال بيانات جديدة وستبدأ الـ ID من 1.")
+    print("All records deleted and auto-increment counters reset. You can now insert new data and IDs will start from 1.")
 
 
 if __name__ == '__main__':

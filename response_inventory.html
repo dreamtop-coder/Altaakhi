@@ -176,6 +176,13 @@
             margin-left: 8px;
             letter-spacing: 1px;
         }
+        /* Ensure submenu links match Cars styling (white text, hover) */
+        .cars-submenu-link, .invoices-submenu-link, .clients-submenu-link, .purchases-submenu-link {
+            color: #ffffff; text-decoration: none; display: block; padding: 8px 0 8px 10px; font-size: 0.95em; cursor: pointer;
+        }
+        .cars-submenu-link:visited, .invoices-submenu-link:visited, .clients-submenu-link:visited, .purchases-submenu-link:visited { color: #ffffff; }
+        .cars-submenu-link:hover, .invoices-submenu-link:hover, .clients-submenu-link:hover, .purchases-submenu-link:hover { background: transparent; color: #ffffff; }
+        .cars-submenu-link:focus, .invoices-submenu-link:focus, .clients-submenu-link:focus, .purchases-submenu-link:focus { color: #ffffff; outline: none; }
             .topbar {
                 width: 100%;
                 margin-right: 0;
@@ -204,7 +211,7 @@
                     <i class="fa fa-wrench"></i>Departments & Services
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
                     <ul id="brands-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/brands/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Car Manufacturers</a></li>
+                        <li><a href="/brands/" class="cars-submenu-link">Car Manufacturers</a></li>
                     </ul>
                 </li>
                 <li id="clients-section" style="position:relative;cursor:pointer;">
@@ -212,35 +219,35 @@
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
                     <ul id="clients-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
                         <li style="padding:6px 0 0 0;color:#fff;font-weight:bold;">Customers</li>
-                        <li><a href="/clients/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Customers</a></li>
-                        <li><a href="/quotes/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Quotes</a></li>
-                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
-                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Received</a></li>
+                        <li><a href="/clients/" class="invoices-submenu-link">Customers</a></li>
+                        <li><a href="/quotes/" class="invoices-submenu-link">Quotes</a></li>
+                        <li><a href="/invoices/" class="invoices-submenu-link">Invoices</a></li>
+                        <li><a href="/invoices/payments/" class="invoices-submenu-link">Payments Received</a></li>
                         <li style="height:8px;"></li>
                         <li style="padding:6px 0 0 0;color:#fff;font-weight:bold;">Vendors</li>
-                        <li><a href="/suppliers/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Vendors</a></li>
-                        <li><a href="/bills/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Bills</a></li>
-                        <li><a href="/vendors/payments/" style="color:#f6c23e;display:block;padding:6px 0 8px 10px;font-size:0.95em;">Payments Made</a></li>
+                        <li><a href="/suppliers/" class="invoices-submenu-link">Vendors</a></li>
+                        <li><a href="/bills/" class="invoices-submenu-link">Bills</a></li>
+                        <li><a href="/vendors/payments/" class="invoices-submenu-link">Payments Made</a></li>
                     </ul>
                 </li>
                 <li id="cars-section" style="position:relative;cursor:pointer;">
                     <i class="fa fa-car"></i>Cars & Maintenance
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
                     <ul id="cars-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/cars/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Cars</a></li>
-                        <li><a href="/maintenance/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Maintenance Records</a></li>
-                        <li><a href="/bookings/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Bookings</a></li>
-                        <li><a href="/services/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Services</a></li>
+                        <li><a href="/cars/" class="cars-submenu-link">Cars</a></li>
+                        <li><a href="/maintenance/" class="cars-submenu-link">Maintenance Records</a></li>
+                        <li><a href="/bookings/" class="cars-submenu-link">Bookings</a></li>
+                        <li><a href="/inventory/" class="cars-submenu-link">Services</a></li>
                     </ul>
                 </li>
                 <li id="invoices-section" style="position:relative;cursor:pointer;">
                     <i class="fa fa-file-invoice-dollar"></i>Invoices & Payments
                     <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
                     <ul id="invoices-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/invoices/payments/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Payments</a></li>
-                        <li><a href="/invoices/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Invoices</a></li>
-                        <li><a href="/invoices/print/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Print Invoice</a></li>
-                        <li><a href="/invoices/account-statement/" style="color:#f6c23e;display:block;padding:8px 0 8px 10px;font-size:0.95em;">Account Statement</a></li>
+                            <li><a href="/invoices/payments/" class="invoices-submenu-link">Payments</a></li>
+                            <li><a href="/invoices/" class="invoices-submenu-link">Invoices</a></li>
+                            <li><a href="/invoices/print/" class="invoices-submenu-link">Print Invoice</a></li>
+                            <li><a href="/invoices/account-statement/" class="invoices-submenu-link">Account Statement</a></li>
                     </ul>
                 </li>
                 <li><i class="fa fa-chart-bar"></i>Financial Management</li>
@@ -355,6 +362,9 @@
                     var submenu = document.getElementById(item.submenu);
                     if(section && submenu) {
                         section.onclick = function(e) {
+                            var clickedLi = e.target && e.target.closest ? e.target.closest('li') : null;
+                            if (!clickedLi || clickedLi.id !== item.section) return;
+                            if (e.target && e.target.closest && e.target.closest('a')) return;
                             e.stopPropagation();
                             closeAllSubmenus();
                             submenu.style.display = (submenu.style.display === 'block') ? 'none' : 'block';

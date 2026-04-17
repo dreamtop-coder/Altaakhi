@@ -51,7 +51,7 @@
                 <td style="padding:8px 6px;text-align:center;">
                     <div style="display:flex;gap:7px;justify-content:center;align-items:center;">
                         <a href="{% url 'services_edit' service.id %}" style="background:#ffc107;color:#222;padding:5px 12px;border-radius:5px;font-size:0.95em;text-decoration:none;display:inline-block;">تعديل</a>
-                        <a href="{% url 'services_delete' service.id %}" style="background:#dc3545;color:#fff;padding:5px 12px;border-radius:5px;font-size:0.95em;text-decoration:none;display:inline-block;" onclick="return confirm('تأكيد الحذف؟');">حذف</a>
+                        <a href="{% url 'services_delete' service.id %}" style="background:#dc3545;color:#fff;padding:5px 12px;border-radius:5px;font-size:0.95em;text-decoration:none;display:inline-block;" onclick="return confirm('Confirm deletion?');">Delete</a>
                     </div>
                 </td>
             </tr>

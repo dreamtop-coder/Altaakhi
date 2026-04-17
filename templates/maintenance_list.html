@@ -1,33 +1,33 @@
 <style>
-/* تخصيص الهيدر لهذه الصفحة فقط */
+./* تخصيص الهيدر لهذه الصفحة فقط */
 .topbar {
     width: 100% !important;
     margin-right: 0 !important;
     margin-left: 0 !important;
-    direction: rtl !important;
+    direction: ltr !important;
     border-radius: 0 0 18px 18px !important;
     box-shadow: 0 2px 8px #e0e0e0 !important;
 }
 .topbar .workshop-logo {
-    font-size: 1.1em !important;
-    gap: 6px !important;
+    font-size: 1.5em !important;
+    gap: 10px !important;
 }
 .topbar .workshop-logo img {
-    height: 30px !important;
-    width: 30px !important;
+    height: 38px !important;
+    width: 38px !important;
 }
 .topbar .user-info {
-    gap: 10px !important;
-    font-size: 0.98em !important;
+    gap: 18px !important;
+    font-size: 1.1em !important;
 }
 .topbar .user-info .icon-btn {
-    width: 30px !important;
-    height: 30px !important;
-    font-size: 1em !important;
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 1.2em !important;
 }
 .topbar .user-info .admin-name {
-    font-size: 0.98em !important;
-    margin-left: 4px !important;
+    font-size: 1.1em !important;
+    margin-left: 8px !important;
 }
 </style>
 {% extends 'base.html' %}
@@ -66,21 +66,14 @@
 </style>
 <div style="max-width:none; width:100%; padding:18px 0 22px 0; direction:rtl; overflow-x:hidden;">
     <div style="background:transparent;padding:28px 0 22px 0;border-radius:0;box-shadow:none;direction:rtl;display:flex;flex-direction:column;align-items:stretch;width:100%;margin:0;">
-    <div class="maintenance-header-mobile-center" style="display:flex;justify-content:center;align-items:center;gap:24px;margin-bottom:20px;width:100%;">
-        <span style="font-size:22px;font-weight:bold;color:#333;">Maintenance Records</span>
-        <a href="{% url 'cars:add_maintenance_record' %}" class="maintenance-add-btn-desktop" style="background:#1976d2;color:#fff;padding:10px 24px;border:none;border-radius:8px;font-weight:bold;font-size:15px;text-decoration:none;">+ Add Maintenance Record</a>
+    <div class="maintenance-header-mobile-center" style="display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;gap:12px;margin-bottom:20px;width:100%;direction:ltr;text-align:left;">
+        <span style="font-size:22px;font-weight:bold;color:#333;display:block;text-align:left;">Maintenance Records</span>
+        <!-- فلاتر البحث -->
+        <form class="search-filters-desktop" method="get" style="width:100%;max-width:520px;margin:0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:flex-start;">
+            <input type="text" name="plate_number" placeholder="Search by Plate Number" value="{{ plate_number|default:'' }}" style="padding:6px 12px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
+            <button type="submit" style="padding:6px 24px;background:#1976d2;color:#fff;border:none;border-radius:6px;font-weight:bold;">Search</button>
+        </form>
     </div>
-    <div class="maintenance-add-btn-mobile" style="display:none;">
-        <a href="{% url 'cars:add_maintenance_record' %}" style="background:#1976d2;color:#fff;padding:14px 32px;border:none;border-radius:10px;font-weight:bold;font-size:18px;text-decoration:none;">+ Add Maintenance Record</a>
-    </div>
-    <!-- فلاتر البحث -->
-    <form class="search-filters-desktop" method="get" style="width:95%;max-width:500px;margin:0 auto 18px auto;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;">
-        <input type="text" name="plate_number" placeholder="Search by Plate Number" value="{{ plate_number|default:'' }}" style="padding:6px 12px;border-radius:6px;border:1px solid #ccc;min-width:120px;">
-        <button type="submit" style="padding:6px 24px;background:#1976d2;color:#fff;border:none;border-radius:6px;font-weight:bold;">Search</button>
-        <span style="margin-right:auto;display:flex;align-items:center;gap:8px;">
-            <img src="/static/car-repair.png" alt="Car" style="width:28px;height:28px;vertical-align:middle;">
-        </span>
-    </form>
     <div class="table-wrapper" style="width:100%;">
         <div id="maintenance-bulk-toolbar" style="display:none; position:relative; margin-bottom:8px; background:#fff; padding:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06); justify-content:space-between; align-items:center; gap:12px; width:100%; direction:ltr;">
             <div style="display:flex;align-items:center;gap:12px;"><span id="maintenance-selected-count">0 Selected</span>
@@ -127,14 +120,20 @@
                 {% for record in records %}
                     <tr data-record-id="{{ record.id }}" data-invoice-id="{% if record.invoice %}{{ record.invoice.id }}{% endif %}">
                         <td style="text-align:center;padding:8px;border:1px solid #eee;"><input class="maintenance-row-checkbox" type="checkbox" data-id="{{ record.id }}" data-invoice-id="{% if record.invoice %}{{ record.invoice.id }}{% endif %}"></td>
-                        <td style="font-weight:bold;">{% if record.invoice %}{{ record.invoice.invoice_number }}{% else %}-{% endif %}</td>
-                        <td style="font-weight:bold;">{{ record.car.plate_number }}</td>
-                        <td style="color:#111;font-weight:bold;">{{ record.car.client.first_name }}{% if record.car.client.last_name %} {{ record.car.client.last_name }}{% endif %}</td>
+                        <td>
+                            {% if record.invoice %}
+                                <a href="{% url 'cars:edit_maintenance_record' record.id %}" style="color:inherit;text-decoration:none;">{{ record.invoice.invoice_number }}</a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ record.car.plate_number }}</td>
+                        <td style="color:#111;">{{ record.car.client.first_name }}{% if record.car.client.last_name %} {{ record.car.client.last_name }}{% endif %}</td>
                         <td>{{ record.service.name }}</td>
-                        <td>{{ record.price }}</td>
-                        <td>{{ record.created_at|date:'Y-m-d' }}</td>
+                        <td>{{ record.price|floatformat:3 }}</td>
+                        <td>{% if record.invoice and record.invoice.created_at %}{{ record.invoice.created_at|date:'Y-m-d' }}{% else %}{{ record.created_at|date:'Y-m-d' }}{% endif %}</td>
                         <td>{% if record.delivery_date %}{{ record.delivery_date|date:'Y-m-d H:i' }}{% else %}-{% endif %}</td>
-                        <td>{{ record.get_status }}</td>
+                        <td>{{ record.get_status_en }}</td>
                         <!-- notes cell removed -->
                         
                     </tr>

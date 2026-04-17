@@ -11,26 +11,32 @@ def revenue_monthly_ajax(request):
     """
     from invoices.models import Payment
     from django.db.models.functions import TruncMonth
-    from datetime import datetime
+    from django.db.models import Sum
+    from datetime import datetime, timedelta
     from calendar import monthrange
+    from django.utils import timezone
     from_str = request.GET.get('from')
     to_str = request.GET.get('to')
     try:
-        from_date = datetime.strptime(from_str, '%Y-%m')
-        to_date = datetime.strptime(to_str, '%Y-%m')
+        from_naive = datetime.strptime(from_str, '%Y-%m')
+        to_naive = datetime.strptime(to_str, '%Y-%m')
     except Exception:
         return JsonResponse({'error': 'Invalid date format'}, status=400)
-    # بناء قائمة الأشهر بين from_date و to_date
+    # بناء قائمة الأشهر بين from_date و to_date (منسقة كسلاسل 'YYYY-MM')
     months = []
-    cur = from_date
-    while cur <= to_date:
+    cur = from_naive
+    while cur <= to_naive:
         months.append(cur.strftime('%Y-%m'))
-        # الانتقال للشهر التالي
         year = cur.year + (cur.month // 12)
         month = (cur.month % 12) + 1
         cur = cur.replace(year=year, month=month, day=1)
+    # حول التواريخ إلى كائنات timezone-aware قبل استخدامهما في الاستعلام
+    tz = timezone.get_current_timezone()
+    from_date = timezone.make_aware(from_naive.replace(day=1, hour=0, minute=0, second=0, microsecond=0), tz)
+    last_day = monthrange(to_naive.year, to_naive.month)[1]
+    to_date = timezone.make_aware(to_naive.replace(day=last_day, hour=23, minute=59, second=59, microsecond=999999), tz)
     # جلب المدفوعات
-    qs = Payment.objects.filter(status='paid', payment_date__gte=from_date, payment_date__lte=to_date.replace(day=monthrange(to_date.year, to_date.month)[1]))
+    qs = Payment.objects.filter(status='paid', payment_date__gte=from_date, payment_date__lte=to_date)
     qs = qs.annotate(month=TruncMonth('payment_date')).values('month').annotate(total=Sum('amount')).order_by('month')
     monthly_revenue = {m: 0 for m in months}
     for row in qs:
@@ -79,6 +85,7 @@ from cars.models import Car
 from clients.models import Client
 from services.models import Service
 from invoices.models import Payment, Invoice
+from inventory.models import Part
 from django.utils import timezone
 from django.db.models import Q, Sum
 
@@ -89,7 +96,11 @@ def dashboard_summary(request):
     from invoices.models import Payment
     clients_count = Client.objects.count()
     cars_count = Car.objects.count()
-    services_count = Service.objects.count()
+    # Show only inventory parts total on the dashboard card (Parts count)
+    try:
+        services_count = Part.objects.count()
+    except Exception:
+        services_count = Service.objects.count()
     invoices_count = Invoice.objects.count()
     total_revenue = Payment.objects.filter(status='paid').aggregate(total=Sum('amount'))['total'] or 0
 

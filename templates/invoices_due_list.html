@@ -2,7 +2,7 @@
 {% load static %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/components.css' %}">
-<h2>الفواتير المستحقة الدفع</h2>
+<h2>Due Invoices</h2>
 <table class="responsive-table clients-table" style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;">
     <thead>
         <tr style="background:#e9ecef;color:#444;font-weight:bold;">
@@ -23,7 +23,7 @@
             <td>{{ invoice.created_at|date:'Y-m-d' }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" style="text-align:center;">لا توجد فواتير مستحقة حالياً.</td></tr>
+        <tr><td colspan="5" style="text-align:center;">No due invoices currently.</td></tr>
         {% endfor %}
     </tbody>
 </table>

@@ -19,11 +19,7 @@
         <span class="label">{% trans "New" %}</span>
     </a>
 </div>
-<style>
-    .add-supplier-pill { display:inline-flex; align-items:center; gap:10px; padding:8px 14px; background: linear-gradient(180deg,#4a7df5,#1976d2); color:#fff; border-radius:10px; text-decoration:none; font-weight:600; box-shadow:0 2px 6px rgba(0,0,0,0.12); }
-    .add-supplier-pill .icon { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; font-size:18px; }
-    .add-supplier-pill .label { font-size:14px; }
-</style>
+    <!-- Using shared .add-supplier-pill from static/css/components.css -->
 
 <div class="responsive-table-wrapper suppliers-table-mobile-conditional">
     <style>
@@ -79,7 +75,7 @@
                         <td style="padding:10px 0 10px 0;text-align:center;">{{ s.phone|default:'-' }}</td>
                         <td style="padding:10px 0 10px 0;">{{ s.email|default:'-' }}</td>
                         <td style="padding:10px 0 10px 0;">{{ s.address|default:'-' }}</td>
-                        <td class="amount" style="padding:10px 0 10px 0;">{{ s.amount|floatformat:2 }}</td>
+                        <td class="amount" style="padding:10px 0 10px 0;">{{ s.amount|floatformat:3 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -194,6 +190,59 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     });
 });
+</script>
+
+<script>
+// Fallback per-page dropdown initializer (robust toggle if main script didn't run)
+(function(){
+    function initFallback(){
+        try{
+            var btn = document.getElementById('perPageBtn') || document.querySelector('.per-page-dropdown button');
+            var menu = document.getElementById('perPageMenu') || (btn && btn.parentElement? btn.parentElement.querySelector('ul'):null);
+            if(!btn || !menu) return;
+            var originalParent = menu.parentElement, appended=false;
+            if(menu.children.length===0){ /* leave server-rendered options as-is */ }
+            btn.addEventListener('click', function(e){ e.stopPropagation(); if(menu.style.display==='block'){ menu.style.display='none'; btn.setAttribute('aria-expanded','false'); if(appended){ originalParent.appendChild(menu); appended=false; } } else { if(!appended){ document.body.appendChild(menu); appended=true; } menu.style.display='block'; menu.style.position='fixed'; var r=btn.getBoundingClientRect(); menu.style.left = Math.max(8,Math.round(r.left))+'px'; menu.style.top = Math.round(r.bottom+6)+'px'; btn.setAttribute('aria-expanded','true'); } });
+            menu.addEventListener('click', function(e){ var li = e.target.closest && e.target.closest('li[role="option"]'); if(!li) return; var val = li.dataset.value; var params = new URLSearchParams(window.location.search); if(val==='all') params.set('per_page','all'); else params.set('per_page', val); params.set('page','1'); window.location.search = params.toString(); });
+            document.addEventListener('click', function(){ if(menu.style.display==='block'){ menu.style.display='none'; if(appended){ originalParent.appendChild(menu); appended=false; } btn.setAttribute('aria-expanded','false'); } });
+        }catch(e){ console.error('suppliers per-page fallback failed', e); }
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', initFallback); else initFallback();
+})();
+</script>
+
+<script>
+// Last-resort fallback: create a temporary popup menu if the per-page menu is missing/empty
+(function(){
+    function makeTempMenu(btn){
+        var opts = ['25','50','100','all'];
+        var popup = document.createElement('div');
+        popup.style.position = 'fixed'; popup.style.zIndex = 3000; popup.style.background = '#fff'; popup.style.border = '1px solid #ddd'; popup.style.borderRadius = '8px'; popup.style.boxShadow = '0 6px 24px rgba(15,22,39,0.08)'; popup.style.padding = '6px';
+        opts.forEach(function(v){ var li = document.createElement('div'); li.style.padding='8px 12px'; li.style.cursor='pointer'; li.textContent = (v==='all')? 'All' : (v+' per page'); li.dataset.value = v; li.addEventListener('click', function(){ var params = new URLSearchParams(window.location.search); if(v==='all') params.set('per_page','all'); else params.set('per_page', v); params.set('page','1'); window.location.search = params.toString(); }); popup.appendChild(li); });
+        document.body.appendChild(popup);
+        var r = btn.getBoundingClientRect(); popup.style.left = Math.max(8, Math.round(r.left)) + 'px'; popup.style.top = Math.round(r.bottom + 6) + 'px';
+        function remove(){ if(popup && popup.parentElement) popup.parentElement.removeChild(popup); document.removeEventListener('click', outside); }
+        function outside(e){ if(!popup.contains(e.target) && e.target!==btn) remove(); }
+        setTimeout(function(){ document.addEventListener('click', outside); }, 10);
+        return popup;
+    }
+    function init(){
+        try{
+            var btn = document.getElementById('perPageBtn') || document.querySelector('.per-page-dropdown button') || document.querySelector('#perPageBtn');
+            if(!btn) return;
+            btn.addEventListener('click', function(e){
+                try{
+                    e.stopPropagation();
+                    var menu = document.getElementById('perPageMenu') || (btn.parentElement? btn.parentElement.querySelector('ul'): null);
+                    if(menu && menu.children.length>0){ menu.style.display = menu.style.display==='block' ? 'none' : 'block'; return; }
+                    // otherwise create a temp popup
+                    makeTempMenu(btn);
+                }catch(err){ console.error('per-page last-resort click failed', err); }
+            });
+        }catch(e){ console.error('per-page last-resort init failed', e); }
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
 </script>
 
 <script>

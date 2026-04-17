@@ -15,11 +15,11 @@
           <div class="plate-number" style="font-weight:bold;font-size:1.05em;direction:ltr;margin-bottom:4px;">{{ car.plate_number }}</div>
           <div class="client-name" style="color:#555;font-size:0.95em;margin-bottom:6px;text-align:center;">{% if car.client %}{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}{% else %}-{% endif %}</div>
           <div style="color:#007bff;font-size:0.9em;margin-bottom:6px;">{{ car.derived_status|default:car.status }}</div>
-          <div style="font-size:0.85em;color:#666;">مدة العمل: {% if car.work_days %}{{ car.work_days }} أيام{% else %}-{% endif %}</div>
+          <div style="font-size:0.85em;color:#666;">Work duration: {% if car.work_days %}{% if car.work_days == 1 %}1 day{% elif car.work_days == 2 %}2 days{% else %}{{ car.work_days }} days{% endif %}{% else %}-{% endif %}</div>
         </div>
       </a>
     </div>
   {% empty %}
-    <div style="padding:20px;text-align:center;color:#666;">لا توجد سيارات.</div>
+    <div style="padding:20px;text-align:center;color:#666;">No cars.</div>
   {% endfor %}
 </div>

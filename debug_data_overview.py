@@ -8,22 +8,22 @@ from clients.models import Client
 from invoices.models import Invoice
 from cars.maintenance_models import MaintenanceRecord
 
-print('--- السيارات ---')
+print('--- Cars ---')
 for car in Car.objects.all():
-    print(f'ID: {car.id}, اللوحة: {car.plate_number}, العميل: {car.client_id}')
+    print(f'ID: {car.id}, plate: {car.plate_number}, client_id: {car.client_id}')
 
-print('\n--- العملاء ---')
+print('\n--- Clients ---')
 for client in Client.objects.all():
-    print(f'ID: {client.id}, الاسم: {client.first_name} {client.last_name}')
+    print(f'ID: {client.id}, name: {client.first_name} {client.last_name}')
 
-print('\n--- الخدمات ---')
+print('\n--- Services ---')
 for service in Service.objects.all():
-    print(f'ID: {service.id}, الاسم: {service.name}')
+    print(f'ID: {service.id}, name: {service.name}')
 
-print('\n--- الفواتير ---')
+print('\n--- Invoices ---')
 for invoice in Invoice.objects.all():
-    print(f'ID: {invoice.id}, رقم الفاتورة: {invoice.invoice_number}, السيارة: {invoice.car_id}, العميل: {invoice.client_id}')
+    print(f'ID: {invoice.id}, invoice_number: {invoice.invoice_number}, car_id: {invoice.car_id}, client_id: {invoice.client_id}')
 
-print('\n--- سجلات الصيانة ---')
+print('\n--- Maintenance Records ---')
 for rec in MaintenanceRecord.objects.all():
-    print(f'ID: {rec.id}, السيارة: {rec.car_id}, الخدمة: {rec.service_id}, الفاتورة: {rec.invoice_id}')
+    print(f'ID: {rec.id}, car_id: {rec.car_id}, service_id: {rec.service_id}, invoice_id: {rec.invoice_id}')

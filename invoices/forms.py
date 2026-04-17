@@ -40,4 +40,32 @@ class ExpenseForm(forms.ModelForm):
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'note': forms.Textarea(attrs={'rows': 3}),
+            'amount': forms.NumberInput(attrs={'step': '0.001', 'inputmode': 'decimal'}),
+        }
+
+
+class RecurringExpenseForm(forms.ModelForm):
+    class Meta:
+        from .models import RecurringExpense
+        model = RecurringExpense
+        fields = ['name', 'amount', 'category', 'frequency', 'interval', 'start_date', 'next_date', 'end_date', 'active', 'note', 'reminder_only', 'is_flexible', 'auto_create', 'payee', 'payee_recipient', 'payee_month']
+        widgets = {
+            'start_date': forms.DateInput(attrs={'type': 'date'}),
+            'next_date': forms.DateInput(attrs={'type': 'date'}),
+            'end_date': forms.DateInput(attrs={'type': 'date'}),
+            'note': forms.Textarea(attrs={'rows': 3}),
+            'payee': forms.TextInput(),
+            'payee_recipient': forms.TextInput(),
+            'payee_month': forms.TextInput(),
+        }
+
+
+class CompleteExpenseForm(forms.ModelForm):
+    class Meta:
+        from .models import Expense
+        model = Expense
+        fields = ['amount', 'payee', 'note']
+        widgets = {
+            'note': forms.Textarea(attrs={'rows': 3}),
+            'amount': forms.NumberInput(attrs={'step': '0.001', 'inputmode': 'decimal'}),
         }

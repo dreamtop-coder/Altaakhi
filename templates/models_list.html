@@ -16,8 +16,8 @@
             <td>{{ model.brand.name }}</td>
             <td>{{ model.name }}</td>
             <td>
-                <a href="{% url 'edit_model' model.id %}">تعديل</a> |
-                <a href="{% url 'delete_model' model.id %}" onclick="return confirm('تأكيد الحذف؟');">حذف</a>
+                <a href="{% url 'edit_model' model.id %}">Edit</a> |
+                <a href="{% url 'delete_model' model.id %}" onclick="return confirm('Confirm deletion?');">Delete</a>
             </td>
         </tr>
         {% endfor %}

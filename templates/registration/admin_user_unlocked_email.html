@@ -1,0 +1,12 @@
+<html>
+<body>
+  <p>Administrator,</p>
+  <p>The account <strong>{{ target_user.get_full_name|default:target_user.username }}</strong> (username: <code>{{ target_user.username }}</code>) was unlocked by <strong>{{ actor.get_full_name|default:actor.username }}</strong> at {{ time }}.</p>
+  <p>Previous failed login attempts: <strong>{{ prev_failed }}</strong></p>
+  {% if prev_locked %}
+    <p>Previously locked until: <strong>{{ prev_locked }}</strong></p>
+  {% endif %}
+  <p>Audit logs are available in the admin panel.</p>
+  <p>Regards,<br/>Altaakhi Workshop</p>
+</body>
+</html>

@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:1100px;margin:0;padding:20px;direction:ltr;">
+  <h2 style="text-align:left;color:#1976d2;margin-bottom:12px;">User Management</h2>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap;">
+    <form method="get" style="display:flex;gap:8px;align-items:center;">
+      <input name="q" placeholder="Search username/email/name" value="{{ q }}" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+      <select name="group" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+        <option value="">All groups</option>
+        {% for g in groups %}
+          <option value="{{ g.pk }}" {% if selected_group == g.pk|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="status" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+        <option value="">All</option>
+        <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+      </select>
+      <select name="locked" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+        <option value="" {% if not locked %}selected{% endif %}>Any lock</option>
+        <option value="locked" {% if locked == 'locked' %}selected{% endif %}>Locked</option>
+        <option value="unlocked" {% if locked == 'unlocked' %}selected{% endif %}>Unlocked</option>
+      </select>
+      <select name="per_page" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+        <option value="10" {% if per_page == 10 %}selected{% endif %}>10 / page</option>
+        <option value="25" {% if per_page == 25 %}selected{% endif %}>25 / page</option>
+      </select>
+      <button type="submit" style="background:#1976d2;color:#fff;padding:8px 14px;border-radius:6px;border:none;font-weight:700;">Apply</button>
+    </form>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="{% url 'users_create' %}" style="background:#fff;border:1px solid #1976d2;color:#1976d2;padding:8px 12px;border-radius:6px;text-decoration:none;">Create User</a>
+      <a href="{% url 'users_audit_logs' %}" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;">Audit Logs</a>
+    </div>
+  </div>
+
+  <div style="border:1px solid #eee;padding:10px;border-radius:6px;">
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f6f9ff;color:#1a237e;text-align:left;">
+          <th style="padding:8px">Username</th>
+          <th style="padding:8px">Name</th>
+          <th style="padding:8px">Email</th>
+          <th style="padding:8px">Failed Logins</th>
+          <th style="padding:8px">Locked Until</th>
+          <th style="padding:8px">Role</th>
+          <th style="padding:8px">Groups</th>
+          <th style="padding:8px">Staff</th>
+          <th style="padding:8px">Active</th>
+          <th style="padding:8px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr {% if u.locked_until and u.locked_until > now %}style="background:#fff0f0;"{% endif %}>
+          <td style="padding:8px">{{ u.username }}</td>
+          <td style="padding:8px">{{ u.get_full_name }}</td>
+          <td style="padding:8px">{{ u.email }}</td>
+          <td class="failed-count" style="padding:8px">{{ u.failed_login_attempts|default:0 }}</td>
+          <td class="locked-until" style="padding:8px">{% if u.locked_until %}{{ u.locked_until|date:"Y-m-d H:i" }}{% else %}-{% endif %}</td>
+          <td style="padding:8px">{{ u.role }}</td>
+          <td style="padding:8px">
+            {% for g in u.groups.all %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% empty %}-{% endfor %}
+          </td>
+          <td style="padding:8px">{% if u.is_staff %}Yes{% else %}No{% endif %}</td>
+          <td style="padding:8px">{% if u.is_active %}<span style="color:#127a3b;font-weight:700;">Active</span>{% else %}<span style="color:#c00;font-weight:700;">Inactive</span>{% endif %}</td>
+          <td style="padding:8px">
+            <a href="{% url 'users_edit' u.pk %}" style="margin-right:8px;">Edit</a>
+            <a href="{% url 'users_toggle' u.pk %}" style="margin-right:8px;">{% if u.is_active %}Disable{% else %}Enable{% endif %}</a>
+            {% if u.locked_until and u.locked_until > now %}
+              <form method="post" action="{% url 'users_unlock' u.pk %}" style="display:inline;margin:0;padding:0;" class="ajax-unlock-form">
+                {% csrf_token %}
+                <button type="submit" data-user-id="{{ u.pk }}" onclick="return confirm('Unlock this user now?');" style="background:none;border:none;color:#d32f2f;cursor:pointer;padding:0;margin-left:8px;">Unlock</button>
+              </form>
+            {% endif %}
+            <form method="post" action="{% url 'users_reset_password' u.pk %}" style="display:inline;margin:0;padding:0;">
+              {% csrf_token %}
+              <button type="submit" onclick="return confirm('Are you sure you want to reset this user\'s password?');" style="background:none;border:none;color:#1976d2;cursor:pointer;padding:0;">Reset Password</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" style="padding:12px;color:#666;">No users found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <!-- Pagination -->
+  {% if users.has_other_pages %}
+  <div style="margin-top:10px;display:flex;justify-content:center;gap:8px;align-items:center;">
+    {% if users.has_previous %}
+      <a href="?{% if base_qs %}{{ base_qs }}&{% endif %}page={{ users.previous_page_number }}" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;text-decoration:none;">Previous</a>
+    {% else %}
+      <span style="padding:6px 10px;color:#999;border:1px solid #f0f0f0;border-radius:6px;">Previous</span>
+    {% endif %}
+
+    {% for num in users.paginator.page_range %}
+      {% if users.number == num %}
+        <strong style="padding:6px 10px;background:#1976d2;color:#fff;border-radius:6px;">{{ num }}</strong>
+      {% else %}
+        <a href="?{% if base_qs %}{{ base_qs }}&{% endif %}page={{ num }}" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;text-decoration:none;">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+
+    {% if users.has_next %}
+      <a href="?{% if base_qs %}{{ base_qs }}&{% endif %}page={{ users.next_page_number }}" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;text-decoration:none;">Next</a>
+    {% else %}
+      <span style="padding:6px 10px;color:#999;border:1px solid #f0f0f0;border-radius:6px;">Next</span>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  // helper to read CSRF token cookie for safe fetch POSTs
+  function getCookie(name){
+    var v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return v ? v.pop() : '';
+  }
+  var CSRF_TOKEN = getCookie('csrftoken');
+  // Intercept Reset Password form submissions and use fetch to surface errors
+  document.querySelectorAll('form[action*="/admin/users/"] button[type="submit"]').forEach(function(btn){
+    var form = btn.closest('form');
+    if(!form) return;
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      try{
+        if(!confirm("Are you sure you want to reset this user's password?")) return;
+      }catch(ex){ }
+
+      var isUnlock = form.classList.contains('ajax-unlock-form');
+      var row, failedCell, lockedCell, originalButtonHTML, placeholder;
+      if(isUnlock){
+        // optimistic: remove/replace the Unlock button immediately and capture previous state
+        row = btn.closest('tr');
+        if(row){
+          failedCell = row.querySelector('.failed-count');
+          lockedCell = row.querySelector('.locked-until');
+          if(failedCell) failedCell.setAttribute('data-prev', failedCell.textContent);
+          if(lockedCell) lockedCell.setAttribute('data-prev', lockedCell.textContent);
+        }
+        // store original button markup to restore on failure
+        originalButtonHTML = btn.outerHTML;
+        // replace button with lightweight placeholder
+        placeholder = document.createElement('span');
+        placeholder.className = 'unlock-placeholder';
+        placeholder.style.color = '#999';
+        placeholder.style.marginLeft = '8px';
+        placeholder.textContent = 'Unlocking...';
+        try{ btn.replaceWith(placeholder); }catch(e){}
+      }else{
+        btn.disabled = true;
+        var originalText = btn.textContent;
+        btn.textContent = 'Working...';
+      }
+
+      var fd = new FormData(form);
+      fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': CSRF_TOKEN },
+        body: fd,
+        credentials: 'same-origin'
+      }).then(function(resp){
+        if(resp.headers.get('content-type') && resp.headers.get('content-type').indexOf('application/json') !== -1){
+          return resp.json().then(function(data){
+            if(window.createToast) window.createToast(data.message || 'Done', data.status === 'ok' ? 'success' : 'error'); else alert(data.message || 'Done');
+            // update UI without full reload
+            if(!isUnlock){
+              btn.disabled = false; btn.textContent = originalText;
+            } else {
+              // On success: update failed/locked UI and animate row
+              try{
+                if(row){
+                  if(failedCell) failedCell.textContent = '0';
+                  if(lockedCell) lockedCell.textContent = '-';
+                  row.classList.remove('row-unlocked'); void row.offsetWidth; row.classList.add('row-unlocked');
+                }
+                // ensure placeholder remains removed (no-op if already removed)
+                if(placeholder && placeholder.parentNode) placeholder.remove();
+              }catch(e){ console.error(e); }
+            }
+          });
+        }
+        if(resp.redirected){ window.location = resp.url; return; }
+        if(resp.status === 200 || resp.status === 302){ window.location.reload(); return; }
+        return resp.text().then(function(txt){ throw new Error('Status ' + resp.status + ': ' + txt); });
+      }).catch(function(err){
+        console.error('Request failed', err);
+        if(isUnlock){
+          // rollback UI: restore original button and previous cell values
+          try{
+            if(placeholder && placeholder.parentNode){
+              var temp = document.createElement('div'); temp.innerHTML = originalButtonHTML;
+              var restored = temp.firstElementChild;
+              placeholder.replaceWith(restored);
+            } else if(form && form.querySelector('button[type="submit"]')==null){
+              // edge: re-insert original HTML into form
+              var t = document.createElement('div'); t.innerHTML = originalButtonHTML; form.appendChild(t.firstElementChild);
+            }
+            if(row){
+              if(failedCell) failedCell.textContent = failedCell.getAttribute('data-prev') || failedCell.textContent || '0';
+              if(lockedCell) lockedCell.textContent = lockedCell.getAttribute('data-prev') || lockedCell.textContent || '-';
+            }
+          }catch(e){ console.error('Rollback failed', e); }
+          if(window.createToast) window.createToast('Unlock failed — action rolled back', 'error'); else alert('Unlock failed — action rolled back');
+        } else {
+          alert('Action failed. See console for details.');
+          btn.disabled = false; btn.textContent = originalText;
+        }
+      });
+    });
+  });
+});
+</script>

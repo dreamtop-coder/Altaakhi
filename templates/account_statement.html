@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="max-width:900px;margin:auto;background:#fff;padding:32px 28px 22px 28px;border-radius:10px;box-shadow:0 2px 8px #eee;direction:ltr;">
-    <h2 style="text-align:center;color:#1976d2;margin-bottom:18px;">Client Account Statement</h2>
-    <form method="get" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;">
+<div style="max-width:900px;margin:0;padding:32px 28px 22px 28px;direction:ltr;">
+    <h2 style="text-align:left;color:#1976d2;margin-bottom:18px;">Client Account Statement</h2>
+    <form method="get" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:flex-start;flex-wrap:wrap;">
         <input type="text" name="q" placeholder="Search by name, phone or client ID" value="{{ query }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
         <input type="date" name="from_date" value="{{ from_date|default:'' }}" style="padding:7px 10px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
         <input type="date" name="to_date" value="{{ to_date|default:'' }}" style="padding:7px 10px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
@@ -15,9 +15,9 @@
         <b>Client ID:</b> {{ client.customer_id }}<br>
         <b>Address:</b> {{ client.address|default:'-' }}
     </div>
-    <h3 style="color:#1976d2;margin-bottom:8px;text-align:center;">Invoices</h3>
-    <div style="display:flex;justify-content:center;">
-    <table style="width:80%;background:#fff;border-radius:6px;border:1px solid #e0e0e0;margin-bottom:18px;">
+    <h3 style="color:#1976d2;margin-bottom:8px;text-align:left;">Invoices</h3>
+    <div style="display:block;">
+    <table style="width:100%;border:1px solid #e0e0e0;margin-bottom:18px;">
         <thead>
             <tr style="background:#e3eafc;color:#1a237e;">
                 <th style="padding:8px 10px;">Invoice #</th>
@@ -40,7 +40,7 @@
         </tbody>
     </table>
     </div>
-        <div style="text-align:center;margin-top:24px;">
+        <div style="text-align:left;margin-top:24px;">
             <a id="print-statement-btn" href="{% url 'account_statement_print' %}?q={{ query }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}" target="_blank" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;text-decoration:none;">Print Statement</a>
         </div>
         <script>
@@ -65,9 +65,9 @@
     {% else %}
         {% if query %}
             {% if not from_date or not to_date %}
-                <div style="color:#c00;text-align:center;">Please enter both start and end dates.</div>
+                <div style="color:#c00;text-align:left;">Please enter both start and end dates.</div>
             {% else %}
-                <div style="color:#c00;text-align:center;">No matching client found.</div>
+                <div style="color:#c00;text-align:left;">No matching client found.</div>
             {% endif %}
         {% endif %}
     {% endif %}

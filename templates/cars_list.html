@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load custom_filters %}
 {% block content %}
 <style>
 .cars-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:15px; background:transparent; border-radius:0; overflow:visible; margin:0; }
@@ -31,9 +32,28 @@
 }
 .cars-action-btn { padding:8px 14px; border-radius:6px; color:#fff; text-decoration:none; display:inline-block; }
 .add-part-pill { display:inline-flex; align-items:center; gap:10px; padding:8px 14px; background: linear-gradient(180deg,#4a7df5,#1976d2); color:#fff; border-radius:10px; text-decoration:none; font-weight:600; box-shadow:0 2px 6px rgba(0,0,0,0.12);} 
-.mobile-card { background:#fff; border-radius:10px; box-shadow:0 1px 4px #eee; margin-bottom:14px; padding:14px 16px; direction:rtl; }
+ .mobile-card { background:#fff; border-radius:10px; box-shadow:0 1px 4px #eee; margin-bottom:14px; padding:14px 16px; direction:ltr; }
+ .mobile-row { display:flex; justify-content:space-between; gap:12px; padding:6px 0; align-items:center; }
+ .mobile-label { color:#666; font-weight:600; flex:0 0 auto; }
+ .mobile-value { text-align:left; flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media (max-width:700px){ .desktop-table{display:none;} .mobile-cards{display:block;} }
 @media (min-width:701px){ .desktop-table{display:table;} .mobile-cards{display:none;} }
+/* Mobile: keep pagination visible fixed to bottom and add page content bottom padding */
+@media (max-width:700px){
+    .mobile-pagination-fixed { position:fixed; left:0; right:0; bottom:0; background:#fff; box-shadow:0 -6px 18px rgba(0,0,0,0.08); padding:8px 12px; z-index:1400; display:flex; justify-content:center; }
+    .cars-page-content { padding-bottom:76px !important; }
+    .mobile-pagination-fixed .per-page-align { width:100%; max-width:720px; margin:0 auto; justify-content:space-between !important; }
+     /* On mobile keep the cars page header sticky under the topbar so it stays
+        visible while scrolling, and ensure content starts below it to avoid overlap. */
+    /* hide the inline search on small screens (use header search instead) */
+    .cars-search-row { display:none !important; }
+    /* hide the duplicate in-content title on small screens to avoid showing twice */
+    .cars-page-title { display:none; }
+      #cars-header-bar { position: sticky !important; top: 60px !important; left: 0; right: 0; z-index:1405; margin:0; border-bottom:1px solid #e6e6e6; background:#f4f6fa; }
+     /* Reduce reserved top spacing so cards sit closer to the Cars header on small screens.
+         topbar ~60px, cars header ~56px — keep header sticky but reduce extra gap. */
+     .cars-page-content { padding-top: 8px !important; }
+}
 </style>
 
 <style>
@@ -57,10 +77,9 @@
     <div style="display:flex; align-items:center; gap:12px;"><h2 style="margin:0; font-size:1.2em; font-weight:700; color:#222;">Cars List</h2></div>
     <a href="/maintenance/add/" class="add-part-pill" title="Add Maintenance"><span class="icon">+</span><span class="label">New</span></a>
 </div>
-<div style="height:6px;"></div>
-    <div style="max-width:none; width:100%; padding:18px 0 22px 0; direction:rtl; overflow-x:hidden;">
-    <div style="display:flex; direction:ltr; align-items:center; gap:12px; justify-content:flex-start; width:100%; margin-bottom:20px;">
-        <div style="flex:0 0 auto;"><span style="font-size:22px;font-weight:bold;color:#333;">Cars List</span></div>
+    <div class="cars-page-content" style="max-width:none; width:100%; padding:6px 0 22px 0; direction:rtl; overflow-x:hidden;">
+    <div class="cars-search-row" style="display:flex; direction:ltr; align-items:center; gap:12px; justify-content:flex-start; width:100%; margin-bottom:20px;">
+        <div style="flex:0 0 auto;"><span class="cars-page-title" style="font-size:22px;font-weight:bold;color:#333;">Cars List</span></div>
         <div style="flex:0 0 auto; max-width:400px;">
             <form method="get" style="display:flex;align-items:center;gap:7px;justify-content:flex-start;">
                 <input type="text" name="plate_number" value="{{ request.GET.plate_number|default:'' }}" placeholder="Search by plate" style="padding:7px 14px;border-radius:5px;border:1.2px solid #c2c7d0;width:180px;">
@@ -71,7 +90,8 @@
 
     {% if cars %}
 
-    <div class="table-wrapper">
+    <div class="table-responsive">
+    <div class="table-wrapper desktop-table">
         <!-- bulk toolbar moved inside table wrapper so it lines up with table columns -->
         <div id="cars-bulk-toolbar" style="display:none; position:relative; margin-bottom:8px; background:#fff; padding:8px 8px 8px 4px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06); direction:ltr; justify-content:space-between; align-items:center; gap:12px; width:auto;">
             <div style="display:flex;align-items:center;gap:8px;"><span id="cars-selected-count">0 Selected</span>
@@ -99,7 +119,7 @@
                 <tbody>
                 {% for car in cars %}
                     <tr data-part-id="{{ car.id }}" data-client-id="{{ car.client.id }}">
-                        <td style="padding:8px;border:1px solid #eee;">{{ car.get_status_display }}</td>
+                        <td style="padding:8px;border:1px solid #eee;">{{ car.status|status_en }}</td>
                         <td style="padding:8px;border:1px solid #eee;">{{ car.year }}</td>
                         <td style="padding:8px;border:1px solid #eee;">{% if car.model %}{{ car.model.name }}{% else %}-{% endif %}</td>
                         <td style="padding:8px;border:1px solid #eee;">{% if car.brand %}{{ car.brand.name }}{% else %}-{% endif %}</td>
@@ -114,6 +134,7 @@
             </table>
         </div>
     </div>
+    </div>
 
     <!-- Mobile Cards -->
     <div class="mobile-cards">
@@ -121,7 +142,7 @@
         <div class="mobile-card">
             <div class="mobile-row"><span class="mobile-label">Plate Number</span><span class="mobile-value">{{ car.plate_number }}</span></div>
             <div class="mobile-row"><span class="mobile-label">Client Name</span><span class="mobile-value">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</span></div>
-            <div class="mobile-row"><span class="mobile-label">Status</span><span class="mobile-value">{{ car.get_status_display }}</span></div>
+            <div class="mobile-row"><span class="mobile-label">Status</span><span class="mobile-value">{{ car.status|status_en }}</span></div>
         </div>
         {% endfor %}
     </div>
@@ -132,7 +153,7 @@
 
     
 
-    <div style="width:100%; display:flex; justify-content:flex-start; margin-top:12px;">
+    <div class="mobile-pagination-fixed" style="width:100%; display:flex; justify-content:flex-start; margin-top:12px;">
         <link rel="stylesheet" href="{% static 'css/components.css' %}">
         <div class="per-page-align" style="direction:ltr; width:100%;">
             <style>
@@ -164,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(selectAll){ selectAll.addEventListener('change', function(){ rowCheckboxes.forEach(cb=> cb.checked = selectAll.checked); updateToolbar(); }); }
     rowCheckboxes.forEach(cb=> cb.addEventListener('change', function(){ const tr = cb.closest('tr'); if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected'); updateToolbar(); }));
 
-    if(deleteBtn){ deleteBtn.addEventListener('click', function(){ const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id); if(ids.length===0) return; if(!confirm('Delete '+ids.length+' selected cars?')) return; fetch('/cars/bulk-delete/', { method:'POST', headers:{ 'Content-Type':'application/json','X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] }, body: JSON.stringify({ids: ids}) }).then(r=>r.json()).then(data=>{ if(data.ok){ location.reload(); } else alert('Delete failed'); }).catch(()=> alert('Delete error')); }); }
+    if(deleteBtn){ deleteBtn.addEventListener('click', function(){ const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id); if(ids.length===0) return; if(!confirm('Delete '+ids.length+' selected cars?')) return; window.fetchJson('/cars/bulk-delete/', { method:'POST', headers:{ 'Content-Type':'application/json','X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] }, body: JSON.stringify({ids: ids}) }).then(data=>{ if(data.ok){ location.reload(); } else alert('Delete failed'); }).catch(()=> alert('Delete error')); }); }
 
     if(resetBtn){ resetBtn.addEventListener('click', function(){ if(!confirm('Reset saved column widths to defaults?')) return; try{ localStorage.removeItem('cars_table_col_widths_v1'); }catch(e){} location.reload(); }); }
 
@@ -328,6 +349,26 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     }catch(e){}
 });
+</script>
+
+<script>
+// If viewing on a small screen, ensure the page shows 5 items per page by default.
+// This is a lightweight client-side fallback so mobile users see 5 cards/page.
+    (function(){
+    try{
+        if(window.innerWidth <= 700){
+            var url = new URL(window.location.href);
+            var p = url.searchParams.get('per_page');
+            if(p !== '5'){
+                url.searchParams.set('per_page','5');
+                // flag this redirect as automatic from mobile so server won't persist it
+                url.searchParams.set('auto_mobile','1');
+                // replace so history isn't filled with redirects
+                window.location.replace(url.toString());
+            }
+        }
+    }catch(e){ /* ignore in old browsers */ }
+})();
 </script>
 
 {% endblock %}

@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<style>
+/* Reuse Bills table styling for consistent vendor-payments look */
+.cars-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:15px; background:transparent; }
+.table-wrapper { text-align:left; display:block; margin:0; padding:0; overflow:visible; }
+.table-head-wrap, .table-body-scroll { text-align:left; display:block; width:100%; }
+.table-head-wrap { overflow:hidden; }
+.table-body-scroll { overflow:auto; }
+.cars-table th { background:#f7f7f7; padding:8px; border:1px solid #eee; text-align:left; position:relative; box-sizing:border-box; }
+.cars-table td { padding:8px; border:1px solid #eee; text-align:center; box-sizing:border-box; }
+.cars-table th, .cars-table td { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.resize-handle { position:absolute; right:0; top:0; width:10px; height:100%; cursor:col-resize; z-index:5; }
+.resize-handle:hover { background:rgba(0,0,0,0.03); }
+.row-selected { background-color: #e3f2fd !important; }
+</style>
+
+<!-- Using shared .add-supplier-pill from static/css/components.css -->
+
+<div style="max-width:none; width:100%; padding:18px 0 22px 0; direction:rtl;">
+    <div style="background:transparent;padding:18px 0;border-radius:0;box-shadow:none;direction:rtl;display:flex;flex-direction:column;align-items:stretch;width:100%;margin:0;">
+        <div id="payments-header-bar" style="position:sticky; top:70px; z-index:1000; background:#f4f6fa; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #e6e6e6; height:56px; direction:ltr;">
+            <div style="display:flex; align-items:center; gap:12px;"><h2 style="margin:0; font-size:1.6em; font-weight:700; color:#222;">Vendor Payments</h2></div>
+            <a href="/vendors/payments/add/" class="add-supplier-pill" title="Add Payment" aria-label="Add Payment" style="text-decoration:none;">
+                <span class="icon">+</span>
+                <span class="label">New</span>
+            </a>
+        </div>
+
+        <div class="table-wrapper" style="width:100%;">
+            <!-- Selection toolbar (hidden until rows selected) -->
+              <div id="bulk-actions-bar"
+                  style="display:none;
+                        position:sticky;
+                        top:70px;
+                        z-index:1001;
+                        background:#fff;
+                        border:1px solid #e0e0e0;
+                        padding:10px;
+                        border-radius:6px;
+                        margin-bottom:8px;
+                        align-items:center;
+                        justify-content:space-between;
+                        direction:ltr;
+                        box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <div id="selected-count" style="font-weight:bold;">0 Selected</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button id="bulk-edit" style="background:#1976d2;color:#fff;padding:6px 12px;border-radius:5px;border:none;display:none;">Edit</button>
+                    <button id="bulk-delete" style="background:#dc3545;color:#fff;padding:6px 12px;border-radius:5px;border:none;">Delete</button>
+                </div>
+            </div>
+
+            <div class="table-head-wrap">
+                <style>
+                    .table-head-wrap, .table-body-scroll { direction: ltr; }
+                    .table-head-wrap table, .table-body-scroll table { direction: ltr; }
+                </style>
+                <table id="payments-table-head" class="cars-table" style="direction:ltr; table-layout: fixed; width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="padding:8px;border:1px solid #eee;width:36px;text-align:center;"><input type="checkbox" id="select-all-payments"><div class="resize-handle" data-col="select"></div></th>
+                            <th style="padding:8px;border:1px solid #eee;">Date<div class="resize-handle" data-col="date"></div></th>
+                            <th style="padding:8px;border:1px solid #eee;">Payment#<div class="resize-handle" data-col="number"></div></th>
+                            <th style="padding:8px;border:1px solid #eee;">Vendor<div class="resize-handle" data-col="vendor"></div></th>
+                            <th style="padding:8px;border:1px solid #eee;">Method<div class="resize-handle" data-col="method"></div></th>
+                            <th style="padding:8px;border:1px solid #eee;">Status<div class="resize-handle" data-col="status"></div></th>
+                            <th style="padding:8px;border:1px solid #eee;text-align:right;">Amount<div class="resize-handle" data-col="amount"></div></th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="table-body-scroll" style="overflow:auto; max-height:60vh;">
+                <table id="payments-table-body" class="cars-table" style="direction:ltr; table-layout: fixed; width:100%; border-collapse:collapse;">
+                    <tbody>
+                        {% if payments %}
+                            {% for p in payments %}
+                                <tr data-index="{{ p.id }}" class="payment-row">
+                                    <td style="text-align:center;padding:8px;border:1px solid #eee;"><input class="payment-row-checkbox" type="checkbox" value="{{ p.id }}" data-index="{{ p.id }}"></td>
+                                    <td style="padding:8px;border:1px solid #eee;">{{ p.payment_date|date:'Y-m-d' }}</td>
+                                    <td style="padding:8px;border:1px solid #eee;">{{ p.number|default:'-' }}</td>
+                                    <td style="padding:8px;border:1px solid #eee;">{{ p.supplier_name }}</td>
+                                    <td style="padding:8px;border:1px solid #eee;">{{ p.method }}</td>
+                                    <td style="padding:8px;border:1px solid #eee;">{{ p.status }}</td>
+                                    <td style="padding:8px;border:1px solid #eee;text-align:right;">{{ p.amount|floatformat:3 }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="7" style="text-align:center;padding:16px;color:#888;">No vendor payments found.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="width:100%; display:flex; justify-content:flex-start; margin-top:12px; padding:0 22px;">
+            <link rel="stylesheet" href="{% static 'css/components.css' %}">
+            <div class="per-page-align" style="direction:ltr; width:100%;">
+                <style>
+                    .per-page-align { display:flex; justify-content:flex-end; }
+                    /* Stack per-page control above pagination and center them for vendor payments */
+                    .per-page-align .table-footer { justify-content: center !important; }
+                    .per-page-align .table-footer > div { display:flex; flex-direction:column; align-items:center; gap:8px; }
+                    .per-page-align .table-footer .pagination-controls { margin-top:6px; }
+                </style>
+                {% include 'partials/per_page_pagination.html' with per_page=per_page per_page_options=per_page_options page_obj=page_obj search=None %}
+                </div>
+                <script src="{% static 'js/per_page_dropdown.js' %}"></script>
+        </div>
+
+    </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        const selectAll = document.getElementById('select-all-payments');
+        const bodyTable = document.getElementById('payments-table-body');
+        const head = document.getElementById('payments-table-head');
+        const STORAGE_KEY = 'payments_table_col_widths_v1';
+
+        function updateToolbar(){
+            const checkboxes = Array.from(document.querySelectorAll('.payment-row-checkbox'));
+            const checked = checkboxes.filter(c => c.checked);
+            const bar = document.getElementById('bulk-actions-bar');
+            const count = document.getElementById('selected-count');
+            const editBtn = document.getElementById('bulk-edit');
+            const deleteBtn = document.getElementById('bulk-delete');
+
+            if(!bar || !count) return;
+
+            if(checked.length > 0){
+                bar.style.display = 'flex';
+                count.textContent = checked.length + ' Selected';
+
+                if(editBtn){
+                    editBtn.style.display = (checked.length === 1) ? 'inline-block' : 'none';
+                }
+                if(deleteBtn){
+                    deleteBtn.disabled = false;
+                    deleteBtn.style.opacity = '1';
+                    deleteBtn.style.cursor = 'pointer';
+                }
+            } else {
+                bar.style.display = 'none';
+                if(deleteBtn){
+                    deleteBtn.disabled = true;
+                    deleteBtn.style.opacity = '0.6';
+                    deleteBtn.style.cursor = 'default';
+                }
+            }
+        }
+
+        if(selectAll){
+            selectAll.addEventListener('change', function(){
+                const all = Array.from(document.querySelectorAll('.payment-row-checkbox'));
+                all.forEach(cb => { cb.checked = selectAll.checked; cb.dispatchEvent(new Event('change',{bubbles:true})); });
+                updateToolbar();
+            });
+        }
+
+        if(bodyTable){
+            bodyTable.addEventListener('change', function(e){
+                const cb = e.target.closest && e.target.closest('.payment-row-checkbox');
+                if(!cb) return;
+                const tr = cb.closest('tr');
+                if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected');
+                updateToolbar();
+            });
+
+            bodyTable.addEventListener('click', function(e){
+                const tr = e.target.closest && e.target.closest('tr[data-index]');
+                if(!tr) return;
+                if(e.target && (e.target.tagName==='INPUT' || e.target.tagName==='A' || e.target.closest('a'))) return;
+                const idx = tr.getAttribute('data-index');
+                if(!idx) return;
+                window.location.href = '/vendors/payments/view/' + idx + '/';
+            });
+        }
+
+        // initialize toolbar state
+        updateToolbar();
+
+        // resizable columns
+        (function(){
+            const headTable = document.getElementById('payments-table-head');
+            const body = document.getElementById('payments-table-body');
+            if(!headTable || !body) return;
+            const ths = headTable.querySelectorAll('th');
+            const bodyRows = Array.from(body.querySelectorAll('tbody tr'));
+            try{
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if(saved){
+                    const map = JSON.parse(saved);
+                    ths.forEach((th,i)=>{
+                        const w = map[i] || (th.offsetWidth+'px');
+                        th.style.width = w;
+                        bodyRows.forEach(r=>{ const c=r.children[i]; if(c) c.style.width = w; });
+                    });
+                } else {
+                    ths.forEach((th,i)=>{
+                        const w = th.offsetWidth+'px';
+                        th.style.width = w;
+                        bodyRows.forEach(r=>{ const c=r.children[i]; if(c) c.style.width = w; });
+                    });
+                }
+
+                let total=0; ths.forEach(th=>{ total += parseInt(th.style.width,10)||th.offsetWidth; });
+
+                // If saved widths were invalid (total === 0) clear them and recompute from offsetWidth
+                if(!total || total < 10){
+                    try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+                    ths.forEach((th,i)=>{
+                        const w = th.offsetWidth + 'px';
+                        th.style.width = w;
+                        bodyRows.forEach(r=>{ const c=r.children[i]; if(c) c.style.width = w; });
+                    });
+                    total = 0; ths.forEach(th=>{ total += parseInt(th.style.width,10)||th.offsetWidth; });
+                }
+
+                headTable.style.width = total+'px'; body.style.width = total+'px';
+            }catch(e){}
+
+            const bodyWrap = document.querySelector('.table-body-scroll');
+            headTable.querySelectorAll('.resize-handle').forEach(handle=>{
+                const th = handle.closest('th'); if(!th) return;
+                handle.addEventListener('mousedown', function(e){
+                    e.preventDefault();
+                    const startX = e.pageX; const startWidth = th.offsetWidth; const startScroll = bodyWrap?bodyWrap.scrollLeft:0;
+                    function onMouseMove(ev){ const dx = ev.pageX - startX; const newWidth = Math.max(40, startWidth + dx); const idx = Array.from(th.parentNode.children).indexOf(th); th.style.width = newWidth+'px'; bodyRows.forEach(r=>{ const c=r.children[idx]; if(c) c.style.width = newWidth+'px'; }); let total=0; ths.forEach(t=>{ total += parseInt(t.style.width,10)||t.offsetWidth; }); headTable.style.width = total+'px'; body.style.width = total+'px'; if(bodyWrap) bodyWrap.scrollLeft = startScroll; }
+                    function onMouseUp(){ try{ const widths={}; ths.forEach((t,ii)=>{ widths[ii]=t.style.width|| (t.offsetWidth+'px'); }); localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); if(bodyWrap) bodyWrap.scrollLeft = startScroll; }catch(e){} document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); }
+                    document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
+                });
+            });
+        })();
+
+        // bulk action buttons (Edit / Delete) - match Bills behavior
+        (function(){
+            const editBtn = document.getElementById('bulk-edit');
+            const deleteBtn = document.getElementById('bulk-delete');
+            if(editBtn){
+                editBtn.addEventListener('click', function(){
+                    const checked = Array.from(document.querySelectorAll('.payment-row-checkbox')).filter(c=>c.checked).map(c=>c.value);
+                    if(checked.length !== 1) return;
+                    const idx = checked[0];
+                    window.location.href = '/vendors/payments/view/' + idx + '/';
+                });
+            }
+            if(deleteBtn){
+                deleteBtn.addEventListener('click', function(){
+                    const selected = Array.from(document.querySelectorAll('.payment-row-checkbox')).filter(c=>c.checked).map(c=>c.value);
+                    if(!selected.length) return;
+                    if(!confirm('Delete '+selected.length+' selected payments?')) return;
+                    fetch('/vendors/payments/delete/', { method:'POST', headers:{ 'Content-Type':'application/json','X-CSRFToken':(document.cookie.match(/csrftoken=([^;]+)/)||[])[1] }, body: JSON.stringify({ selected: selected }) }).then(()=> window.location.reload()).catch(()=>{ selected.forEach(id=>{ const el = document.querySelector('input.payment-row-checkbox[value="'+id+'"]'); if(el) el.closest('tr').remove(); }); updateToolbar(); alert('Deleted locally (no server endpoint).'); });
+                }
+            );
+            }
+        })();
+    });
+    </script>
+
+{% endblock %}

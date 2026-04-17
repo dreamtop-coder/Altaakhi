@@ -5,7 +5,7 @@
     <p>هل أنت متأكد أنك تريد حذف الخدمة: <strong>{{ service.name }}</strong>؟</p>
     <form method="post">{% csrf_token %}
         <button type="submit" style="background:#dc3545;color:#fff;padding:10px 28px;border-radius:6px;font-weight:bold;border:none;">تأكيد الحذف</button>
-        <a href="{% url 'services_list' %}" style="background:#888;color:#fff;padding:10px 28px;border-radius:6px;font-weight:bold;text-decoration:none;margin-right:10px;">إلغاء</a>
+        <a href="{% url 'inventory' %}" style="background:#888;color:#fff;padding:10px 28px;border-radius:6px;font-weight:bold;text-decoration:none;margin-right:10px;">إلغاء</a>
     </form>
 </div>
 {% endblock %}

@@ -8,7 +8,7 @@ DJANGO_SETTINGS = 'workshop.settings'
 REPORT_FILE = 'project_full_check_report.txt'
 
 def is_django_script(filepath):
-    # يعتبر السكربت يعتمد على Django إذا كان فيه استيراد لنماذج أو إعدادات Django
+    # A script is considered Django-dependent if it imports Django models or settings
     try:
         with open(filepath, encoding='utf-8') as f:
             content = f.read()
@@ -21,7 +21,7 @@ def is_django_script(filepath):
         return False
 
 def find_all_scripts():
-    # يبحث عن جميع ملفات .py في المجلد الحالي فقط (يمكن توسيعه لاحقاً)
+    # Find all .py files in the current folder only (can be extended later)
     return [f for f in os.listdir('.') if f.endswith('.py') and f != os.path.basename(__file__)]
 
 def main():
@@ -68,31 +68,31 @@ def main():
             print(e)
             logic_fail.append(script)
 
-    # كتابة تقرير نهائي
+    # write final report
     with open(REPORT_FILE, 'w', encoding='utf-8') as f:
-        f.write('--- تقرير فحص السكربتات ---\n')
-        f.write(f'عدد السكربتات: {len(scripts)}\n')
-        f.write(f'✔ سليمة (Syntax): {len(syntax_ok)}\n')
-        f.write(f'✖ بها أخطاء صياغة: {len(syntax_fail)}\n')
-        f.write(f'✔ سليمة (Logic): {len(logic_ok)}\n')
-        f.write(f'✖ بها أخطاء تنفيذ: {len(logic_fail)}\n')
-        f.write(f'تخطي (بسبب أخطاء Syntax): {len(skipped)}\n\n')
+        f.write('--- Scripts Check Report ---\n')
+        f.write(f'Number of scripts: {len(scripts)}\n')
+        f.write(f'✔ Syntax OK: {len(syntax_ok)}\n')
+        f.write(f'✖ Syntax Errors: {len(syntax_fail)}\n')
+        f.write(f'✔ Logic OK: {len(logic_ok)}\n')
+        f.write(f'✖ Logic Failures: {len(logic_fail)}\n')
+        f.write(f'Skipped (due to Syntax errors): {len(skipped)}\n\n')
         if syntax_fail:
-            f.write('--- أخطاء Syntax ---\n')
+            f.write('--- Syntax Errors ---\n')
             for s in syntax_fail:
                 f.write(f'- {s}\n')
         if logic_fail:
-            f.write('\n--- أخطاء تنفيذ ---\n')
+            f.write('\n--- Logic Failures ---\n')
             for s in logic_fail:
                 f.write(f'- {s}\n')
         if logic_ok:
-            f.write('\n--- سكربتات ناجحة ---\n')
+            f.write('\n--- Successful scripts ---\n')
             for s in logic_ok:
                 f.write(f'- {s}\n')
-        f.write('\n--- انتهى التقرير ---\n')
+        f.write('\n--- End of report ---\n')
 
-    print(f'\n--- فحص جميع السكربتات انتهى ---')
-    print(f'تم حفظ تقرير النتائج في: {REPORT_FILE}')
+    print(f'\n--- Scripts check finished ---')
+    print(f'Report saved to: {REPORT_FILE}')
 
 if __name__ == '__main__':
     main()

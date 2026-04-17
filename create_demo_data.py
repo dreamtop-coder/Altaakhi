@@ -6,7 +6,7 @@ from clients.models import Client
 from cars.models import Car, Service
 from django.utils import timezone
 
-# إنشاء عميل تجريبي
+# create demo client
 client, _ = Client.objects.get_or_create(
     first_name='عميل',
     last_name='تجريبي',
@@ -14,17 +14,16 @@ client, _ = Client.objects.get_or_create(
     customer_id='CUST001'
 )
 
-# إنشاء سيارة مرتبطة بالعميل
+# create demo car linked to client
 car, _ = Car.objects.get_or_create(
     client=client,
     plate_number='1234ABC',
     year=2022
 )
 
-# إنشاء خدمة تجريبية
+# create demo service
 service, _ = Service.objects.get_or_create(
-    name='فحص شامل',
+    name='Full Inspection',
     sale_price=100.0
 )
-
-print('تم إنشاء عميل وسيارة وخدمة تجريبية بنجاح.')
+print('Demo client, car and service created successfully.')

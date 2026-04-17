@@ -1,77 +1,60 @@
 <style>
+/* ===== خلفية عامة احترافية ===== */
+body { background: #eef1f5; }
+
+/* ===== GRID SYSTEM ===== */
 .cars-mobile-wrapper {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 24px;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .cars-mobile-wrapper { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ===== CARD DESIGN ===== */
+.car-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 22px 16px 18px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
   display: flex;
-  gap: 12px; /* uniform 12px gap between cards (horizontal & vertical) to avoid touching */
-  align-items: stretch; /* make cards equal height */
-    flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  min-height: 230px;
+  overflow: hidden;
 }
 
-/* Ensure all cards (waiting, done, pending, etc.) share identical card sizing and padding */
-.cars-mobile-wrapper > * {
-  width: 240px !important;
-  max-width: 260px !important;
-  min-width: 220px !important;
-  box-sizing: border-box !important;
-  padding: 12px 14px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 6px !important;
-  min-height: 140px !important; /* ensure landscape-like minimum height but allow content to expand */
-}
+.car-card:hover { transform: translateY(-6px); box-shadow: 0 14px 35px rgba(0,0,0,0.15); }
 
-/* ensure car-card participates as a flex item and avoids overlap; use flex-basis sizing */
-.cars-mobile-wrapper .car-card {
-  display:flex;
-  flex-direction:column;
-  flex: 0 0 240px !important;
-  box-sizing: border-box !important;
-}
+/* ===== شريط الحالة العلوي ===== */
+.car-card::before { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #999; }
+.car-card[data-status="ready"]::before { background: #28a745; }
+.car-card[data-status="pending_payment"]::before { background: #e67e22; }
+.car-card[data-status="in_progress"]::before { background: #007bff; }
+.car-card[data-status="waiting"]::before { background: #6c757d; }
+.car-card[data-status="done"]::before { background: #343a40; }
 
-.cars-mobile-wrapper .car-card.small-card {
-  flex: 0 0 160px !important;
-  max-width: 170px !important;
-}
-/* add spacing between cards to prevent touching */
-/* remove extra external margin so cards touch each other (no separator) */
-.cars-mobile-wrapper .car-card { margin: 6px; }
+/* صورة السيارة */
+.car-card img { width: 56px; height: 56px; margin-bottom: 14px; }
 
-/* smaller variant for specific plates (e.g., 70016) to reduce card footprint */
-.cars-mobile-wrapper .car-card.small-card {
-  /* make small-card use the same sizing as standard cards to avoid unequal cards */
-  flex: 0 0 240px !important;
-  width: 240px !important;
-  max-width: 260px !important;
-  min-width: 220px !important;
-}
-.cars-mobile-wrapper .car-card.small-card img {
-  width:48px !important;
-  height:48px !important;
-  margin-bottom:10px !important;
-}
-.cars-mobile-wrapper .car-card.small-card div{ }
-.cars-mobile-wrapper .car-card.small-card .plate-number { font-size:0.95em !important; font-weight:700; }
-.cars-mobile-wrapper .car-card.small-card .client-name { font-size:0.85em !important; color:#444; }
-.cars-mobile-wrapper .car-card.small-card .status-label { font-size:0.82em !important; margin-top:6px !important; }
-.cars-mobile-wrapper .car-card.small-card .plate-number,
-.cars-mobile-wrapper .car-card.small-card .client-name,
-.cars-mobile-wrapper .car-card.small-card .status-label { text-align:center !important; }
-.cars-mobile-wrapper .car-card.small-card .work-days { display:none !important; }
+/* رقم اللوحة */
+.plate-number { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: #222; letter-spacing: 1px; }
 
-@media (max-width: 700px) {
-    .cars-mobile-wrapper > * {
-      width: calc(50% - 12px); /* بطاقتين مع ترك موضع الفاصل */
-      max-width: 50%;
-      min-width: 140px;
-      box-sizing: border-box;
-    }
-}
+/* اسم العميل */
+.client-name { font-size: 0.95rem; color: #666; margin-bottom: 8px; text-align: center; }
+
+/* النص السفلي */
+.status-label { margin-top: auto; font-size: 0.9rem; font-weight: 600; }
+
+/* أزرار احترافية */
+.car-card button { margin-top: 12px; padding: 8px 14px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+.car-card button:hover { opacity: 0.9; }
 </style>
 {% load static %}
 {% load custom_filters %}
@@ -88,8 +71,8 @@
               {% with filtered=car_bookings|dictfilterbycar:car.id %}
                 {% if filtered and filtered|length > 0 %}
                   <div style="width:100%;display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-bottom:6px;">
-                    <a href="/bookings/?phone={{ phone }}"
-                       title="استعراض الحجوزات"
+                      <a href="/bookings/?phone={{ phone }}"
+                       title="View bookings"
                        style="color:#007bff;font-size:1.3em;display:flex;align-items:center;gap:4px;">
                       <i class="fa fa-calendar-plus"></i>
                       <span style="background:#dc3545;color:#fff;font-size:0.75em;padding:2px 6px;border-radius:12px;font-weight:bold;">{{ filtered|length }}</span>
@@ -114,96 +97,96 @@
       {% if car.derived_status == 'ready' %}
         <form method="post" action="/cars/deliver/{{ car.id }}/" style="width:100%;">
           {% csrf_token %}
-          <div style="border:1px solid #28a745;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#eaffea;transition:box-shadow 0.2s;">
-            <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
-            <a href="/cars/?plate_number={{ car.plate_number }}" class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;text-decoration:underline;color:#222;">{{ car.plate_number }}</a>
-            <div class="client-name" style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
+            <div style="display:flex;flex-direction:column;align-items:center;width:100%;">
+            <img src="{% static 'car-repair.png' %}" alt="car" />
+            <a href="/cars/?plate_number={{ car.plate_number }}" class="plate-number">{{ car.plate_number }}</a>
+            <div class="client-name">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
             {% if car.work_days and car.derived_status != 'waiting' %}
               <div style="color:#007bff;font-size:0.95em;">
-                مدة العمل: 
-                {% if car.work_days == 1 %}يوم واحد
-                {% elif car.work_days == 2 %}يومين
-                {% else %}{{ car.work_days }} أيام
+                Work duration: 
+                {% if car.work_days == 1 %}1 day
+                {% elif car.work_days == 2 %}2 days
+                {% else %}{{ car.work_days }} days
                 {% endif %}
               </div>
             {% else %}
-              <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
+              <div style="color:#007bff;font-size:0.95em;">Work duration: -</div>
             {% endif %}
-            <button type="submit" style="margin-top:14px;padding:8px 18px;background:#28a745;color:#fff;border:none;border-radius:6px;font-weight:bold;font-size:1.05em;cursor:pointer;box-shadow:0 2px 8px #28a74533;">تسليم السيارة</button>
-            <div style="margin-top:8px;color:#28a745;font-weight:bold;">جاهزة للتسليم</div>
+            <button type="submit" style="margin-top:14px;color:#fff;font-weight:bold;font-size:1.05em;cursor:pointer;">Deliver Car</button>
+            <div style="margin-top:8px;color:#28a745;font-weight:bold;">Ready for pickup</div>
           </div>
         </form>
       {% elif car.derived_status == 'pending_payment' and car.unpaid_invoice_id %}
         <a href="/invoices/pay/invoice/{{ car.unpaid_invoice_id }}/" style="text-decoration:none;">
-          <div style="border:1.5px solid #e67e22;padding:18px 24px;border-radius:12px;min-width:180px;max-width:250px;width:220px;display:flex;flex-direction:column;align-items:center;background:#fffbe6;transition:box-shadow 0.2s;cursor:pointer;">
-            <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
-            <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
-            <div class="client-name" style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
+              <div style="display:flex;flex-direction:column;align-items:center;width:100%;cursor:pointer;">
+                <img src="{% static 'car-repair.png' %}" alt="car" />
+                <div class="plate-number">{{ car.plate_number }}</div>
+                <div class="client-name">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
             {% if car.work_days and car.derived_status != 'waiting' %}
               <div style="color:#007bff;font-size:0.95em;">
-                مدة العمل: 
-                {% if car.work_days == 1 %}يوم واحد
-                {% elif car.work_days == 2 %}يومين
-                {% else %}{{ car.work_days }} أيام
-                {% endif %}
-              </div>
+                  Work duration: 
+                  {% if car.work_days == 1 %}1 day
+                  {% elif car.work_days == 2 %}2 days
+                  {% else %}{{ car.work_days }} days
+                  {% endif %}
+                </div>
             {% else %}
-              <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
+              <div style="color:#007bff;font-size:0.95em;">Work duration: -</div>
             {% endif %}
-            <div style="margin-top:10px;color:#e67e22;font-weight:bold;">معلق للدفع</div>
+            <div style="margin-top:10px;color:#e67e22;font-weight:bold;">Pending payment</div>
           </div>
         </a>
             {% elif car.derived_status == 'paid_waiting_collection' %}
-            <div style="border:1.5px solid #6f42c1;padding:18px 24px;border-radius:12px;min-width:180px;max-width:250px;width:220px;display:flex;flex-direction:column;align-items:center;background:#f5f0ff;transition:box-shadow 0.2s;cursor:pointer;">
-              <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
-              <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
-              <div class="client-name" style="color:#555;font-size:1em;margin-bottom:8px;text-align:center;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
-              <div class="status-label" style="margin-top:auto;margin-bottom:auto;color:#6f42c1;font-weight:bold;text-align:center;">مدفوعة - بانتظار الاستلام</div>
+            <div style="display:flex;flex-direction:column;align-items:center;width:100%;cursor:pointer;">
+              <img src="{% static 'car-repair.png' %}" alt="car" style="margin-bottom:12px;" />
+              <div class="plate-number">{{ car.plate_number }}</div>
+              <div class="client-name" style="margin-bottom:8px;text-align:center;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
+              <div class="status-label" style="margin-top:auto;margin-bottom:auto;color:#6f42c1;font-weight:bold;text-align:center;">Paid - Waiting Collection</div>
               {# show a visible Collect button so users can mark collected directly #}
               <form method="post" action="{% url 'cars:mark_collected' car.id %}" style="margin-top:10px;display:block;width:100%;">
                 {% csrf_token %}
-                <button type="submit" class="collect-btn" style="padding:8px 12px;background:#28a745;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;width:100%;">تم الاستلام</button>
+                <button type="submit" class="collect-btn" style="font-weight:bold;cursor:pointer;width:100%;color:#fff;">Collected</button>
               </form>
             </div>
       {% elif car.derived_status == 'pending_payment' and not car.unpaid_invoice_id %}
-        <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;opacity:0.5;cursor:not-allowed;">
-          <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
-          <div style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
-          <div style="color:#c00;font-size:1em;margin-bottom:2px;">لا توجد فاتورة غير مدفوعة</div>
+        <div style="display:flex;flex-direction:column;align-items:center;width:100%;opacity:0.5;cursor:not-allowed;">
+          <img src="{% static 'car-repair.png' %}" alt="car" />
+          <div class="plate-number">{{ car.plate_number }}</div>
+          <div style="color:#c00;margin-bottom:2px;">No unpaid invoice</div>
         </div>
       {% elif car.derived_status == 'done' %}
           <a href="/cars/?plate_number={{ car.plate_number }}" style="text-decoration:none;color:inherit;display:block;width:100%;">
-            <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;transition:box-shadow 0.2s;cursor:pointer;">
-              <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
-              <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
-              <div class="client-name" style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
+            <div style="display:flex;flex-direction:column;align-items:center;width:100%;transition:box-shadow 0.2s;cursor:pointer;">
+              <img src="{% static 'car-repair.png' %}" alt="car" />
+              <div class="plate-number">{{ car.plate_number }}</div>
+              <div class="client-name">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
               {% if car.work_days and car.derived_status != 'waiting' %}
                 <div style="color:#007bff;font-size:0.95em;">
-                  مدة العمل: 
-                  {% if car.work_days == 1 %}يوم واحد
-                  {% elif car.work_days == 2 %}يومين
-                  {% else %}{{ car.work_days }} أيام
-                  {% endif %}
-                </div>
+                    Work duration: 
+                    {% if car.work_days == 1 %}1 day
+                    {% elif car.work_days == 2 %}2 days
+                    {% else %}{{ car.work_days }} days
+                    {% endif %}
+                  </div>
               {% else %}
-                <div style="color:#007bff;font-size:0.95em;">مدة العمل: -</div>
+                <div style="color:#007bff;font-size:0.95em;">Work duration: -</div>
               {% endif %}
-              <div style="margin-top:8px;color:#6c757d;font-weight:bold;">منتهية</div>
+              <div style="margin-top:8px;color:#6c757d;font-weight:bold;">Completed</div>
             </div>
           </a>
           {% else %}
-        <div style="border:1px solid #e0e0e0;padding:18px 24px;border-radius:12px;min-width:180px;display:flex;flex-direction:column;align-items:center;background:#fff;transition:box-shadow 0.2s;cursor:pointer;">
+        <div style="display:flex;flex-direction:column;align-items:center;width:100%;transition:box-shadow 0.2s;cursor:pointer;">
             <a href="/cars/?plate_number={{ car.plate_number }}" style="text-decoration:none;">
-            <img src="{% static 'car-repair.png' %}" alt="car" style="width:48px;height:48px;margin-bottom:10px;" />
-            <div class="plate-number" style="font-weight:bold;font-size:1.08em;margin-bottom:2px;direction:ltr;">{{ car.plate_number }}</div>
+            <img src="{% static 'car-repair.png' %}" alt="car" />
+            <div class="plate-number">{{ car.plate_number }}</div>
           </a>
           <div style="color:#555;font-size:1em;margin-bottom:2px;">{{ car.client.first_name }}{% if car.client.last_name %} {{ car.client.last_name }}{% endif %}</div>
           {% if car.work_days and car.derived_status != 'waiting' %}
             <div style="color:#007bff;font-size:0.95em;">
-              مدة العمل: 
-              {% if car.work_days == 1 %}يوم واحد
-              {% elif car.work_days == 2 %}يومين
-              {% else %}{{ car.work_days }} أيام
+              Work duration: 
+              {% if car.work_days == 1 %}1 day
+              {% elif car.work_days == 2 %}2 days
+              {% else %}{{ car.work_days }} days
               {% endif %}
             </div>
           {% else %}
@@ -211,13 +194,13 @@
           {% endif %}
             {% if car.derived_status == 'waiting' %}
                 {% if not car.is_in_workshop %}
-                  <a href="/maintenance/add/?car_id={{ car.id }}" class="btn btn-primary btn-sm" style="margin-top:10px;">إضافة سجل صيانة</a>
+                  <a href="/maintenance/add/?car_id={{ car.id }}" class="btn btn-primary btn-sm" style="margin-top:10px;">Add maintenance record</a>
                 {% endif %}
             {% endif %}
             {% if car.is_in_workshop or car.derived_status == 'in_progress' %}
                 <form method="post" action="{% url 'cars:finish_maintenance' car.id %}" style="margin-top:10px;">
                   {% csrf_token %}
-                  <button type="submit" class="finish-service-btn" data-car-id="{{ car.id }}" style="padding:8px 14px;background:#ffc107;border:none;border-radius:6px;color:#111;font-weight:bold;cursor:pointer;">إنهاء الخدمة</button>
+                  <button type="submit" class="finish-service-btn" data-car-id="{{ car.id }}" style="padding:8px 14px;background:#ffc107;border:none;border-radius:6px;color:#111;font-weight:bold;cursor:pointer;">Finish service</button>
                 </form>
             {% endif %}
             {# لا تعرض زر تسليم السيارة إلا إذا كانت الحالة ready فقط (تم إنهاء الصيانة) #}
@@ -236,7 +219,7 @@
       var status = (card.dataset.status||'').toLowerCase();
       // Only allow click-to-collect for these statuses
       if(!(status === 'paid_waiting_collection' || status === 'ready')) return;
-      if(!confirm('هل تؤكد استلام السيارة؟')) return;
+      if(!confirm('Confirm car collection?')) return;
       var carId = card.dataset.carId;
       try{
         // Create and submit a form to ensure CSRF token is sent and compatibility across browsers
@@ -251,7 +234,7 @@
         document.body.appendChild(form);
         form.submit();
       }catch(err){
-        alert('حدث خطأ أثناء إرسال طلب الاستلام. حاول إعادة تحميل الصفحة.');
+        alert('An error occurred while sending the collection request. Please reload the page.');
       }
     }catch(err){console.error(err);}    
   });
@@ -260,19 +243,19 @@
   <div class="empty-state-placeholder" style="padding:30px;text-align:center;color:#666;">
     {% with status=request.GET.status|default:'' %}
       {% if status == 'waiting' %}
-        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات قيد الانتظار.</div>
+        <div style="font-size:1.1em;margin-bottom:12px;">No cars are waiting.</div>
       {% elif status == 'in_progress' %}
-        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات جاري تنفيذها حالياً.</div>
+        <div style="font-size:1.1em;margin-bottom:12px;">No cars currently in progress.</div>
       {% elif status == 'done' %}
-        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات منتهية للعرض.</div>
+        <div style="font-size:1.1em;margin-bottom:12px;">No completed cars to show.</div>
       {% elif status == 'pending_payment' %}
-        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات معفّرة للدفع الآن.</div>
+        <div style="font-size:1.1em;margin-bottom:12px;">No cars pending payment right now.</div>
       {% elif status == 'follow' %}
-        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات ضمن حالة المتابعة.</div>
+        <div style="font-size:1.1em;margin-bottom:12px;">No cars in follow-up status.</div>
       {% elif status == 'bookings' %}
-        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد حجوزات أو سيارات مرتبطة بالحجوزات.</div>
+        <div style="font-size:1.1em;margin-bottom:12px;">No bookings or cars linked to bookings.</div>
       {% else %}
-        <div style="font-size:1.1em;margin-bottom:12px;">لا توجد سيارات في هذا التصنيف.</div>
+        <div style="font-size:1.1em;margin-bottom:12px;">No cars in this category.</div>
       {% endif %}
     {% endwith %}
     {% if not ajax %}
@@ -296,20 +279,14 @@
         btn.addEventListener('click', function(e){
           e.preventDefault();
           var carId = this.dataset.carId;
-          if(!confirm('هل أنت متأكد من إنهاء جميع سجلات الصيانة لهذه المركبة؟')) return;
-          // Fallback to POST via dynamically created form to ensure CSRF and compatibility
-          try {
-            var form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/cars/finish/' + carId + '/';
-            var csrf = document.createElement('input');
-            csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken'; csrf.value = getCookie('csrftoken');
-            form.appendChild(csrf);
-            document.body.appendChild(form);
-            form.submit();
-          } catch (err) {
-            alert('خطأ أثناء إرسال الطلب: ' + err);
-          }
+          // show finish date modal
+          var modal = document.getElementById('finish-date-modal');
+          if(!modal) return alert('Expiry date picker is not available');
+          modal.dataset.carId = carId;
+          var d = new Date();
+          var input = modal.querySelector('input[name="date"]');
+          if(input) input.value = d.toISOString().slice(0,10);
+          modal.style.display = 'block';
         });
       });
     }
@@ -318,6 +295,134 @@
     // re-attach after AJAX updates (simple polling hook)
     document.addEventListener('ajaxContentReplaced', attachFinishHandlers);
   })();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  function getCSRF(){ return (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || ''; }
+
+  function createModal(title, confirmText){
+    var backdrop = document.createElement('div');
+    backdrop.style.position='fixed'; backdrop.style.left='0'; backdrop.style.top='0'; backdrop.style.width='100%'; backdrop.style.height='100%'; backdrop.style.background='rgba(0,0,0,0.4)'; backdrop.style.zIndex=1200; backdrop.style.display='none';
+    var box = document.createElement('div'); box.style.maxWidth='420px'; box.style.margin='10% auto'; box.style.background='#fff'; box.style.padding='18px'; box.style.borderRadius='8px'; box.style.boxShadow='0 6px 24px rgba(0,0,0,0.2)';
+    var header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center'; header.style.marginBottom='8px';
+    var h = document.createElement('strong'); h.textContent = title; var close = document.createElement('button'); close.className='close'; close.style.background='transparent'; close.style.border='0'; close.style.fontSize='18px'; close.textContent='×'; header.appendChild(h); header.appendChild(close);
+    var fieldWrap = document.createElement('div'); fieldWrap.style.marginBottom='12px'; var input = document.createElement('input'); input.name='date'; input.type='date'; input.style.width='100%'; input.style.padding='8px'; input.style.border='1px solid #ddd'; input.style.borderRadius='6px'; fieldWrap.appendChild(input);
+    var actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.justifyContent='flex-end';
+    var confirm = document.createElement('button'); confirm.className='confirm'; confirm.style.background='#28a745'; confirm.style.color='#fff'; confirm.style.padding='8px 14px'; confirm.style.borderRadius='6px'; confirm.style.border='0'; confirm.textContent = confirmText;
+    var cancel = document.createElement('button'); cancel.className='close'; cancel.style.background='#ccc'; cancel.style.padding='8px 14px'; cancel.style.borderRadius='6px'; cancel.style.border='0'; cancel.textContent='إلغاء';
+    actions.appendChild(confirm); actions.appendChild(cancel);
+    box.appendChild(header); box.appendChild(fieldWrap); box.appendChild(actions); backdrop.appendChild(box);
+    // handlers
+    close.addEventListener('click', function(){ backdrop.style.display='none'; });
+    cancel.addEventListener('click', function(){ backdrop.style.display='none'; });
+    backdrop.addEventListener('click', function(ev){ if(ev.target === backdrop) backdrop.style.display='none'; });
+    document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape'){ backdrop.style.display='none'; } });
+    document.body.appendChild(backdrop);
+    return {backdrop: backdrop, input: input, confirm: confirm};
+  }
+
+  var finishModalObj = null;
+  function ensureFinishModal(){ if(!finishModalObj) finishModalObj = createModal('اختر تاريخ الانتهاء','حفظ'); return finishModalObj; }
+
+  var deliveryModalObj = null;
+  function ensureDeliveryModal(){ if(!deliveryModalObj) deliveryModalObj = createModal('اختر تاريخ التسليم','حفظ'); return deliveryModalObj; }
+
+  // Open finish/delivery modal when clicking the card (not links/buttons)
+  function attachCardClickHandlers(){
+    document.querySelectorAll('.car-card').forEach(function(card){
+      if(card._card_attached) return; card._card_attached = true;
+      card.addEventListener('click', function(e){
+        try{
+          if(e.target.closest('a') || e.target.closest('button')) return; // ignore clicks on links/buttons
+          var status = (card.dataset.status||'').toLowerCase();
+          var carId = card.dataset.carId;
+          if(!carId) return;
+          if(status === 'ready'){
+            var m = ensureDeliveryModal();
+            m.backdrop.dataset.carId = carId;
+            m.input.value = new Date().toISOString().slice(0,10);
+            m.backdrop.style.display='block';
+            m.confirm.onclick = function(){
+              var form = document.createElement('form'); form.method='POST'; form.action='/cars/deliver/' + carId + '/';
+              var csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value = (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || '';
+              var dateInput = document.createElement('input'); dateInput.type='hidden'; dateInput.name='delivery_date'; dateInput.value = m.input.value;
+              form.appendChild(csrf); form.appendChild(dateInput); document.body.appendChild(form); form.submit();
+            };
+            return;
+          }
+          if(status === 'in_progress'){
+            var m = ensureFinishModal();
+            m.backdrop.dataset.carId = carId;
+            m.input.value = new Date().toISOString().slice(0,10);
+            m.backdrop.style.display='block';
+            m.confirm.onclick = function(){
+              var form = document.createElement('form'); form.method='POST'; form.action='/cars/finish/' + carId + '/';
+              var csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value = (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || '';
+              var dateInput = document.createElement('input'); dateInput.type='hidden'; dateInput.name='ready_at'; dateInput.value = m.input.value;
+              form.appendChild(csrf); form.appendChild(dateInput); document.body.appendChild(form); form.submit();
+            };
+            return;
+          }
+        }catch(err){console.error(err);} 
+      });
+    });
+  }
+
+  // attach initially and after AJAX content replacements
+  attachCardClickHandlers();
+  document.addEventListener('ajaxContentReplaced', attachCardClickHandlers);
+
+  // Delegated listener as a robust fallback for dynamically-rendered cards
+  document.addEventListener('click', function(e){
+    try{
+      var card = e.target.closest('.car-card');
+      if(!card) return;
+      if(e.target.closest('a') || e.target.closest('button')) return; // ignore clicks on actionable elements
+      var status = (card.dataset.status||'').toLowerCase();
+      var carId = card.dataset.carId;
+      if(!carId) return;
+      if(status === 'ready'){
+        e.preventDefault(); e.stopPropagation();
+        var m = ensureDeliveryModal();
+        m.backdrop.dataset.carId = carId;
+        m.input.value = new Date().toISOString().slice(0,10);
+        m.backdrop.style.display='block';
+        m.confirm.onclick = function(){
+          var form = document.createElement('form'); form.method='POST'; form.action='/cars/deliver/' + carId + '/';
+          var csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value = (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || '';
+          var dateInput = document.createElement('input'); dateInput.type='hidden'; dateInput.name='delivery_date'; dateInput.value = m.input.value;
+          form.appendChild(csrf); form.appendChild(dateInput); document.body.appendChild(form); form.submit();
+        };
+        return;
+      }
+      if(status === 'in_progress'){
+        e.preventDefault(); e.stopPropagation();
+        var m = ensureFinishModal();
+        m.backdrop.dataset.carId = carId;
+        m.input.value = new Date().toISOString().slice(0,10);
+        m.backdrop.style.display='block';
+        m.confirm.onclick = function(){
+          var form = document.createElement('form'); form.method='POST'; form.action='/cars/finish/' + carId + '/';
+          var csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value = (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] || '';
+          var dateInput = document.createElement('input'); dateInput.type='hidden'; dateInput.name='ready_at'; dateInput.value = m.input.value;
+          form.appendChild(csrf); form.appendChild(dateInput); document.body.appendChild(form); form.submit();
+        };
+        return;
+      }
+    }catch(err){console.error(err);} 
+  });
+
+  // attach handlers that open modals only on user action
+  document.querySelectorAll('.finish-service-btn').forEach(function(btn){
+    if(btn._attached_modal) return; btn._attached_modal = true;
+    btn.addEventListener('click', function(e){ e.preventDefault(); var carId = this.dataset.carId; var m = ensureFinishModal(); m.backdrop.dataset.carId = carId; m.input.value = new Date().toISOString().slice(0,10); m.backdrop.style.display='block'; m.confirm.onclick = function(){ var form = document.createElement('form'); form.method='POST'; form.action='/cars/finish/' + carId + '/'; var csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value = getCSRF(); var dateInput = document.createElement('input'); dateInput.type='hidden'; dateInput.name='ready_at'; dateInput.value = m.input.value; form.appendChild(csrf); form.appendChild(dateInput); document.body.appendChild(form); form.submit(); }; });
+  });
+
+  document.querySelectorAll('form[action^="/cars/deliver/"]').forEach(function(f){ if(f._intercepted_modal) return; f._intercepted_modal = true; f.addEventListener('submit', function(e){ e.preventDefault(); var carId = (this.action||'').split('/').filter(Boolean).pop(); var m = ensureDeliveryModal(); m.backdrop.dataset.carId = carId; m.input.value = new Date().toISOString().slice(0,10); m.backdrop.style.display='block'; m.confirm.onclick = function(){ var form = document.createElement('form'); form.method='POST'; form.action='/cars/deliver/' + carId + '/'; var csrf = document.createElement('input'); csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value = getCSRF(); var dateInput = document.createElement('input'); dateInput.type='hidden'; dateInput.name='delivery_date'; dateInput.value = m.input.value; form.appendChild(csrf); form.appendChild(dateInput); document.body.appendChild(form); form.submit(); }; });
+  });
+
+});
 </script>
 
  

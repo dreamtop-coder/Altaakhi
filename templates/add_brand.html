@@ -27,7 +27,7 @@
 }
 </style>
 <div class="brand-add-mobile-center">
-    <h2 style="margin-bottom:18px;">إدخال شركة الصنع والموديل</h2>
+    <h2 style="margin-bottom:18px;">Add Brand & Model</h2>
     {% if message %}
         <div style="background:#ffe0e0;color:#a11;padding:10px 18px;border-radius:7px;margin-bottom:10px;">{{ message }}</div>
     {% endif %}
@@ -46,15 +46,15 @@
             </div>
         {% endif %}
         <div style="width:100%;text-align:center;margin-bottom:18px;">
-            <label for="id_name" style="display:block;font-weight:bold;margin-bottom:6px;">ادخال اسم الشركة</label>
+            <label for="id_name" style="display:block;font-weight:bold;margin-bottom:6px;">Brand name</label>
             {{ form.name }}
         </div>
         <div style="width:100%;text-align:center;margin-bottom:18px;">
-            <label for="id_model" style="display:block;font-weight:bold;margin-bottom:6px;">ادخال اسم الموديل</label>
-            <input type="text" name="model" id="id_model" style="width:100%;max-width:260px;padding:8px 10px;border-radius:6px;border:1px solid #ccc;text-align:center;" placeholder="ادخل اسم الموديل" required />
+            <label for="id_model" style="display:block;font-weight:bold;margin-bottom:6px;">Model name</label>
+            <input type="text" name="model" id="id_model" style="width:100%;max-width:260px;padding:8px 10px;border-radius:6px;border:1px solid #ccc;text-align:center;" placeholder="Enter model name" required />
         </div>
-        <button type="submit" style="background:#007bff;color:#fff;padding:8px 22px;border:none;border-radius:6px;font-weight:bold;width:100%;max-width:220px;">حفظ</button>
-        <a href="{% url 'brands_list' %}" style="margin:10px auto 0 auto;display:block;">إلغاء</a>
+        <button type="submit" style="background:#007bff;color:#fff;padding:8px 22px;border:none;border-radius:6px;font-weight:bold;width:100%;max-width:220px;">Save</button>
+        <a href="{% url 'brands_list' %}" style="margin:10px auto 0 auto;display:block;">Cancel</a>
     </form>
 </div>
 {% endblock %}

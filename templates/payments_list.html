@@ -3,6 +3,45 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/components.css' %}">
 <style>
+/* remove grid lines/borders for payments tables */
+.payments-desktop #payments-table-head,
+.payments-desktop #payments-table-body,
+.payments-summary-mobile table {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+.payments-desktop #payments-table-head th,
+.payments-desktop #payments-table-body th,
+.payments-desktop #payments-table-body td,
+.payments-summary-mobile th,
+.payments-summary-mobile td {
+    border: none !important;
+}
+.payments-desktop .table-body-scroll { border: none !important; }
+
+/* avoid forcing white backgrounds so styling matches clients list */
+.payments-desktop #payments-table-body tr,
+.payments-desktop #payments-table-body td,
+.payments-desktop #payments-table-body th,
+.payments-summary-mobile table tbody tr,
+.payments-summary-mobile table tbody td {
+    background: transparent !important;
+}
+
+/* ensure head/body tables use identical layout and box sizing to align columns */
+.payments-desktop #payments-table-head,
+.payments-desktop #payments-table-body {
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    box-sizing: border-box !important;
+}
+.payments-desktop #payments-table-head th,
+.payments-desktop #payments-table-body td{
+    box-sizing: border-box !important;
+    padding: 8px !important;
+}
+
 .payments-summary-mobile { display: none; }
 @media (max-width: 900px) {
     .payments-desktop { display: none !important; }
@@ -14,9 +53,9 @@
         margin: 24px 0 0 10vw;
         width: 85vw;
         max-width: 400px;
-        background: #fff;
+        background: transparent;
         border-radius: 12px;
-        box-shadow: 0 2px 8px #e0e0e0;
+        box-shadow: none;
         padding: 24px 10px 18px 10px;
     }
     .payments-summary-mobile form {
@@ -50,91 +89,296 @@
 }
 </style>
 <div class="payments-desktop">
-<h2>جدول المدفوعات</h2>
-<div style="display:flex;align-items:center;gap:32px;margin-bottom:18px;">
-    <div style="font-size:1.15em;font-weight:bold;color:#1976d2;">
-        {% if start_date or end_date %}
-            مجموع المدفوعات للفترة: {{ total_amount|floatformat:2 }}
-        {% else %}
-            مجموع المدفوعات: {{ total_amount|floatformat:2 }}
-        {% endif %}
-    </div>
-    <form method="get" style="display:flex;align-items:center;gap:10px;margin-bottom:0;">
-        <label style="font-weight:bold;">من تاريخ:</label>
-        <input type="date" name="start_date" value="{{ start_date|default:'' }}" style="padding:3px 8px;border-radius:4px;border:1px solid #ccc;">
-        <label style="font-weight:bold;">إلى تاريخ:</label>
-        <input type="date" name="end_date" value="{{ end_date|default:'' }}" style="padding:3px 8px;border-radius:4px;border:1px solid #ccc;">
-        <button type="submit" style="padding:4px 16px;background:#1976d2;color:#fff;border:none;border-radius:4px;font-weight:bold;">بحث</button>
-    </form>
-</div>
-<table class="responsive-table clients-table" style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;">
-    <thead>
-        <tr style="background:#e9ecef;color:#444;font-weight:bold;">
-            <th>رقم الفاتورة</th>
-            <th>تاريخ الصيانة</th>
-            <th>اسم العميل</th>
-            <th>رقم السيارة</th>
-            <th>المبلغ</th>
-            <th>طريقة الدفع</th>
-            <th>تاريخ الدفع</th>
-            <th>تعديل</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for payment in payments %}
-        <tr>
-            <td>{{ payment.invoice.invoice_number }}</td>
-            <td>{% if payment.invoice.created_at %}{{ payment.invoice.created_at|date:'Y-m-d' }}{% else %}-{% endif %}</td>
-            <td class="col-name" style="text-align:right;">{{ payment.client.first_name }}{% if payment.client.last_name %} {{ payment.client.last_name }}{% endif %}</td>
-            <td style="text-align:right;">{{ payment.car.plate_number }}</td>
-            <td style="text-align:right;">{{ payment.amount }}</td>
-            <td>{{ payment.get_method_display }}</td>
-            <td>{{ payment.payment_date|date:'Y-m-d' }}</td>
-            <td>
-                <a href="{% url 'edit_payment' payment.id %}" style="background:#ffc107;color:#222;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:0.95em;margin-left:6px;">تعديل</a>
-                <a href="{% url 'delete_payment' payment.id %}" style="background:#e53935;color:#fff;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:0.95em;margin-right:6px;">حذف</a>
-                <a href="{% url 'delete_invoice' payment.invoice.id %}" style="background:#e53935;color:#fff;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:0.95em;margin-right:6px;" onclick="return confirm('هل أنت متأكد من حذف الفاتورة؟');">حذف فاتورة</a>
-            </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="8" style="text-align:center;">لا توجد مدفوعات في هذه الفترة.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
-</div>
-<div class="payments-summary-mobile">
-    <h2 style="margin-bottom:18px;">جدول المدفوعات</h2>
-    <form method="get">
-        <label style="font-weight:bold;">من تاريخ:</label>
-        <input type="date" name="start_date" value="{{ start_date|default:'' }}" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;margin-top:6px;max-width:180px;">
-        <label style="font-weight:bold;">إلى تاريخ:</label>
-        <input type="date" name="end_date" value="{{ end_date|default:'' }}" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;margin-top:6px;max-width:180px;">
-        <button type="submit">بحث</button>
-    </form>
-    {% if start_date or end_date %}
-        <div style="margin-top:10px;">
-            مجموع المدفوعات للفترة: {{ total_amount|floatformat:2 }}
+<h2>All Payments</h2>
+    <div id="bulk-actions-bar-payments" style="display:none;position:sticky;top:110px;z-index:1001;background:#fff;border:1px solid #e0e0e0;padding:10px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+        <div id="selected-count-payments" style="font-weight:bold;">0 Selected</div>
+        <div>
+            <button id="bulk-print-payments" style="background:#6c757d;color:#fff;padding:6px 12px;border-radius:5px;border:none;margin-right:8px;">Print</button>
+            <button id="bulk-delete-payments" style="background:#dc3545;color:#fff;padding:6px 12px;border-radius:5px;border:none;">Delete</button>
         </div>
-        <table style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;margin-top:18px;font-size:0.75em;">
+    </div>
+<div class="table-wrapper">
+    <div class="table-head-wrap">
+        <table id="payments-table-head" class="responsive-table clients-table" style="width:100%;">
             <thead>
                 <tr style="background:#e9ecef;color:#444;font-weight:bold;">
-                    <th>الاسم</th>
-                    <th>رقم السيارة</th>
-                    <th>المبلغ</th>
+                    <th style="width:36px;"><input type="checkbox" id="select-all-payments" /><div class="resize-handle" data-col="select"></div></th>
+                    <th>Customer Name<div class="resize-handle" data-col="name"></div></th>
+                    <th>Payment Date<div class="resize-handle" data-col="date"></div></th>
+                    <th>Payment #<div class="resize-handle" data-col="reference"></div></th>
+                    <th>Method<div class="resize-handle" data-col="method"></div></th>
+                    <th>Status<div class="resize-handle" data-col="status"></div></th>
+                    <th style="text-align:right;">Amount<div class="resize-handle" data-col="amount"></div></th>
+                    <th style="text-align:right;">Unused Amount<div class="resize-handle" data-col="unused"></div></th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+    <div class="table-body-scroll" style="max-height:60vh;overflow:auto;">
+        <table id="payments-table-body" class="responsive-table clients-table" style="width:100%;border-collapse:separate;">
+            <tbody>
+                {% for payment in payments %}
+                <tr>
+                    <td style="width:36px;text-align:center;"><input type="checkbox" class="select-payment" value="{{ payment.id }}" /></td>
+                    <td class="col-name" style="text-align:right;">{{ payment.client_name }}</td>
+                    <td>{{ payment.payment_date|date:'Y-m-d' }}</td>
+                    <td>{{ payment.reference|default:'-' }}</td>
+                    <td>{{ payment.method }}</td>
+                    <td>{{ payment.status }}</td>
+                    <td style="text-align:right;">{{ payment.amount|floatformat:3 }}</td>
+                    <td style="text-align:right;">{{ payment.unused|floatformat:3 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" style="text-align:center;padding:12px;">No payments in this period.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+<div class="payments-summary-mobile">
+    <h2 style="margin-bottom:18px;">All Payments</h2>
+    <table style="width:100%;margin-top:18px;font-size:0.85em;">
+            <thead>
+                <tr style="background:#e9ecef;color:#444;font-weight:bold;font-size:0.9em;">
+                    <th style="width:24px;"></th>
+                    <th>Customer Name</th>
+                    <th>Payment Date</th>
+                    <th>Payment #</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Amount</th>
+                    <th style="text-align:right;">Unused Amount</th>
                 </tr>
             </thead>
             <tbody>
                 {% for payment in payments %}
                 <tr>
-                    <td style="text-align:right;">{{ payment.client.first_name }}{% if payment.client.last_name %} {{ payment.client.last_name }}{% endif %}</td>
-                    <td style="text-align:right;">{{ payment.car.plate_number }}</td>
-                    <td style="text-align:right;">{{ payment.amount }}</td>
+                    <td><input type="checkbox" class="select-payment" value="{{ payment.id }}" /></td>
+                    <td style="text-align:right;">{{ payment.client_name }}</td>
+                    <td>{{ payment.payment_date|date:'Y-m-d' }}</td>
+                    <td>{{ payment.reference|default:'-' }}</td>
+                    <td>{{ payment.method }}</td>
+                    <td>{{ payment.status }}</td>
+                    <td style="text-align:right;">{{ payment.amount|floatformat:3 }}</td>
+                    <td style="text-align:right;">{{ payment.unused|floatformat:3 }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="3" style="text-align:center;">لا توجد مدفوعات في هذه الفترة.</td></tr>
+                <tr><td colspan="8" style="text-align:center;">No payments in this period.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
-    {% endif %}
 </div>
+{% include 'partials/per_page_pagination.html' with per_page=per_page per_page_options=per_page_options page_obj=page_obj search=search %}
+<script src="{% static 'js/per_page_dropdown.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const checkboxes = Array.from(document.querySelectorAll('.select-payment'));
+    const selectAll = document.getElementById('select-all-payments');
+    const bar = document.getElementById('bulk-actions-bar-payments');
+    const selectedCount = document.getElementById('selected-count-payments');
+    const btnDelete = document.getElementById('bulk-delete-payments');
+    const btnPrint = document.getElementById('bulk-print-payments');
+
+    function updateBar() {
+        const selected = Array.from(document.querySelectorAll('.select-payment')).filter(c => c.checked).map(c => c.value);
+        if (selected.length > 0) {
+            bar.style.display = 'flex';
+            selectedCount.textContent = selected.length + ' Selected';
+        } else {
+            bar.style.display = 'none';
+            selectedCount.textContent = '0 Selected';
+            if (selectAll) selectAll.checked = false;
+        }
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function(){
+            checkboxes.forEach(c => c.checked = selectAll.checked);
+            updateBar();
+        });
+    }
+    checkboxes.forEach(c => c.addEventListener('change', updateBar));
+
+    if (btnDelete) {
+        btnDelete.addEventListener('click', function(){
+            const selected = Array.from(document.querySelectorAll('.select-payment')).filter(c => c.checked).map(c => c.value);
+            if (!selected.length) return;
+            if (!confirm('Delete selected payments?')) return;
+            const csrftoken = getCookie('csrftoken');
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.style.display = 'none';
+            const actionInput = document.createElement('input');
+            actionInput.name = 'bulk_action';
+            actionInput.value = 'delete';
+            form.appendChild(actionInput);
+            selected.forEach(id => {
+                const inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'payment_ids[]';
+                inp.value = id;
+                form.appendChild(inp);
+            });
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrftoken;
+            form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        });
+    }
+
+    if (btnPrint) {
+        function buildPrintHtml(data){
+            return `<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><title>Payment Receipt</title>
+            <style>
+            body{font-family: Arial, Helvetica, sans-serif;color:#111;margin:0;padding:20px;background:#f6f7fb}
+            .card{max-width:760px;margin:18px auto;background:#fff;border-radius:10px;padding:22px;box-shadow:0 6px 22px rgba(2,6,23,0.06)}
+            .brand{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+            .brand .title{font-size:20px;font-weight:700;color:#1976d2}
+            .meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+            .meta div{background:#f3f4f6;padding:8px 12px;border-radius:8px;font-weight:600}
+            table{width:100%;border-collapse:collapse;margin-top:8px}
+            th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+            .balance{font-size:20px;font-weight:800;color:#0b74da;margin-top:12px}
+            .small-muted{color:#6b7280;font-size:13px}
+            @media print{ body{background:#fff} .card{box-shadow:none;border-radius:0;padding:8px} .no-print{display:none} }
+            </style>
+            </head><body>
+            <div class="card" id="payment-print">
+                <div class="brand">
+                    <div class="title">Payment Receipt</div>
+                    <div class="small-muted">Print Date: ${new Date().toLocaleString('en-US')}</div>
+                </div>
+                <div class="meta">
+                    <div>Recipient: ${data.client_name||'-'}</div>
+                    <div>Date: ${data.payment_date||'-'}</div>
+                    <div>Reference: ${data.reference||'-'}</div>
+                </div>
+                <table>
+                    <tr><th>Payment Method</th><td>${data.method||'-'}</td></tr>
+                    <tr><th>Status</th><td>${data.status||'-'}</td></tr>
+                    <tr><th>Total Amount</th><td>${data.amount||'0.000'}</td></tr>
+                    <tr><th>Remaining / Balance</th><td class="balance">${data.unused||'0.000'}</td></tr>
+                </table>
+                <div style="margin-top:18px;color:#444">Thank you for using the system.</div>
+                <div class="no-print" style="margin-top:18px;text-align:left"><button onclick="window.print();" style="background:#1976d2;color:#fff;padding:8px 14px;border-radius:8px;border:none;">Print</button></div>
+            </div>
+            </body></html>`;
+        }
+        function buildMultiPrintHtml(rows){
+            const rowsHtml = rows.map(r=>`<tr><td style="text-align:left">${r.client_name}</td><td style="text-align:left">${r.payment_date}</td><td style="text-align:left">${r.reference}</td><td style="text-align:left">${r.amount}</td><td style="text-align:left;font-weight:700;color:#0b74da">${r.unused}</td></tr>`).join('');
+            return `<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><title>Payments Summary</title>
+            <style>body{font-family: Arial, Helvetica, sans-serif;color:#111;margin:0;padding:20px;background:#f6f7fb} .card{max-width:980px;margin:18px auto;background:#fff;border-radius:10px;padding:22px;box-shadow:0 6px 22px rgba(2,6,23,0.06)} table{width:100%;border-collapse:collapse} th,td{padding:10px;border-bottom:1px solid #eee;text-align:left} th{background:#f3f4f6;font-weight:700} @media print{ .card{box-shadow:none;border-radius:0;padding:8px} }</style>
+            </head><body><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-weight:800;font-size:18px">Selected Payments Summary</div><div class="small-muted">${new Date().toLocaleString('en-US')}</div></div>
+            <table><thead><tr><th>Recipient</th><th>Date</th><th>Reference</th><th>Amount</th><th>Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+            <div style="margin-top:14px;color:#444">Summary of selected payments.</div></div></body></html>`;
+        }
+
+        btnPrint.addEventListener('click', function(){
+            const selected = Array.from(document.querySelectorAll('.select-payment')).filter(c => c.checked).map(c => c.value);
+            if (!selected.length) return;
+            if (selected.length === 1) {
+                const id = selected[0];
+                const checkbox = document.querySelector('.select-payment[value="'+id+'"]');
+                if(!checkbox) return;
+                const row = checkbox.closest('tr');
+                const data = {
+                    client_name: row.querySelector('.col-name') ? row.querySelector('.col-name').textContent.trim() : '',
+                    payment_date: (row.children[2] && row.children[2].textContent) ? row.children[2].textContent.trim() : '',
+                    reference: (row.children[3] && row.children[3].textContent) ? row.children[3].textContent.trim() : '',
+                    method: (row.children[4] && row.children[4].textContent) ? row.children[4].textContent.trim() : '',
+                    status: (row.children[5] && row.children[5].textContent) ? row.children[5].textContent.trim() : '',
+                    amount: (row.children[6] && row.children[6].textContent) ? row.children[6].textContent.trim() : '0.000',
+                    unused: (row.children[7] && row.children[7].textContent) ? row.children[7].textContent.trim() : '0.000'
+                };
+                const html = buildPrintHtml(data);
+                const win = window.open('', '_blank', 'width=800,height=700');
+                win.document.write(html);
+                win.document.close();
+                win.focus();
+                setTimeout(function(){ try{ win.print(); }catch(e){} }, 300);
+            } else {
+                const rows = selected.map(id => {
+                    const checkbox = document.querySelector('.select-payment[value="'+id+'"]');
+                    const r = checkbox ? checkbox.closest('tr') : null;
+                    return r ? { client_name: r.querySelector('.col-name') ? r.querySelector('.col-name').textContent.trim() : '', reference: (r.children[3]&&r.children[3].textContent)?r.children[3].textContent.trim():'', payment_date: (r.children[2]&&r.children[2].textContent)?r.children[2].textContent.trim():'', amount: (r.children[6]&&r.children[6].textContent)?r.children[6].textContent.trim():'0.000', unused: (r.children[7]&&r.children[7].textContent)?r.children[7].textContent.trim():'0.000' } : null;
+                }).filter(Boolean);
+                if(!rows.length) return;
+                const html = buildMultiPrintHtml(rows);
+                const win = window.open('', '_blank', 'width=900,height=700');
+                win.document.write(html);
+                win.document.close();
+                win.focus();
+                setTimeout(function(){ try{ win.print(); }catch(e){} }, 400);
+            }
+        });
+    }
+    // resizable columns (persist widths)
+    (function(){
+        const head = document.getElementById('payments-table-head');
+        const body = document.getElementById('payments-table-body');
+        if(!head || !body) return;
+        const STORAGE_KEY = 'payments_table_col_widths_v1';
+        const ths = head.querySelectorAll('th');
+        const bodyRows = Array.from(body.querySelectorAll('tbody tr'));
+        setTimeout(function(){
+            try{
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if(saved){ const map = JSON.parse(saved); ths.forEach((th,i)=>{ const w = map[i] || (th.offsetWidth+'px'); th.style.width = w; bodyRows.forEach(r=>{ const c=r.children[i]; if(c) c.style.width = w; }); }); }
+                else { ths.forEach((th,i)=>{ const w = th.offsetWidth+'px'; th.style.width = w; bodyRows.forEach(r=>{ const c=r.children[i]; if(c) c.style.width = w; }); }); }
+                let total=0; ths.forEach(th=>{ total += parseInt(th.style.width,10)||th.offsetWidth; }); head.style.width = total+'px'; body.style.width = total+'px';
+            }catch(e){}
+        }, 50);
+
+        function syncWidths(){
+            try{
+                const thsLocal = head.querySelectorAll('th');
+                const rows = Array.from(body.querySelectorAll('tbody tr'));
+                let total = 0;
+                thsLocal.forEach((th,i)=>{
+                    const w = th.offsetWidth + 'px';
+                    th.style.width = w;
+                    rows.forEach(r=>{ const c = r.children[i]; if(c) c.style.width = w; });
+                    total += parseInt(w,10) || 0;
+                });
+                head.style.width = total + 'px';
+                body.style.width = total + 'px';
+            }catch(e){}
+        }
+
+        window.addEventListener('load', function(){ setTimeout(syncWidths, 80); });
+        setTimeout(syncWidths, 120);
+
+        const bodyWrap = document.querySelector('.table-body-scroll');
+        head.querySelectorAll('.resize-handle').forEach(handle=>{
+            const th = handle.closest('th'); if(!th) return;
+            handle.addEventListener('mousedown', function(e){
+                e.preventDefault();
+                const startX = e.pageX; const startWidth = th.offsetWidth; const startScroll = bodyWrap?bodyWrap.scrollLeft:0;
+                function onMouseMove(ev){ const dx = ev.pageX - startX; const newWidth = Math.max(40, startWidth + dx); const idx = Array.from(th.parentNode.children).indexOf(th); th.style.width = newWidth+'px'; bodyRows.forEach(r=>{ const c=r.children[idx]; if(c) c.style.width = newWidth+'px'; }); let total=0; ths.forEach(t=>{ total += parseInt(t.style.width,10)||t.offsetWidth; }); head.style.width = total+'px'; body.style.width = total+'px'; if(bodyWrap) bodyWrap.scrollLeft = startScroll; }
+                function onMouseUp(){ try{ const widths={}; ths.forEach((t,ii)=>{ widths[ii]=t.style.width|| (t.offsetWidth+'px'); }); localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); if(bodyWrap) bodyWrap.scrollLeft = startScroll; }catch(e){} document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); }
+                document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    })();
+});
+</script>
 {% endblock %}

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:600px;margin:0 auto;padding:20px;">
+    <h2>Delete Expense</h2>
+    <p>Are you sure you want to delete expense: <strong>{{ expense.category.name }} - {{ expense.amount|default:'-' }}</strong> ({{ expense.date }})?</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" style="background:#c62828;color:#fff;padding:8px 12px;border-radius:6px;border:none;margin-right:8px;">Yes, delete</button>
+        <a href="{% url 'expenses_list' %}" style="background:#eee;color:#333;padding:8px 12px;border-radius:6px;text-decoration:none;">Cancel</a>
+    </form>
+</div>
+{% endblock %}

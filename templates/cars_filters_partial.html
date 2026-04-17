@@ -1,10 +1,10 @@
 {% load i18n %}
 <div class="cars-filters">
   <ul style="list-style:none;padding:0;margin:0;display:flex;gap:8px;flex-wrap:wrap;">
-    <li><a href="/cars/?status=waiting">قيد الانتظار ({{ counts.waiting|default:0 }})</a></li>
-    <li><a href="/cars/?status=in_progress">قيد التنفيذ ({{ counts.in_progress|default:0 }})</a></li>
-    <li><a href="/cars/?status=pending_payment">قيد الدفع ({{ counts.pending_payment|default:0 }})</a></li>
-    <li><a href="/cars/?status=paid_waiting_collection">في الانتظار للتسليم ({{ counts.paid_waiting_collection|default:0 }})</a></li>
-    <li><a href="/cars/?status=done">منتهي ({{ counts.done|default:0 }})</a></li>
+    <li><a href="/cars/?status=waiting">Waiting ({{ counts.waiting|default:0 }})</a></li>
+    <li><a href="/cars/?status=in_progress">In progress ({{ counts.in_progress|default:0 }})</a></li>
+    <li><a href="/cars/?status=pending_payment">Pending payment ({{ counts.pending_payment|default:0 }})</a></li>
+    <li><a href="/cars/?status=paid_waiting_collection">Waiting for collection ({{ counts.paid_waiting_collection|default:0 }})</a></li>
+    <li><a href="/cars/?status=done">Completed ({{ counts.done|default:0 }})</a></li>
   </ul>
 </div>

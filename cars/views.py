@@ -46,7 +46,7 @@ def edit_maintenance_record_fields(request, record_id):
 		if form.is_valid():
 			form.save()
 			from django.contrib import messages
-			messages.success(request, 'تم تعديل سجل الصيانة بنجاح.')
+			messages.success(request, 'Maintenance record updated successfully.')
 			return redirect('cars:maintenance_list')
 	else:
 		form = EditMaintenanceRecordForm(instance=record)
@@ -64,33 +64,33 @@ from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404, redirect
 
 def get_work_duration_dates(car):
-    """
-    احسب تاريخ البداية والنهاية للعمل الفعلي للسيارة.
-    """
-    maintenance_records = list(car.maintenance_records.all().order_by('created_at'))
-    if not maintenance_records:
-        return None, None
-    start = maintenance_records[0].created_at
-    # إذا هناك فاتورة مدفوعة، استخدم تاريخ الدفع
-    paid_invoices = car.invoices.filter(paid=True).order_by('-created_at')
-    if paid_invoices.exists():
-        last_paid = paid_invoices.first()
-        last_payment = last_paid.payments.filter(status='paid').order_by('-payment_date').first()
-        if last_payment:
-            end = last_payment.payment_date
-            return start, end
-    # إذا لا يوجد فاتورة مدفوعة، استخدم آخر صيانة منتهية
-    finished_records = [r for r in maintenance_records if r.is_finished]
-    if finished_records:
-        end = finished_records[-1].created_at
-        return start, end
-    # إذا لا يوجد شيء، احسب حتى الآن
-    from django.utils import timezone
-    return start, timezone.now()
+	"""
+	Compute start and end datetimes for a car's actual work duration.
+	"""
+	maintenance_records = list(car.maintenance_records.all().order_by('created_at'))
+	if not maintenance_records:
+		return None, None
+	start = maintenance_records[0].created_at
+	# إذا هناك فاتورة مدفوعة، استخدم تاريخ الدفع
+	paid_invoices = car.invoices.filter(paid=True).order_by('-created_at')
+	if paid_invoices.exists():
+		last_paid = paid_invoices.first()
+		last_payment = last_paid.payments.filter(status='paid').order_by('-payment_date').first()
+		if last_payment:
+			end = last_payment.payment_date
+			return start, end
+	# إذا لا يوجد فاتورة مدفوعة، استخدم آخر صيانة منتهية
+	finished_records = [r for r in maintenance_records if r.is_finished]
+	if finished_records:
+		end = finished_records[-1].created_at
+		return start, end
+	# إذا لا يوجد شيء، احسب حتى الآن
+	from django.utils import timezone
+	return start, timezone.now()
 
 def get_work_duration_days(car):
 	"""
-	احسب مدة العمل بالأيام (يوم واحد إذا نفس اليوم، يومين إذا فرق يوم، ...)
+	Compute total work duration in days (1 day if same day, 2 if one-day diff, etc.).
 	"""
 	maintenance_records = list(car.maintenance_records.all().order_by('created_at'))
 	if not maintenance_records:
@@ -196,6 +196,10 @@ def cars_ajax_filter(request):
 		cars = []
 	# حساب مدة العمل وتمريرها للقالب
 	cars = list(cars)
+	# Dashboard: when filtering `done`, show only the latest 6 cars to avoid page
+	# bloat (user requested). Keep ordering by '-created_at' from queryset above.
+	if status == 'done':
+		cars = cars[:6]
 	for car in cars:
 		# attach derived status for template usage
 		try:
@@ -243,10 +247,66 @@ def cars_list(request):
 	if plate_number:
 		cars_qs = cars_qs.filter(plate_number__icontains=plate_number)
 	# handle per-page pagination like inventory
+	# Choose per-page options based on device class: phones include a 5 option,
+	# tablets (iPad) and desktop do not include 5 (they show 25,50,100,200,'all').
+	def _is_phone(req):
+		ua = (req.META.get('HTTP_USER_AGENT') or '').lower()
+		# common phone identifiers — exclude iPad/tablet
+		for k in ('mobile','iphone','blackberry','opera mini','windows phone'):
+			if k in ua and 'ipad' not in ua and 'tablet' not in ua:
+				return True
+		# Android devices report 'mobile' for phones; some tablets don't include 'mobile'
+		if 'android' in ua and 'mobile' in ua:
+			return True
+		return False
+
+	def _is_tablet(req):
+		ua = (req.META.get('HTTP_USER_AGENT') or '').lower()
+		if 'ipad' in ua or 'tablet' in ua:
+			return True
+		# Android tablets often include 'android' but not 'mobile'
+		if 'android' in ua and 'mobile' not in ua:
+			return True
+		return False
+
+	# default options for non-phone (desktop + tablets)
 	per_page_options = [25,50,100,200,'all']
+	try:
+		if _is_phone(request):
+			per_page_options = [5,25,50,100,200,'all']
+	except Exception:
+		# fallback to conservative desktop options on detection failure
+		per_page_options = [25,50,100,200,'all']
+	# Determine per_page preference. Priority:
+	# 1) explicit ?per_page= in URL (user action)
+	# 2) session value but only if it was explicitly set by the user previously
+	# 3) mobile default (5) when UA looks like a phone
+	# 4) fallback default (25)
 	per_page = request.GET.get('per_page')
+
+	def _is_mobile(req):
+		ua = (req.META.get('HTTP_USER_AGENT') or '').lower()
+		for k in ('mobile','iphone','android','blackberry','opera mini','windows phone'):
+			if k in ua:
+				return True
+		return False
+
 	if per_page is None:
-		per_page = request.session.get('cars_per_page', 25)
+		# use session only if we previously saved a user preference AND it was
+		# saved from the same device class (mobile/desktop). This prevents a
+		# mobile auto-redirect from permanently overriding desktop preference.
+		sess_val = request.session.get('cars_per_page', None)
+		sess_user_flag = request.session.get('cars_per_page_user', False)
+		sess_agent = request.session.get('cars_per_page_user_agent', None)
+		current_is_mobile = _is_mobile(request)
+		if sess_val is not None and sess_user_flag and ((sess_agent == 'mobile') == current_is_mobile):
+			per_page = sess_val
+		else:
+			# mobile fallback default
+			if current_is_mobile:
+				per_page = 5
+			else:
+				per_page = 25
 	if str(per_page) == 'all':
 		per_page_val = 0
 	else:
@@ -299,9 +359,15 @@ def cars_list(request):
 			car.derived_status = getattr(car, 'status', None)
 		# Note: template should call `car.is_in_workshop()` or use `car.derived_status`.
 
-	# persist per_page in session
+	# persist per_page in session ONLY when user explicitly set it via GET param
 	try:
-		request.session['cars_per_page'] = per_page if per_page_val != 0 else 'all'
+		# do not persist if this request is the automatic mobile redirect
+		if 'per_page' in request.GET and 'auto_mobile' not in request.GET:
+			request.session['cars_per_page'] = per_page if per_page_val != 0 else 'all'
+			# mark that this was explicitly chosen by the user
+			request.session['cars_per_page_user'] = True
+			# record whether the user agent at the time of choosing was mobile or desktop
+			request.session['cars_per_page_user_agent'] = 'mobile' if _is_mobile(request) else 'desktop'
 	except Exception:
 		pass
 
@@ -386,28 +452,85 @@ def edit_maintenance_record(request, record_id):
 	if request.method == 'POST':
 		form = MaintenanceRecordForm(request.POST)
 		if form.is_valid():
-			print("SERVICE VALUE:", form.cleaned_data['service'], type(form.cleaned_data['service']))
-			record.service = form.cleaned_data['service']
+			# service is optional in edit form now; only update when provided
+			svc = form.cleaned_data.get('service')
+			if svc:
+				record.service = svc
 			record.price = form.cleaned_data['price']
 			record.notes = form.cleaned_data['notes']
+			# handle optional datetime fields
+			try:
+				ca = form.cleaned_data.get('created_at')
+				if ca:
+					from django.utils import timezone as _tz
+					from django.utils import timezone
+					if timezone.is_naive(ca):
+						ca = _tz.make_aware(ca, _tz.get_current_timezone())
+					record.created_at = ca
+			except Exception:
+				pass
+			try:
+				dd = form.cleaned_data.get('delivery_date')
+				if dd:
+					from django.utils import timezone as _tz
+					from django.utils import timezone
+					if timezone.is_naive(dd):
+						dd = _tz.make_aware(dd, _tz.get_current_timezone())
+					record.delivery_date = dd
+			except Exception:
+				pass
 			record.save()
-			return redirect('maintenance_list')
+			return redirect('cars:maintenance_list')
 	else:
-		form = MaintenanceRecordForm(initial={
-			'service': record.service,
-			'price': record.price,
+		# prepare initial values, format datetimes for datetime-local widget
+		initial = {
+			'price': ("{:.3f}".format(record.price) if getattr(record, 'price', None) is not None else ''),
 			'notes': record.notes,
-		})
+		}
+		try:
+			if getattr(record, 'created_at', None):
+				initial['created_at'] = record.created_at.strftime('%Y-%m-%dT%H:%M')
+		except Exception:
+			pass
+		try:
+			if getattr(record, 'delivery_date', None):
+				initial['delivery_date'] = record.delivery_date.strftime('%Y-%m-%dT%H:%M')
+		except Exception:
+			pass
+		form = MaintenanceRecordForm(initial=initial)
 	return render(request, 'edit_maintenance_record.html', {'form': form, 'record': record})
 
 
 @require_POST
 def finish_maintenance_record(request, record_id):
 	from django.utils import timezone
+	from django.utils import dateparse
 	record = get_object_or_404(MaintenanceRecord, id=record_id)
+	# allow optional ready_at/date from POST to support historic data entry
+	ready_at_raw = request.POST.get('ready_at') or request.POST.get('date')
+	ready_at = None
+	if ready_at_raw:
+		try:
+			ready_at = dateparse.parse_datetime(ready_at_raw)
+			if ready_at is None:
+				d = dateparse.parse_date(ready_at_raw)
+				if d:
+					import datetime
+					ready_at = datetime.datetime(d.year, d.month, d.day, 23, 59, 59)
+		except Exception:
+			ready_at = None
+	if ready_at is None:
+		ready_at = timezone.now()
+	# make timezone-aware if naive
+	try:
+		from django.utils import timezone as _tz
+		if timezone.is_naive(ready_at):
+			ready_at = _tz.make_aware(ready_at, _tz.get_current_timezone())
+	except Exception:
+		pass
 	if not record.is_finished:
 		record.is_finished = True
-		record.ready_at = timezone.now()
+		record.ready_at = ready_at
 		record.save()
 	# if all records for this car are finished, move car to pending_payment
 	car = record.car
@@ -443,7 +566,31 @@ def finish_maintenance(request, car_id):
 	from cars.maintenance_models import MaintenanceRecord
 	# Mark all maintenance records as finished for this car and set ready timestamp
 	from django.utils import timezone
-	MaintenanceRecord.objects.filter(car=car, is_finished=False).update(is_finished=True, ready_at=timezone.now())
+	from django.utils import dateparse
+	# allow optional ready_at from POST (for importing historic finishes)
+	ready_at_raw = request.POST.get('ready_at') or request.POST.get('date')
+	ready_at = None
+	if ready_at_raw:
+		try:
+			ready_at = dateparse.parse_datetime(ready_at_raw)
+			if ready_at is None:
+				d = dateparse.parse_date(ready_at_raw)
+				if d:
+					# set to end of day to reflect finish time if only date provided
+					import datetime
+					ready_at = datetime.datetime(d.year, d.month, d.day, 23, 59, 59)
+		except Exception:
+			ready_at = None
+	if ready_at is None:
+		ready_at = timezone.now()
+	# make timezone-aware if naive
+	try:
+		from django.utils import timezone as _tz
+		if timezone.is_naive(ready_at):
+			ready_at = _tz.make_aware(ready_at, _tz.get_current_timezone())
+	except Exception:
+		pass
+	MaintenanceRecord.objects.filter(car=car, is_finished=False).update(is_finished=True, ready_at=ready_at)
 	# Check if all maintenance records are finished
 	all_finished = not car.maintenance_records.filter(is_finished=False).exists()
 	if all_finished:
@@ -466,7 +613,8 @@ def finish_maintenance(request, car_id):
 					car=car,
 					amount=amount,
 					paid=False,
-					created_at=timezone.now()
+					created_at=timezone.now(),
+					type='maintenance'
 				)
 				for rec in unsent:
 					rec.invoice = invoice
@@ -542,8 +690,38 @@ def deliver_car(request, car_id):
 	record_to_deliver = MaintenanceRecord.objects.filter(car=car, delivery_date__isnull=True).order_by('-created_at').first()
 	if record_to_deliver:
 		from django.utils import timezone
+		from django.utils import dateparse
 		from django.db import transaction
-		now = timezone.now()
+		# allow optional delivery_date from POST
+		delivery_raw = request.POST.get('delivery_date') or request.POST.get('date')
+		delivery_dt = None
+		if delivery_raw:
+			try:
+				delivery_dt = dateparse.parse_datetime(delivery_raw)
+				if delivery_dt is None:
+					d = dateparse.parse_date(delivery_raw)
+					if d:
+						import datetime
+						delivery_dt = datetime.datetime(d.year, d.month, d.day, 23, 59, 59)
+			except Exception:
+				delivery_dt = None
+		if delivery_dt is None:
+			# If no delivery date provided, prefer the invoice.created_at when available
+			try:
+				if record_to_deliver and getattr(record_to_deliver, 'invoice', None) and getattr(record_to_deliver.invoice, 'created_at', None):
+					delivery_dt = record_to_deliver.invoice.created_at
+				else:
+					delivery_dt = timezone.now()
+			except Exception:
+				delivery_dt = timezone.now()
+		try:
+			# make timezone-aware if naive
+			from django.utils import timezone as _tz
+			if timezone.is_naive(delivery_dt):
+				delivery_dt = _tz.make_aware(delivery_dt, _tz.get_current_timezone())
+		except Exception:
+			pass
+		now = delivery_dt
 		try:
 			with transaction.atomic():
 				record_to_deliver.delivery_date = now

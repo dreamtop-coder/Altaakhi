@@ -1,0 +1,615 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/components.css' %}">
+<style>
+/* customer selector styles (match invoice/maintenance pages) */
+.customer-selector { display:flex;align-items:center;gap:8px; border:0; background:transparent; padding:0; border-radius:8px; justify-content:flex-start; position:relative; z-index:220; }
+#customer-suggestions { position: relative; direction: rtl; width:100%; }
+#customer-suggestions div[role="listbox"] { max-height: 400px; overflow-y: auto; }
+.customer-selector input { border:0 !important; background:transparent !important; padding:6px 8px; padding-right:96px; }
+.customer-selector #customer-suggest-toggle { position:absolute; right:48px; top:0; height:100%; width:36px; display:flex; align-items:center; justify-content:center; padding:0; border-radius:6px; background:transparent; border:0; cursor:pointer; font-size:16px; z-index:230; }
+.customer-selector #customer-search-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:6px 8px; border-radius:6px; z-index:230; }
+.customer-selector { display:flex;align-items:center;gap:8px;border:1px solid #e6e6e6;background:transparent;padding:8px;border-radius:8px; justify-content:flex-start; position:relative; z-index:220; }
+.customer-selector input { border:0;background:transparent;padding:6px 8px; padding-right:96px; }
+.customer-selector #customer-suggest-toggle { position:absolute; right:48px; top:0; height:100%; width:36px; display:flex; align-items:center; justify-content:center; padding:0; border-radius:6px; background:transparent; border:0; cursor:pointer; font-size:16px; z-index:230; }
+.customer-selector #customer-search-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:6px 8px; border-radius:6px; z-index:230; }
+.customer-selector button { pointer-events:auto; }
+.small-muted { color:#6b7280; font-size:13px; }
+/* form input styles to match screenshot */
+label.record-label{ display:block; font-weight:600; margin-bottom:6px; color:#1f2937; }
+input[type="text"], input[type="date"], input[type="number"], select{ width:100%; padding:8px; border:1px solid #e6e6ef; border-radius:6px; background:transparent !important; box-sizing:border-box; }
+/* amount received special width inside its container */
+#amount-received-container input{ padding-left:44px; }
+/* subtle page background for section */
+.payments-panel { background:transparent !important; padding:16px; border-radius:6px; }
+/* ensure inputs/selects stay transparent */
+input[type="text"], input[type="date"], input[type="number"], select{ background:transparent !important; }
+</style>
+<div style="max-width:980px;margin:18px 0 18px 18px;padding:18px;background:transparent;border-radius:10px;">
+    <h2 style="color:#1976d2;margin-bottom:12px;">Record Payment</h2>
+    <div class="payments-panel" style="margin-bottom:12px;">
+        <div class="form-grid" style="width:100%;display:grid;grid-template-columns:220px 1fr;row-gap:8px;column-gap:18px;align-items:center;">
+            <label class="record-label">Customer Name</label>
+            <div style="">
+                <div class="customer-selector" style="position:relative;margin-bottom:4px;">
+                        <input id="customer-search" type="text" placeholder="Click to search customers" autocomplete="off" style="width:100%;height:32px;border-radius:6px;border:1px solid #ccc;padding-right:140px;box-sizing:border-box;padding-left:8px;" />
+                    <button type="button" id="customer-suggest-toggle" aria-label="Show suggestions" style="position:absolute;right:56px;top:50%;transform:translateY(-50%);height:32px;width:32px;border:0;background:transparent;cursor:pointer;font-size:16px;outline:none;padding:0;z-index:1600;">∨</button>
+                    <button type="button" id="customer-search-btn" aria-label="Advanced search" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);height:32px;padding:6px 8px;border-radius:6px;background:#1976d2;color:#fff;border:none;z-index:1600;">🔍</button>
+                </div>
+                <input type="hidden" id="selected_client_id" name="client_id" value="" />
+                <select id="client-select" style="display:none;">
+                    <option value="">-- Select customer --</option>
+                    {% for c in clients %}
+                    <option value="{{ c.id }}">{{ c.first_name }}{% if c.last_name %} {{ c.last_name }}{% endif %} - {{ c.phone_number }}</option>
+                    {% endfor %}
+                </select>
+                <div id="customer-suggestions" style="position:relative;display:none;"></div>
+            </div>
+
+            <label class="record-label">Amount Received</label>
+            <div>
+                <input id="amount-received" type="number" step="0.001" min="0" placeholder="0.000" style="padding:8px;border-radius:6px;border:1px solid #ccc;text-align:left;width:200px;" />
+            </div>
+
+            <label class="record-label">Payment Date</label>
+            <div>
+                <input id="payment-date" type="date" value="{% now 'Y-m-d' %}" style="padding:8px;border-radius:6px;border:1px solid #ccc;width:200px;" />
+            </div>
+
+            <label class="record-label">Payment #</label>
+            <div>
+                <input id="payment-ref" name="reference" type="text" placeholder="Reference #" value="{{ next_payment_ref|default:'' }}" style="padding:8px;border-radius:6px;border:1px solid #ccc;width:200px;" />
+            </div>
+
+            <label class="record-label">Method</label>
+            <div>
+                <select id="payment-method" style="padding:8px;border-radius:6px;border:1px solid #ccc;width:200px;">
+                    <option value="cash">Cash</option>
+                    <option value="card">Credit Card</option>
+                    <option value="benefit">Benefitpay</option>
+                    <option value="bank">Bank Transfer</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top:8px;margin-bottom:12px;">
+        <table id="invoices-table" style="width:100%;border-collapse:collapse;border:1px solid #e6e6e6;">
+            <thead style="background:#f8fafc;font-weight:700;color:#333;">
+                <tr>
+                    <th style="padding:10px;border-bottom:1px solid #e6e6e6;text-align:left;">Date</th>
+                    <th style="padding:10px;border-bottom:1px solid #e6e6e6;text-align:left;">Invoice Number</th>
+                    <th style="padding:10px;border-bottom:1px solid #e6e6e6;text-align:right;">Invoice Amount</th>
+                    <th style="padding:10px;border-bottom:1px solid #e6e6e6;text-align:right;">Amount Due</th>
+                    <th style="padding:10px;border-bottom:1px solid #e6e6e6;text-align:right;">Payment</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr id="no-invoices-row"><td colspan="5" style="padding:18px;text-align:center;color:#666;">Select a customer to load invoices.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- hidden action buttons to communicate which bottom button was used (kept for backwards compatibility with JS selectors) -->
+    <button type="button" id="hidden-save-draft" name="action" value="save_draft" style="display:none"></button>
+    <button type="button" id="hidden-save-send" name="action" value="save_send" style="display:none"></button>
+
+    <!-- sticky bottom action bar (same layout as invoices add) -->
+    <div id="bottom-action-bar" style="position:fixed;left:0;right:0;bottom:0;background:linear-gradient(90deg, #fff, #fff);border-top:1px solid #e6e6e6;padding:10px 18px;">
+        <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;gap:8px;align-items:center;">
+                <button type="button" id="btn-draft" class="btn" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;">Save as Draft</button>
+                <button type="button" id="btn-save" class="btn btn-primary" style="padding:8px 14px;background:linear-gradient(90deg,#1976d2 60%,#2196f3 100%);color:#fff;border-radius:6px;border:none;">Save and Send</button>
+                <button type="button" id="btn-cancel" class="btn" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;color:#1976d2;">Cancel</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="color:#6b7280;font-size:13px;">Make Recurring</div>
+                <div style="background:#f3f4f6;border-radius:6px;padding:8px 10px;font-weight:600;">Total Amount: <span id="bottom-total">BHD 0.000</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// preload minimal clients sample for inline suggestions
+window.clients_sample = [
+    {% for c in clients %}
+    { id: {{ c.id }}, name: "{{ c.first_name }}{% if c.last_name %} {{ c.last_name }}{% endif %}", phone: "{{ c.phone_number|default:'' }}", plates: [], cars: [] }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+document.addEventListener('DOMContentLoaded', function(){
+    // CSRF helper (reads `csrftoken` cookie for Django)
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+    const clientSelect = document.getElementById('client-select');
+    const clientSearch = document.getElementById('client-search');
+    const tableBody = document.querySelector('#invoices-table tbody');
+    const totals = {
+        total: document.getElementById('totals-total'),
+        received: document.getElementById('totals-received'),
+        used: document.getElementById('totals-used'),
+        refunded: document.getElementById('totals-refunded'),
+        excess: document.getElementById('totals-excess'),
+        bottom: document.getElementById('bottom-total')
+    };
+
+    function format(n){ return parseFloat(n||0).toFixed(3); }
+
+    function recalc(){
+        let total = 0; let received = 0; let used = 0; let refunded = 0; let excess = 0;
+        const rows = Array.from(tableBody.querySelectorAll('tr.invoice-row'));
+        rows.forEach(r => {
+            const amt = parseFloat(r.dataset.amount) || 0;
+            const rem = parseFloat(r.dataset.remaining) || 0;
+            const payInput = r.querySelector('.pay-input');
+            const payVal = parseFloat(payInput.value) || 0;
+            total += amt;
+            used += Math.min(payVal, rem);
+            received += payVal;
+            if(payVal < 0) refunded += Math.abs(payVal);
+            if(payVal > rem) excess += (payVal - rem);
+        });
+        if(totals.total) try{ totals.total.textContent = format(total); }catch(e){}
+        if(totals.used) try{ totals.used.textContent = format(used); }catch(e){}
+        if(totals.received) try{ totals.received.textContent = format(received); }catch(e){}
+        if(totals.refunded) try{ totals.refunded.textContent = format(refunded); }catch(e){}
+        if(totals.excess) try{ totals.excess.textContent = format(excess); }catch(e){}
+        if(totals.bottom) try{ totals.bottom.textContent = format(received); }catch(e){}
+    }
+
+    function makeRow(inv){
+        const tr = document.createElement('tr');
+        tr.className = 'invoice-row';
+        tr.dataset.invoiceId = inv.id;
+        tr.dataset.amount = inv.amount;
+        tr.dataset.remaining = inv.remaining;
+        tr.innerHTML = `
+            <td style="padding:10px;border-bottom:1px solid #eee;">${inv.date}</td>
+            <td style="padding:10px;border-bottom:1px solid #eee;">${inv.invoice_number}</td>
+            <td style="padding:10px;border-bottom:1px solid #eee;text-align:right;">${parseFloat(inv.amount).toFixed(3)}</td>
+            <td style="padding:10px;border-bottom:1px solid #eee;text-align:right;">${parseFloat(inv.remaining).toFixed(3)}</td>
+            <td style="padding:10px;border-bottom:1px solid #eee;text-align:right;"><input type="number" step="0.001" min="0" class="pay-input" style="width:110px;padding:6px;border-radius:6px;border:1px solid #ddd;text-align:right;" value="0.000" /></td>
+        `;
+        tableBody.appendChild(tr);
+        const input = tr.querySelector('.pay-input');
+        input.addEventListener('input', function(){ recalc(); });
+    }
+
+    // Distribute a single received amount across invoice rows (oldest first)
+    function distributePayment(amount){
+        let remaining = parseFloat(amount) || 0;
+        const rows = Array.from(tableBody.querySelectorAll('tr.invoice-row'));
+        // sort by invoice date ascending so older invoices get paid first
+        rows.sort(function(a,b){
+            try{ return new Date(a.dataset.date) - new Date(b.dataset.date); }catch(e){ return 0; }
+        });
+        rows.forEach(function(r){
+            const rem = parseFloat(r.dataset.remaining) || 0;
+            const input = r.querySelector('.pay-input');
+            if(!input) return;
+            if(remaining <= 0){
+                input.value = '0.000';
+                return;
+            }
+            const apply = Math.min(rem, remaining);
+            input.value = apply.toFixed(3);
+            remaining = Math.max(0, remaining - apply);
+        });
+        recalc();
+    }
+
+    clientSelect.addEventListener('change', function(){
+        const cid = clientSelect.value;
+        // clear table
+        tableBody.innerHTML = '';
+        if(!cid){
+            const r = document.createElement('tr'); r.id='no-invoices-row'; r.innerHTML = '<td colspan="6" style="padding:18px;text-align:center;color:#666;">Select a customer to load invoices.</td>';
+            tableBody.appendChild(r);
+            recalc();
+            return;
+        }
+        var url = '/invoices/payments/client-invoices/' + encodeURIComponent(cid) + '/';
+        fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function(r){
+                if(!r.ok){
+                    return r.text().then(function(t){ throw t || ('HTTP ' + r.status); });
+                }
+                var ct = r.headers.get('content-type') || '';
+                if(!ct.toLowerCase().includes('application/json')){
+                    return r.text().then(function(t){ throw t || 'Invalid response'; });
+                }
+                return r.json();
+            })
+            .then(function(data){
+                if(!data || data.length === 0){
+                    const r = document.createElement('tr'); r.id='no-invoices-row'; r.innerHTML = '<td colspan="5" style="padding:18px;text-align:center;color:#666;">No invoices found for this customer.</td>';
+                    tableBody.appendChild(r);
+                } else {
+                    data.forEach(inv => {
+                        // set dataset date to support sorting when distributing
+                        makeRow(inv);
+                        const last = tableBody.querySelector('tr.invoice-row:last-child');
+                        if(last) last.dataset.date = inv.date || '';
+                    });
+                }
+                recalc();
+            }).catch(function(err){
+                // show server response (HTML login page or message) when possible
+                var msg = typeof err === 'string' ? err : (err && err.message) ? err.message : 'Failed to load invoices.';
+                tableBody.innerHTML = '<tr id="no-invoices-row"><td colspan="5" style="padding:18px;text-align:center;color:#666;">' + (msg || 'Failed to load invoices.') + '</td></tr>';
+            });
+    });
+
+    // --- Inline customer suggestions (similar to invoices add) ---
+    var custInput = document.getElementById('customer-search');
+    var custSuggestions = document.getElementById('customer-suggestions');
+    function clearCustSuggestions(){
+        try{
+            // remove any inline suggestion boxes appended under the input's parent
+            if(custInput && custInput.parentNode){
+                Array.from(custInput.parentNode.querySelectorAll('[role="listbox"]')).forEach(function(el){
+                    try{
+                        if(el._cleanup && typeof el._cleanup === 'function') el._cleanup();
+                    }catch(e){}
+                    if(el && el.parentNode) el.parentNode.removeChild(el);
+                });
+            }
+            if(custSuggestions){ custSuggestions.innerHTML=''; custSuggestions.style.display='none'; }
+        }catch(e){}
+        var t = document.getElementById('customer-suggest-toggle'); if(t) t.textContent='∨';
+    }
+    function renderCustSuggestions(list){
+        try{
+            clearCustSuggestions();
+            if(!list || !list.length) return;
+            var container = (custInput && custInput.parentNode) || custSuggestions || document.body;
+            if(!container) return;
+            try{ container.style.position = container.style.position || 'relative'; }catch(e){}
+            var box = document.createElement('div');
+            box.setAttribute('role','listbox');
+            box.style.position='absolute'; box.style.zIndex=1500; box.style.background='#fff'; box.style.border='1px solid #e6e6e6'; box.style.borderRadius='6px'; box.style.direction='ltr'; box.style.boxSizing='border-box'; box.style.overflow='auto'; box.style.maxHeight='360px';
+
+            // build an inline search + results list (matches invoices/add behaviour)
+            var rowsContainer = document.createElement('div');
+            rowsContainer.style.maxHeight = '300px'; rowsContainer.style.overflow = 'auto';
+
+            var localSearch = document.createElement('input');
+            localSearch.type = 'search';
+            localSearch.placeholder = 'Search customers';
+            localSearch.style.width = '100%';
+            localSearch.style.boxSizing = 'border-box';
+            localSearch.style.padding = '8px';
+            localSearch.style.border = '0';
+            localSearch.style.borderBottom = '1px solid #eef2f7';
+
+            function buildRows(displayList){
+                rowsContainer.innerHTML = '';
+                (displayList || []).slice(0,200).forEach(function(item){
+                    var row = document.createElement('div'); row.style.padding='8px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid #f1f5f9';
+                    var nameDiv = document.createElement('div'); nameDiv.style.fontWeight='600'; nameDiv.textContent = item.name || '';
+                    var subDiv = document.createElement('div'); subDiv.className='small-muted'; subDiv.style.fontSize='13px'; subDiv.textContent = (item.phone||'');
+                    row.appendChild(nameDiv); row.appendChild(subDiv);
+                    row.addEventListener('click', function(e){ e.stopPropagation(); try{ selectCustomer(item); }catch(err){} });
+                    rowsContainer.appendChild(row);
+                });
+            }
+
+            // initial population
+            buildRows(list || []);
+
+            // wire local filtering
+            localSearch.addEventListener('input', function(){
+                var q = (localSearch.value || '').trim().toLowerCase();
+                if(!q){ buildRows(list); return; }
+                var filtered = (list || []).filter(function(it){
+                    return (it.name||'').toLowerCase().indexOf(q) !== -1 || (it.phone||'').indexOf(q) !== -1 || (it.plates && it.plates.join(' ').toLowerCase().indexOf(q) !== -1);
+                });
+                buildRows(filtered);
+            });
+
+            box.appendChild(localSearch);
+            box.appendChild(rowsContainer);
+            // prevent clicks inside box from bubbling to document click handler
+            box.addEventListener('click', function(ev){ ev.stopPropagation(); });
+
+            // position and size to match the input width
+            function positionBox(){
+                try{
+                    var left = custInput.offsetLeft + 'px';
+                    var top = (custInput.offsetTop + custInput.offsetHeight) + 'px';
+                    box.style.left = left;
+                    box.style.top = top;
+                    box.style.width = custInput.offsetWidth + 'px';
+                }catch(e){ /* ignore */ }
+            }
+            positionBox();
+
+            // cleanup handler to remove listeners
+            var onWindowChange = function(){ positionBox(); };
+            box._cleanup = function(){ try{ window.removeEventListener('resize', onWindowChange); window.removeEventListener('scroll', onWindowChange, true); }catch(e){} };
+            window.addEventListener('resize', onWindowChange);
+            window.addEventListener('scroll', onWindowChange, true);
+
+            container.appendChild(box);
+            try{ custSuggestions.style.display='block'; }catch(e){}
+            var t = document.getElementById('customer-suggest-toggle'); if(t) t.textContent='∧';
+        }catch(err){ console.error('renderCustSuggestions', err); }
+    }
+    function showInlineCustSuggestions(q){ q = (q||'').trim(); if(window.clients_sample && window.clients_sample.length){ if(!q) renderCustSuggestions(window.clients_sample.slice(0,200)); else { var filtered = window.clients_sample.filter(function(it){ return (it.name||'').toLowerCase().indexOf(q.toLowerCase())!==-1 || (it.phone||'').indexOf(q)!==-1; }); renderCustSuggestions(filtered); } return; } // fallback AJAX
+        fetch('/clients/search/?q='+encodeURIComponent(q)).then(r=>r.json()).then(data=> renderCustSuggestions(data.results||[])).catch(()=>{});
+    }
+    function selectCustomer(item){
+        try{ document.getElementById('selected_client_id').value = item.id; }catch(e){}
+        try{ if(custInput) custInput.value = item.name || ''; }catch(e){}
+        // set hidden select so existing handlers work
+        try{ clientSelect.value = item.id; clientSelect.dispatchEvent(new Event('change')); }catch(e){}
+        clearCustSuggestions();
+    }
+    // toggle button & magnifier
+    var custToggle = document.getElementById('customer-suggest-toggle');
+
+    if (custToggle && custInput) {
+
+        custToggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            var parent = custInput.parentNode;
+            var existing = parent.querySelector('[role="listbox"]');
+
+            if (existing) {
+                clearCustSuggestions();
+                custToggle.textContent = '∨';
+            } else {
+                showInlineCustSuggestions('');
+                custToggle.textContent = '∧';
+            }
+        });
+
+    }
+    var custBtn = document.getElementById('customer-search-btn'); if(custBtn){ custBtn.addEventListener('click', function(){ // open modal search
+            var q = (custInput && custInput.value) ? custInput.value : ''; openCustomerModal(q);
+        }); }
+
+    // expose helper functions for debugging / fallback onclicks
+    try{ window.showInlineCustSuggestions = showInlineCustSuggestions; window.openCustomerModal = openCustomerModal; window.clearCustSuggestions = clearCustSuggestions; }catch(e){ }
+
+    // show inline suggestions on input focus/click and while typing (match invoice-add behaviour)
+    if(custInput){
+        custInput.addEventListener('focus', function(){ try{ showInlineCustSuggestions(''); }catch(err){ console.error('showInlineCustSuggestions error', err); } });
+        custInput.addEventListener('click', function(e){ try{ showInlineCustSuggestions(''); }catch(err){ console.error('showInlineCustSuggestions error', err); } });
+        custInput.addEventListener('input', function(e){ try{ showInlineCustSuggestions(custInput.value || ''); }catch(err){ console.error('showInlineCustSuggestions error', err); } });
+
+        // clicks outside the selector should close suggestions
+        document.addEventListener('click', function(e){
+            try{
+                if(e.target && e.target.closest && (e.target.closest('#customer-suggestions') || e.target.closest('.customer-selector'))) return;
+            }catch(err){}
+            try{ clearCustSuggestions(); }catch(err){}
+        });
+    }
+
+    // Toggle helper for caret button
+    try{
+        window.toggleCustomerSuggestions = function(){
+            try{
+                if(!custInput) return;
+                var parent = custInput.parentNode;
+                var existing = parent && parent.querySelector && parent.querySelector('[role="listbox"]');
+                var t = document.getElementById('customer-suggest-toggle');
+                if(existing){
+                    try{ clearCustSuggestions(); }catch(e){}
+                    try{ if(t) t.textContent = '∨'; }catch(e){}
+                    return;
+                }
+                // show full list (open unfiltered)
+                try{ showInlineCustSuggestions(''); }catch(e){ console.error(e); }
+                try{ if(t) t.textContent = '∧'; }catch(e){}
+            }catch(err){ console.error('toggleCustomerSuggestions error', err); }
+        };
+    }catch(e){ }
+
+    // simple modal implementation for advanced search
+    function openCustomerModal(prefill){
+        var modal = document.createElement('div'); modal.style.position='fixed'; modal.style.left='0'; modal.style.top='0'; modal.style.right='0'; modal.style.bottom='0'; modal.style.background='rgba(0,0,0,0.5)'; modal.style.display='flex'; modal.style.alignItems='center'; modal.style.justifyContent='center'; modal.style.zIndex=1300;
+        var card = document.createElement('div'); card.style.background='#fff'; card.style.padding='12px'; card.style.borderRadius='8px'; card.style.maxWidth='820px'; card.style.width='96%';
+        var header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.marginBottom='12px'; header.innerHTML = '<h3 style="margin:0">Search Customers</h3><button style="border:0;background:transparent;font-size:18px;">✕</button>';
+        card.appendChild(header);
+        var body = document.createElement('div'); body.style.maxHeight='360px'; body.style.overflow='auto';
+        var input = document.createElement('input'); input.type='search'; input.value = prefill || ''; input.placeholder='Search'; input.style.width='100%'; input.style.padding='8px'; input.style.marginBottom='8px'; input.style.border='1px solid #e6e6e6'; input.style.borderRadius='6px';
+        var btn = document.createElement('button'); btn.className='btn'; btn.textContent='Search'; btn.style.marginLeft='8px'; btn.style.padding='8px';
+        var top = document.createElement('div'); top.style.display='flex'; top.appendChild(input); top.appendChild(btn);
+        card.appendChild(top); card.appendChild(body);
+        modal.appendChild(card); document.body.appendChild(modal);
+        function closeModal(){ document.body.removeChild(modal); }
+        header.querySelector('button').addEventListener('click', closeModal);
+        btn.addEventListener('click', function(){ body.innerHTML = '<div style="padding:12px;color:#666">Searching...</div>'; fetch('/clients/search/?q='+encodeURIComponent(input.value)).then(r=>r.json()).then(data=>{ renderModalResults(data.results||[]); }).catch(()=>{ body.innerHTML = '<div style="padding:12px;color:#c00">Search failed</div>'; }); });
+        function renderModalResults(list){ body.innerHTML=''; if(!list.length){ body.innerHTML = '<div style="padding:12px;color:#666">No results</div>'; return; } var tbl=document.createElement('table'); tbl.style.width='100%'; var thead=document.createElement('thead'); thead.innerHTML='<tr><th>NAME</th><th>PHONE</th></tr>'; tbl.appendChild(thead); var tbody=document.createElement('tbody'); list.forEach(function(it){ var tr=document.createElement('tr'); tr.style.cursor='pointer'; tr.innerHTML = '<td style="color:#1976d2;font-weight:600">'+(it.name||'')+'</td><td>'+(it.phone||'')+'</td>'; tr.addEventListener('click', function(){ selectCustomer(it); closeModal(); }); tbody.appendChild(tr); }); tbl.appendChild(tbody); body.appendChild(tbl); }
+    }
+
+    // Client search filtering: filter options in the select as the user types
+    if (clientSearch) {
+        clientSearch.addEventListener('input', function(){
+            const q = (clientSearch.value || '').trim().toLowerCase();
+            const opts = Array.from(clientSelect.options || []);
+            let firstVisible = null;
+            opts.forEach(function(opt, idx){
+                if (!opt.value) { opt.hidden = false; return; }
+                const txt = (opt.textContent || opt.innerText || '').toLowerCase();
+                const matches = q === '' || txt.indexOf(q) !== -1;
+                opt.hidden = !matches;
+                if (matches && !firstVisible) firstVisible = opt;
+            });
+            // if there's an obvious single match, select it
+            if (firstVisible) {
+                // do not auto-select if user cleared the input
+                if (q !== '') {
+                    clientSelect.value = firstVisible.value;
+                    // trigger change to load invoices for selected client
+                    clientSelect.dispatchEvent(new Event('change'));
+                }
+                // focus select so user can still adjust
+                clientSelect.focus();
+            }
+        });
+
+        // support Enter key to pick the first visible option
+        clientSearch.addEventListener('keydown', function(e){
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const opts = Array.from(clientSelect.options || []);
+                const first = opts.find(o => o.value && !o.hidden);
+                if (first) {
+                    clientSelect.value = first.value;
+                    clientSelect.dispatchEvent(new Event('change'));
+                }
+            }
+        });
+    }
+
+    // wire amount-received input to auto-distribute
+    const amountReceivedInput = document.getElementById('amount-received');
+    if(amountReceivedInput){
+        amountReceivedInput.addEventListener('input', function(){
+            const v = parseFloat(amountReceivedInput.value) || 0;
+            distributePayment(v);
+        });
+    }
+
+    // Save handler
+    document.getElementById('btn-save').addEventListener('click', function(){
+        const cid = clientSelect.value;
+        if(!cid){ alert('يرجى اختيار العميل'); return; }
+        const allocations = [];
+        const rows = Array.from(tableBody.querySelectorAll('tr.invoice-row'));
+        rows.forEach(r => {
+            const id = r.dataset.invoiceId;
+            const input = r.querySelector('.pay-input');
+            const val = parseFloat(input.value) || 0;
+            if(val > 0) allocations.push({invoice_id: id, amount: val});
+        });
+        if(allocations.length === 0){ if(!confirm('No amounts entered. Continue?')) return; }
+        const payload = new FormData();
+        payload.append('client_id', cid);
+        payload.append('payment_date', document.getElementById('payment-date').value);
+        payload.append('method', document.getElementById('payment-method').value);
+        payload.append('reference', document.getElementById('payment-ref').value);
+        payload.append('notes', '');
+        payload.append('allocations', JSON.stringify(allocations));
+        fetch('/invoices/payments/add/', {method:'POST', body: payload, headers: {'X-Requested-With':'XMLHttpRequest', 'X-CSRFToken': csrftoken}})
+            .then(r => {
+                if(!r.ok) return r.text().then(t => Promise.reject(t));
+                return r.json();
+            }).then(data => {
+                alert('Payments recorded.');
+                window.location.href = '/invoices/payments/';
+            }).catch(err => {
+                alert('Failed to save payments: ' + err);
+            });
+    });
+
+    // Save as Draft handler: send draft flag so server saves payments as 'unpaid'
+    document.getElementById('btn-draft').addEventListener('click', function(){
+        const cid = clientSelect.value;
+        if(!cid){ alert('يرجى اختيار العميل'); return; }
+        const allocations = [];
+        const rows = Array.from(tableBody.querySelectorAll('tr.invoice-row'));
+        rows.forEach(r => {
+            const id = r.dataset.invoiceId;
+            const input = r.querySelector('.pay-input');
+            const val = parseFloat(input.value) || 0;
+            if(val > 0) allocations.push({invoice_id: id, amount: val});
+        });
+        // allow saving empty draft
+        const payload = new FormData();
+        payload.append('client_id', cid);
+        payload.append('payment_date', document.getElementById('payment-date').value);
+        payload.append('method', document.getElementById('payment-method').value);
+        payload.append('reference', document.getElementById('payment-ref').value);
+        payload.append('notes', '');
+        payload.append('allocations', JSON.stringify(allocations));
+        payload.append('draft', '1');
+        fetch('/invoices/payments/add/', {method:'POST', body: payload, headers: {'X-Requested-With':'XMLHttpRequest', 'X-CSRFToken': csrftoken}})
+            .then(r => {
+                if(!r.ok) return r.text().then(t => Promise.reject(t));
+                return r.json();
+            }).then(data => {
+                alert('Draft saved.');
+                window.location.href = '/invoices/payments/';
+            }).catch(err => {
+                alert('Failed to save draft: ' + err);
+            });
+    });
+
+    document.getElementById('btn-cancel').addEventListener('click', function(){ window.location.href = '/invoices/payments/'; });
+
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    try{
+        const params = new URLSearchParams(window.location.search);
+        const invoiceId = params.get('invoice');
+        if(!invoiceId) return;
+        // fetch invoice JSON
+        fetch('/invoices/json/invoice/' + encodeURIComponent(invoiceId) + '/')
+            .then(r => { if(!r.ok) throw r; return r.json(); })
+            .then(data => {
+                if(!data || data.error) return;
+                // prefill client fields
+                try{
+                    const cid = data.client_id;
+                    const clientSelect = document.getElementById('client-select');
+                    const selectedClientId = document.getElementById('selected_client_id');
+                    const custInput = document.getElementById('customer-search');
+                    if(selectedClientId) selectedClientId.value = cid || '';
+                    if(custInput) custInput.value = data.client_name || '';
+                    if(clientSelect && cid){
+                        clientSelect.value = cid;
+                        // trigger change to load invoices
+                        clientSelect.dispatchEvent(new Event('change'));
+                    }
+                }catch(e){}
+
+                // wait for invoice row to appear and set payment
+                const trySet = function(){
+                    const row = document.querySelector('tr.invoice-row[data-invoice-id="'+invoiceId+'"]');
+                    if(row){
+                        const input = row.querySelector('.pay-input');
+                        if(input){
+                            input.value = (data.remaining || data.amount || 0).toFixed ? (data.remaining).toFixed(3) : data.remaining;
+                            // trigger input event to recalc
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        // set amount received to remaining
+                        const amountReceived = document.getElementById('amount-received');
+                        if(amountReceived){ amountReceived.value = (data.remaining || data.amount || 0); amountReceived.dispatchEvent(new Event('input', { bubbles: true })); }
+                        return true;
+                    }
+                    return false;
+                };
+                let attempts = 0;
+                const iv = setInterval(function(){ attempts++; if(trySet() || attempts>30) clearInterval(iv); }, 300);
+            }).catch(()=>{});
+    }catch(e){}
+});
+</script>
+
+{% endblock %}

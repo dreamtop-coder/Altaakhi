@@ -3,6 +3,8 @@ from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import redirect
 from django.utils.deprecation import MiddlewareMixin
+from urllib.parse import urlencode
+from users.views import AdminForcedPasswordChangeView, force_password_change
 
 from .views import dashboard_summary, revenue_monthly_ajax
 from .views_welcome import welcome_page
@@ -16,7 +18,8 @@ from inventory.views import suppliers_list
 from inventory.views import add_supplier, edit_supplier, delete_supplier
 from inventory.views import inventory_list, add_part
 from inventory.views import edit_part, inventory_bulk_delete
-from inventory.views import inventory_search_json
+from inventory.views import inventory_search_json, suppliers_search_json
+from bills.views import vendor_payments_list, add_vendor_payment, delete_vendor_payments, vendor_payment_detail
 
 
 
@@ -27,6 +30,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('dashboard/', dashboard_summary, name='dashboard'),
     path('dashboard/revenue_monthly_ajax/', revenue_monthly_ajax, name='revenue_monthly_ajax'),
+    # Global search redirect: support legacy `q` -> forward to clients search
+    path('global-search/', lambda req: redirect('/clients/?' + urlencode({'search': req.GET.get('q','').strip()})), name='global_search'),
     path('clients/', clients_list, name='clients_list'),
     path('clients/print/', clients_print, name='clients_print'),
     path('clients/bulk-delete/', bulk_delete_clients, name='clients_bulk_delete'),
@@ -49,7 +54,6 @@ urlpatterns = [
     path('brands/bulk-delete/', brands_bulk_delete, name='brands_bulk_delete'),
     # إدارة الموديلات
     path('', include(('cars.urls', 'cars'), namespace='cars')),
-    path('', include('services.urls')),
     path('invoices/', include('invoices.urls')),
     path('models/', models_list, name='models_list'),
     path('models/add/', add_model, name='add_model'),
@@ -58,13 +62,29 @@ urlpatterns = [
     path('models/bulk-delete/', models_bulk_delete, name='models_bulk_delete'),
     # تسجيل المستخدمين
     path('users/', include('users.urls')),
+    # include Django auth URLs for password reset/confirm views
+        # override password_change to clear force flag after change
+        path('accounts/password_change/', AdminForcedPasswordChangeView.as_view(), name='password_change'),
+        path('accounts/force_password_change/', force_password_change, name='force_password_change'),
+        path('accounts/', include('django.contrib.auth.urls')),
     # الحجوزات
     path('bookings/', include('bookings.urls')),
     # Suppliers
     path('suppliers/', suppliers_list, name='suppliers_list'),
+    path('suppliers/json/', suppliers_search_json, name='suppliers_json'),
     path('suppliers/add/', add_supplier, name='add_supplier'),
     path('suppliers/<int:supplier_id>/edit/', edit_supplier, name='edit_supplier'),
     path('suppliers/<int:supplier_id>/delete/', delete_supplier, name='delete_supplier'),
+    # Bills (Purchases)
+    path('bills/', include(('bills.urls', 'bills'))),
+    # Reset pagination helpers (redirect to base list pages without query params)
+    path('bills/reset-pagination/', lambda req: redirect('/bills/'), name='bills_reset_pagination'),
+    # Vendor payments routes (list and add) - explicit so add uses vendor payments view
+    path('vendors/payments/', vendor_payments_list, name='vendor_payments_list'),
+    path('vendors/payments/add/', add_vendor_payment, name='vendor_payments_add'),
+    path('vendors/payments/view/<int:payment_id>/', vendor_payment_detail, name='vendor_payment_detail'),
+    path('vendors/payments/delete/', delete_vendor_payments, name='vendor_payments_delete'),
+    path('vendors/payments/reset-pagination/', lambda req: redirect('/vendors/payments/'), name='vendor_payments_reset_pagination'),
     # Inventory / Items
     path('inventory/', inventory_list, name='inventory'),
     path('inventory/json/', inventory_search_json, name='inventory_json'),

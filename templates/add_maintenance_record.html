@@ -1,5 +1,6 @@
 
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
 <style>
     .maintenance-card {
@@ -14,6 +15,10 @@
         font-family: 'Cairo', Tahoma, Arial, sans-serif;
         width: 100%;
     }
+    /* Ensure form content renders left-aligned as requested */
+    .maintenance-card { text-align: left; }
+    .maintenance-card label, .maintenance-card .small-muted, .customer-selector, .invoice-summary-card { text-align: left; }
+    #items-table thead th, #items-table tbody td { text-align: left; }
     .maintenance-title {
         text-align: left;
         margin-bottom: 24px;
@@ -22,46 +27,56 @@
         color: #1a237e;
         letter-spacing: 1px;
     }
-    .maintenance-form {
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
+    // shared autocomplete is loaded from static/js/inventory-autocomplete.js
+    
+    // ensure the shared script was loaded and init existing inputs
+    try{ document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(inp); }catch(e){} }); }catch(e){}
+    /* inventory suggestions for item description inputs */
+    .inventory-suggestions { position: absolute; z-index: 800; background:#fff;border:1px solid #e6e6e6;border-radius:6px;margin-top:6px; width:100%; max-height:240px; overflow:auto; box-shadow:0 8px 24px rgba(2,6,23,0.08); }
+    .inventory-suggestions div.item-row-suggest{ padding:8px; border-bottom:1px solid #f1f5f9; cursor:pointer }
+    .inventory-suggestions div.item-row-suggest:last-child{ border-bottom:0 }
+    .customer-selector { position:relative; display:flex;align-items:center;gap:8px;border:1px solid #e6e6e6;background:#fff;padding:8px;border-radius:8px; justify-content:flex-start; }
+    .customer-selector input { border:0;background:transparent;padding:6px 8px; padding-right:96px; width:100%; box-sizing:border-box; }
+        .customer-selector input { border:0;background:transparent;padding:6px 8px; padding-right:96px; width:100%; box-sizing:border-box; font-size:0.98rem; min-height:28px; }
+    /* Make top-row inputs (customer, invoice#, date) visually consistent */
+    .invoice-top-row input, .invoice-top-row .maintenance-input, .invoice-top-row .customer-selector input {
+        padding:6px 8px;
+        min-height:28px;
+        box-sizing:border-box;
+        font-size:0.98rem;
     }
-    .maintenance-label {
-        font-weight: bold;
-        margin-bottom: 6px;
-        color: #333;
-        font-size: 15px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
+    /* Keep invoice number and date inputs outside framed container (transparent wrapper) */
+    .invoice-number-wrap, .invoice-date-wrap {
+        display:block;
+        align-items:center;
+        padding:0;
+        border:0;
+        background:transparent;
+        border-radius:0;
+        box-sizing:border-box;
     }
-    .maintenance-input,
-    .maintenance-form select,
-    .maintenance-form textarea {
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-        box-sizing: border-box;
-        padding: 7px 12px;
-        border: 1.5px solid #bdbdbd;
-        border-radius: 7px;
-        font-size: 15px;
-        background: #f5f7fa;
-        transition: border 0.2s;
-        margin-top: 2px;
+    /* Use the standard maintenance-input look for the actual inputs */
+    .invoice-number-wrap input, .invoice-date-wrap input, .invoice-number-wrap .maintenance-input, .invoice-date-wrap .maintenance-input {
+        border:1.5px solid #bdbdbd;
+        background:#f5f7fa;
+        padding:6px 10px;
+        border-radius:7px;
+        width:100%;
+        box-sizing:border-box;
+        font-size:0.98rem;
     }
-    .maintenance-input:focus,
-    .maintenance-form select:focus,
-    .maintenance-form textarea:focus {
-        border-color: #1976d2;
-        outline: none;
-        background: #fff;
+    /* Limit customer name field width on larger screens so it doesn't dominate the header row */
+        .customer-wrap { flex: 1 1 600px; max-width: 600px; }
+    @media (max-width: 900px) {
+        .customer-wrap { max-width: none; flex: 1 1 auto; }
     }
-    .maintenance-actions {
-        margin-top: 24px;
-        text-align: center;
-    }
+    /* place arrow toggle and magnifier inside the input area; make arrow full-height clickable */
+    /* align both icons (arrow and magnifier) vertically centered and spaced */
+    .customer-selector #customer-suggest-toggle { position:absolute; right:48px; top:50%; transform:translateY(-50%); height:auto; width:36px; display:flex; align-items:center; justify-content:center; padding:0; border-radius:6px; background:transparent; border:0; cursor:pointer; font-size:16px; z-index:300; }
+    .customer-selector #customer-search-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:6px 8px; border-radius:6px; z-index:300; }
+    .customer-selector button { pointer-events:auto; }
+    .small-muted { color:#6b7280; font-size:13px; }
+    /* Bottom action buttons styling (match bills/add) */
     .maintenance-btn {
         background: linear-gradient(90deg,#1976d2 60%,#2196f3 100%);
         color: #fff;
@@ -75,9 +90,7 @@
         margin-left: 8px;
         transition: background 0.2s;
     }
-    .maintenance-btn:hover {
-        background: linear-gradient(90deg,#1565c0 60%,#1976d2 100%);
-    }
+    .maintenance-btn:hover { background: linear-gradient(90deg,#1565c0 60%,#1976d2 100%); }
     .maintenance-cancel {
         background: #fff;
         color: #1976d2;
@@ -90,64 +103,51 @@
         margin-right: 8px;
         transition: background 0.2s, color 0.2s;
     }
-    .maintenance-cancel:hover {
-        background: #e3f2fd;
-        color: #0d47a1;
-    }
-    @media (max-width: 700px) {
-        .maintenance-card {
-            max-width: 98vw;
-            padding: 18px 6vw 18px 6vw;
-        }
-        .maintenance-title {
-            font-size: 20px;
-        }
-        .maintenance-form > div, .maintenance-form label, .maintenance-form input, .maintenance-form textarea, .maintenance-form select {
-            font-size: 15px !important;
-        }
-    }
-    @media (max-width: 480px) {
-        .maintenance-card {
-            max-width: 100vw;
-            padding: 10px 1vw 10px 20vw;
-        }
-        .maintenance-title {
-            font-size: 17px;
-        }
-        .maintenance-form > div, .maintenance-form label, .maintenance-form input, .maintenance-form textarea, .maintenance-form select {
-            font-size: 13px !important;
-        }
-    }
-    /* Invoice-like table and summary styles */
-    #items-table thead th { background:#fafafa; font-weight:600; color:#374151; padding:12px 8px; }
-    #items-table tbody td { padding:8px; border-bottom:1px solid #f1f5f9; }
-    #items-table input { border:1px solid #e6e9ee; padding:6px; border-radius:6px; }
-    #items-table .item-amount[readonly] { background:#f8fafc; border-color:#eceff4; }
-    .invoice-summary-card { background:transparent;border-radius:0;border:0;padding:8px; }
-    #bottom-action-bar { box-shadow:0 -4px 18px rgba(15,23,42,0.03); }
-    /* customer selector look */
-    .customer-selector { display:flex;align-items:center;gap:8px;border:1px solid #e6e6e6;background:#fff;padding:8px;border-radius:8px; justify-content:flex-start; position:relative; z-index:220; }
-     /* ensure suggestions box positions itself relative to this container
-         and render Arabic names right-to-left inside the suggestion list */
-    #customer-suggestions { position: relative; direction: rtl; width:100%; }
-    /* limit height of the rendered suggestions listbox and allow scrolling */
-    #customer-suggestions div[role="listbox"] { max-height: 400px; overflow-y: auto; }
-    /* inventory suggestions for item description inputs */
-    .inventory-suggestions { position: absolute; z-index: 800; background:#fff;border:1px solid #e6e6e6;border-radius:6px;margin-top:6px; width:100%; max-height:240px; overflow:auto; box-shadow:0 8px 24px rgba(2,6,23,0.08); }
-    .inventory-suggestions div.item-row-suggest{ padding:8px; border-bottom:1px solid #f1f5f9; cursor:pointer }
-    .inventory-suggestions div.item-row-suggest:last-child{ border-bottom:0 }
-    .customer-selector input { border:0;background:transparent;padding:6px 8px; padding-right:96px; }
-    /* place arrow toggle and magnifier inside the input area; make arrow full-height clickable */
-    .customer-selector #customer-suggest-toggle { position:absolute; right:48px; top:0; height:100%; width:36px; display:flex; align-items:center; justify-content:center; padding:0; border-radius:6px; background:transparent; border:0; cursor:pointer; font-size:16px; z-index:230; }
-    .customer-selector #customer-search-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:6px 8px; border-radius:6px; z-index:230; }
-    .customer-selector button { pointer-events:auto; }
-    .small-muted { color:#6b7280; font-size:13px; }
+    .maintenance-cancel:hover { background: #e3f2fd; color: #0d47a1; }
     /* Modal styles for advanced search */
     .modal-backdrop{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:1200}
     .modal-card{background:#fff;border-radius:8px;max-width:820px;width:96%;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.2)}
     .modal-card .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
     .modal-card table{width:100%;border-collapse:collapse}
     .modal-card th, .modal-card td{padding:8px;border-bottom:1px solid #f1f5f9;text-align:left}
+    /* Validation error styles for item rows */
+    .error-row { background: #fff5f5; border-left: 4px solid #e11d48; }
+    .item-error { color: #b91c1c; font-size: 13px; margin-top:6px; }
+    /* Out-of-stock suggestion style */
+    .inventory-suggestions .out-of-stock { color: #b91c1c; font-weight: 700; }
+    .table-add-btn { padding:6px 8px; border-radius:6px; color:#fff; font-size:12px; width:72px; border:none; cursor:pointer; }
+    .table-add-btn.primary { background:#1976d2; }
+    .table-add-btn.secondary { background:#6c757d; }
+    /* unify item description and service label appearance */
+    .item-desc, .service-label {
+        width:100% !important;
+        padding:6px !important;
+        border:1px solid #ddd !important;
+        border-radius:6px !important;
+        font-size:14px !important;
+        color:#374151 !important;
+        font-weight:400 !important;
+        font-family:inherit !important;
+        box-sizing:border-box !important;
+        min-height:36px !important;
+        height:36px !important;
+        line-height:20px !important;
+        background:#fff !important;
+        display:block !important;
+    }
+    /* ensure all table inputs share the same height (Item Details vs numeric fields) */
+    #maintenance-items-table input[type="number"],
+    #maintenance-items-table input[type="text"].item-desc,
+    #maintenance-items-table input.item-amount,
+    #maintenance-items-table input.service-amount,
+    #maintenance-items-table .service-label {
+        height:36px !important;
+        min-height:36px !important;
+        line-height:20px !important;
+        padding-top:6px !important;
+        padding-bottom:6px !important;
+        box-sizing:border-box !important;
+    }
 </style>
 <div class="maintenance-card">
     <div class="maintenance-title">New Invoice</div>
@@ -183,8 +183,8 @@
         <div style="display:flex;gap:20px;align-items:flex-start;">
             <!-- Left column: form + items -->
             <div style="flex:1;min-width:0;">
-                <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
-                    <div style="flex:1;">
+                <div class="invoice-top-row" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+                    <div class="customer-wrap" style="flex:1;">
                         <label class="maintenance-label">Customer Name</label>
                         <div class="customer-selector">
                             {% if car_instance and car_instance.client %}
@@ -193,7 +193,7 @@
                                 <input id="customer-search" type="text" placeholder="Click to search customers" autocomplete="off" readonly />
                             {% endif %}
                                 <!-- arrow toggle: show inline suggestions (∨ closed, ∧ open) -->
-                                <button type="button" id="customer-suggest-toggle" aria-label="Show suggestions" onclick="toggleCustomerSuggestions();">∨</button>
+                                <button type="button" id="customer-suggest-toggle" aria-label="Show suggestions" onclick="try{ (window.toggleCustomerSuggestions||function(){})(); }catch(e){ console.error('toggleCustomerSuggestions missing', e); }">∨</button>
                             <!-- magnifier: open advanced search modal -->
                             <button type="button" id="customer-search-btn" aria-label="Advanced search" style="background:#1976d2;color:#fff;border:none;padding:6px 8px;border-radius:6px;">🔍</button>
                         </div>
@@ -204,28 +204,33 @@
                             <input type="hidden" name="plate_number" id="id_plate_number" value="" />
                         {% endif %}
                         {% if car_instance %}
-                            <div style="margin-top:8px;">
-                                <label class="maintenance-label">Selected Vehicle</label>
-                                <div id="selected-plate" class="small-muted" style="margin-top:6px;">
-                                    {{ car_instance.plate_number }}{% if car_instance.brand %} - {{ car_instance.brand.name }}{% endif %}{% if car_instance.model %} {{ car_instance.model.name }}{% endif %}
-                                </div>
+                            <div id="client-car-select-wrapper" style="margin-top:8px;" data-plate="{{ car_instance.plate_number }}" data-brand="{% if car_instance.brand %}{{ car_instance.brand.name }}{% endif %}" data-model="{% if car_instance.model %}{{ car_instance.model.name }}{% endif %}">
+                                <label class="maintenance-label">Customer vehicle selection</label>
                                 <input type="hidden" name="selected_client_car" id="id_selected_client_car" value="{{ car_instance.id }}" />
+                                <div id="selected-plate" class="small-muted" style="margin-top:6px;">{{ car_instance.plate_number }}{% if car_instance.brand %} {{ car_instance.brand.name|upper }}{% endif %}{% if car_instance.model %} - {{ car_instance.model.name|upper }}{% endif %}</div>
                             </div>
                         {% else %}
-                            <div style="margin-top:8px;">
-                                <label class="maintenance-label">اختيار مركبة العميل (إن وُجد)</label>
-                                {{ form.selected_client_car }}
+                            {% if invoice_type == 'maintenance' %}
+                            <div id="client-car-select-wrapper" style="margin-top:8px; display:none;">
+                                <label class="maintenance-label">Customer vehicle selection</label>
+                                <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+                                    <select id="id_selected_client_car" name="selected_client_car" style="flex:1;padding:6px;border:1px solid #e6e6e6;border-radius:6px;display:none;">
+                                        <option value="">Select vehicle</option>
+                                    </select>
+                                    <button type="button" class="vehicle-select-toggle" aria-label="Choose vehicle" style="padding:6px;border-radius:6px;border:1px solid #e6e6e6;background:#fff;">∨</button>
+                                </div>
+                                <div id="selected-plate" class="small-muted" style="margin-top:6px;"></div>
                             </div>
-                            <div id="selected-plate" class="small-muted" style="margin-top:6px;"></div>
+                            {% endif %}
                         {% endif %}
                         <div id="customer-suggestions" style="position:relative;display:none;"></div>
                         <!-- plate/car lookup removed per request -->
                     </div>
-                    <div style="width:200px;">
+                    <div class="invoice-number-wrap" style="width:200px;">
                         <label class="maintenance-label">Invoice#</label>
-                        <input name="invoice_number" id="id_invoice_number" type="text" class="maintenance-input" value="{{ next_invoice_number|default:'' }}" placeholder="AUTO" />
+                        <input name="invoice_number" id="id_invoice_number" type="text" class="maintenance-input" value="{% firstof last_invoice_number next_invoice_number '' %}" placeholder="AUTO" />
                     </div>
-                    <div style="width:180px;">
+                    <div class="invoice-date-wrap" style="width:180px;">
                         <label class="maintenance-label">Invoice Date</label>
                         {{ form.maintenance_date }}
                     </div>
@@ -235,13 +240,12 @@
 
                 <div style="margin-bottom:12px;">
                     <label class="maintenance-label">Subject</label>
-                    <textarea name="notes" id="id_notes" class="maintenance-input" rows="3"></textarea>
+                    <input type="text" name="subject" id="id_subject" class="maintenance-input" style="width:100%;padding:8px;border:1px solid #e6e6e6;border-radius:6px;" placeholder="e.g. recipient name or brief note" />
                 </div>
 
-                <!-- Item table -->
+                <!-- Unified items table: single header, services tbody then items tbody -->
                 <div class="invoice-box" style="padding:12px;">
-                    <div class="maintenance-label" style="margin-bottom:8px;">Item Table</div>
-                    <table id="items-table" style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:14px;">
+                    <table id="maintenance-items-table" style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:14px;">
                         <thead>
                             <tr style="text-align:left;color:#444;border-bottom:1px solid #eee;">
                                 <th style="padding:8px 6px;width:45%">Item Details</th>
@@ -249,21 +253,28 @@
                                 <th style="padding:8px 6px;width:12%">Rate</th>
                                 <th style="padding:8px 6px;width:12%">Discount %</th>
                                 <th style="padding:8px 6px;width:12%">Amount</th>
-                                <th style="padding:8px 6px;width:7%"></th>
+                                <th style="padding:8px 6px;width:7%"> 
+                                    <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
+                                        <button type="button" id="add-service" class="table-add-btn primary">+ Add Service</button>
+                                        <button type="button" id="add-row" class="table-add-btn primary">Add Item</button>
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
+                        <tbody id="services-body"></tbody>
                         <tbody id="items-body">
                             <!-- start empty; user will add rows with "Add New Row" -->
                         </tbody>
                     </table>
-                    <div style="display:flex;gap:12px;justify-content:flex-start;align-items:center;margin-bottom:8px;">
-                        <button type="button" id="add-row" class="maintenance-btn" style="background:#6c757d;padding:8px 12px;">Add New Row</button>
-                    </div>
+
+                    <!-- buttons moved into table header for alignment -->
+
                     <input type="hidden" name="items_json" id="items_json" />
 
                     <!-- Invoice summary moved here (under items table) -->
                     <div class="invoice-summary-card" style="margin-top:12px;padding:12px;border-top:1px solid #e6e6e6;">
                         <div style="font-weight:600;margin-bottom:10px;">Invoice Summary</div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Services</div><div id="services-sub-total">0.000</div></div>
                         <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Sub Total</div><div id="sub-total">0.000</div></div>
                         <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Discount</div><div id="total-discount">0.000</div></div>
                         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:16px;margin-bottom:12px;"><div>Total ( BHD )</div><div id="grand-total">0.000</div></div>
@@ -283,8 +294,9 @@
     <div id="bottom-action-bar" style="position:fixed;left:0;right:0;bottom:0;background:linear-gradient(90deg, #fff, #fff);border-top:1px solid #e6e6e6;padding:10px 18px;">
         <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;">
             <div style="display:flex;gap:8px;align-items:center;">
-                <button type="button" class="maintenance-cancel" onclick="(function(f){ try{ if(window.serializeMaintenanceItems) window.serializeMaintenanceItems(); }catch(e){} var hidden=document.getElementById('hidden-save-draft'); if(hidden){ hidden.click(); } else { if(f.requestSubmit) { f.requestSubmit(); } else if(document.getElementById('maintenance-form-submit')) { document.getElementById('maintenance-form-submit').click(); } else { f.submit(); } } })(document.getElementById('maintenance-form'))" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;">Save as Draft</button>
-                <button type="button" class="maintenance-btn" onclick="(function(f){ try{ if(window.serializeMaintenanceItems) window.serializeMaintenanceItems(); }catch(e){} var hidden=document.getElementById('hidden-save-send'); if(hidden){ hidden.click(); } else { if(f.requestSubmit) { f.requestSubmit(); } else if(document.getElementById('maintenance-form-submit')) { document.getElementById('maintenance-form-submit').click(); } else { f.submit(); } } })(document.getElementById('maintenance-form'))" style="padding:8px 14px;">Save and Send</button>
+                <button type="button" class="maintenance-cancel" onclick="(function(f){ try{ if(window.serializeMaintenanceItems){ if(window.serializeMaintenanceItems()===false) return; } }catch(e){} var hidden=document.getElementById('hidden-save-draft'); if(hidden){ hidden.click(); } else { if(f.requestSubmit) { f.requestSubmit(); } else if(document.getElementById('maintenance-form-submit')) { document.getElementById('maintenance-form-submit').click(); } else { f.submit(); } } })(document.getElementById('maintenance-form'))" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;">Save as Draft</button>
+                <button type="button" class="maintenance-btn" onclick="(function(f){ try{ if(window.serializeMaintenanceItems){ if(window.serializeMaintenanceItems()===false) return; } }catch(e){} var hidden=document.getElementById('hidden-save-send'); if(hidden){ hidden.click(); } else { if(f.requestSubmit) { f.requestSubmit(); } else if(document.getElementById('maintenance-form-submit')) { document.getElementById('maintenance-form-submit').click(); } else { f.submit(); } } })(document.getElementById('maintenance-form'))" style="padding:8px 14px;">Save and Send</button>
+                <button type="button" id="save-and-print-btn" class="maintenance-btn" onclick="(function(f){ try{ if(window.serializeMaintenanceItems){ if(window.serializeMaintenanceItems()===false) return; } }catch(e){} var hidden=document.getElementById('hidden-save-send'); if(hidden){ hidden.click(); } else { if(f.requestSubmit) { f.requestSubmit(); } else if(document.getElementById('maintenance-form-submit')) { document.getElementById('maintenance-form-submit').click(); } else { f.submit(); } } })(document.getElementById('maintenance-form'))" style="padding:8px 14px;background:linear-gradient(90deg,#00a152 60%,#4caf50 100%);">Save & Print</button>
                 <a href="{% url 'dashboard' %}" class="maintenance-cancel" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;">Cancel</a>
             </div>
             <div style="display:flex;align-items:center;gap:12px;">
@@ -315,6 +327,15 @@
     </div>
 </div>
 
+<script src="{% static 'js/services-table.js' %}?v=2"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){} });
+</script>
+<script src="{% static 'js/inventory-autocomplete.js' %}?v=2"></script>
+<script src="{% static 'js/items-table.v2.js' %}?v=1"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initItemsTable) window.initItemsTable(); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} });
+</script>
 <script>
 // preloaded clients data (optional)
 window.clients_sample = {{ clients_sample|default:'[]'|safe }};
@@ -326,12 +347,40 @@ document.addEventListener('DOMContentLoaded', function() {
         serviceSelect.addEventListener('change', function() {
             var selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
             var serviceId = selectedOption.value;
-            fetch('/get-service-price/?service_id=' + serviceId)
-                .then(response => response.json())
-                .then(data => {
+            window.fetchJson('/get-service-price/?service_id=' + serviceId)
+                .then(function(data){
                     if(data.price !== undefined) {
                         priceInput.value = parseFloat(data.price).toFixed(2);
                     }
+                })
+                .catch(function(err){ console.error('get-service-price failed', err); });
+                // Ensure single-car customers show plate + brand/model in any visible selects
+                document.addEventListener('DOMContentLoaded', function(){
+                    try{
+                        var wrapper = document.getElementById('client-car-select-wrapper');
+                        if(!wrapper) return;
+                        var plate = wrapper.getAttribute('data-plate') || '';
+                        var brand = wrapper.getAttribute('data-brand') || '';
+                        var model = wrapper.getAttribute('data-model') || '';
+                        var suffix = '';
+                        if(brand && model) suffix = ' ' + brand.toUpperCase() + ' - ' + model.toUpperCase();
+                        else if(brand) suffix = ' ' + brand.toUpperCase();
+                        else if(model) suffix = ' ' + model.toUpperCase();
+                        var label = plate + (suffix || '');
+                        // Update any visible select options that may show only the plate
+                        document.querySelectorAll('select[name="selected_client_car"]').forEach(function(sel){
+                            if(!sel) return;
+                            if(sel.options && sel.options.length>0){
+                                sel.options[0].text = label;
+                            }
+                            // if select is visible and there's only one option, hide the toggle buttons
+                            if(sel.options.length <= 1){
+                                try{ document.querySelectorAll('.vehicle-select-toggle').forEach(function(b){ b.style.display = 'none'; }); }catch(e){}
+                            }
+                        });
+                        // also set the visible selected-plate div (redundant but safe)
+                        try{ var sp = document.getElementById('selected-plate'); if(sp && !sp.textContent.trim()){ sp.textContent = label; } }catch(e){}
+                    }catch(e){ /* ignore */ }
                 });
         });
     }
@@ -345,15 +394,24 @@ document.addEventListener('DOMContentLoaded', function() {
     var custSuggestions = document.getElementById('customer-suggestions');
     var custTimer = null;
     function clearSuggestions(){
-        try{ if(custSuggestions) { custSuggestions.innerHTML=''; custSuggestions.style.display = 'none'; } }catch(e){}
+        try{
+            if(custSuggestions){ custSuggestions.innerHTML=''; custSuggestions.style.display = 'none'; }
+        }catch(e){}
+        try{
+            // remove any inline suggestion boxes appended to .customer-selector containers
+            document.querySelectorAll('.customer-selector > [role="listbox"]').forEach(function(el){ if(el && el.parentNode) el.parentNode.removeChild(el); });
+        }catch(e){}
         var t = document.getElementById('customer-suggest-toggle'); if(t) t.textContent = '∨';
     }
     function renderSuggestions(list){
         try{
             clearSuggestions();
             if(!list || !list.length) return;
-            // ensure only one box at a time
-            if(!custSuggestions) return;
+            // determine container: prefer the input's parent (.customer-selector) so the box appears directly under the input
+            var container = (custInput && custInput.parentNode) ? custInput.parentNode : custSuggestions;
+            if(!container) return;
+            try{ container.style.position = container.style.position || 'relative'; }catch(e){}
+
             var box = document.createElement('div');
             box.setAttribute('role','listbox');
             box.style.position='absolute';
@@ -362,9 +420,8 @@ document.addEventListener('DOMContentLoaded', function() {
             box.style.border='1px solid #e6e6e6';
             box.style.width='100%';
             box.style.borderRadius='6px';
-            box.style.marginTop='6px';
+            box.style.top='100%';
             box.style.left='0';
-            box.style.right='auto';
             box.style.direction='ltr';
 
             // inline search box at top of suggestions
@@ -418,35 +475,66 @@ document.addEventListener('DOMContentLoaded', function() {
                                         for(var ii=0; ii<item.cars.length; ii++){
                                             var cc = item.cars[ii];
                                             if(cc.plate === singlePlate){
-                                                var br = cc.brand || '';
-                                                var mo = cc.model || '';
+                                                var brRaw = (cc.brand && (cc.brand.name || cc.brand)) || '';
+                                                var moRaw = (cc.model && (cc.model.name || cc.model)) || '';
+                                                var br = (brRaw || '').toUpperCase();
+                                                var mo = (moRaw || '').toUpperCase();
                                                 var sfx = ((br? (br + ' '): '') + (mo || '')).trim();
                                                 if(sfx) richLabel = singlePlate + ' - ' + sfx;
                                                 break;
                                             }
                                         }
                                     }
-                                    if(showEl) showEl.textContent = richLabel;
+                                    if(showEl){
+                                        showEl.textContent = richLabel;
+                                        showEl.style.background = 'transparent';
+                                        showEl.style.border = '0';
+                                        showEl.style.padding = '0';
+                                    }
                                 }
-                                // if multiple plates, append a small chooser
-                                if(item.plates.length > 1 && showEl){
-                                    var chooser = document.createElement('div'); chooser.style.marginTop='6px'; chooser.style.fontSize='13px'; chooser.style.color='#1976d2';
-                                    chooser.textContent = 'Choose plate: ';
-                                    // prefer item.cars with ids when available
-                                    var carList = (item.cars && item.cars.length) ? item.cars : item.plates.map(function(p, idx){ return {id: null, plate: p}; });
-                                    carList.forEach(function(c){
-                                        var btn = document.createElement('button'); btn.type='button'; btn.style.margin='0 6px'; btn.style.padding='2px 6px'; btn.style.border='1px solid #e6e6e6'; btn.style.borderRadius='4px'; btn.style.background='#fff'; btn.style.cursor='pointer';
-                                        var b = c.brand || '';
-                                        var m = c.model || '';
-                                        var suffix = ((b? (b + ' '): '') + (m || '')).trim();
-                                        btn.textContent = suffix ? (c.plate + ' - ' + suffix) : c.plate;
-                                        btn.addEventListener('click', function(ev){ ev.stopPropagation(); if(plateEl) plateEl.value = c.plate; if(showEl) showEl.textContent = (suffix ? (c.plate + ' - ' + suffix) : c.plate); try{ var selectEl2 = document.getElementById('id_selected_client_car'); if(selectEl2){ if(c.id) selectEl2.value = c.id; } }catch(e){} });
-                                        chooser.appendChild(btn);
-                                    });
-                                    // remove old chooser if exists
+                                // if multiple plates, populate the `id_selected_client_car` select so the user chooses from a dropdown
+                                if(item.plates.length > 1){
+                                    try{
+                                        var selectEl2 = document.getElementById('id_selected_client_car');
+                                        var wrapper = document.getElementById('client-car-select-wrapper');
+                                        if(selectEl2){
+                                            selectEl2.innerHTML = '';
+                                            // placeholder so user must choose explicitly
+                                            var ph = document.createElement('option'); ph.value = ''; ph.text = 'Select vehicle'; ph.selected = true; ph.disabled = true; selectEl2.appendChild(ph);
+                                            var carList = (item.cars && item.cars.length) ? item.cars : item.plates.map(function(p, idx){ return {id: null, plate: p}; });
+                                            carList.forEach(function(c){
+                                                var opt = document.createElement('option');
+                                                opt.value = c.id || c.plate || '';
+                                                var brandName = (c.brand && (c.brand.name || c.brand)) || '';
+                                                var modelName = (c.model && (c.model.name || c.model)) || '';
+                                                opt.setAttribute('data-plate', c.plate || '');
+                                                opt.setAttribute('data-brand', brandName);
+                                                opt.setAttribute('data-model', modelName);
+                                                var label = (c.plate || '');
+                                                var suffix = ((brandName? (brandName + ' ') : '') + (modelName || '')).trim();
+                                                if(suffix) label = label + ' - ' + suffix;
+                                                opt.text = label;
+                                                selectEl2.appendChild(opt);
+                                            });
+                                            // show wrapper and focus select for user choice
+                                            try{ if(wrapper) wrapper.style.display = ''; selectEl2.style.display = 'none'; var showEl = document.getElementById('selected-plate'); if(showEl) showEl.textContent = 'selection';
+                                                // show vehicle toggle buttons when multiple plates
+                                                try{ document.querySelectorAll('.vehicle-select-toggle').forEach(function(b){ b.style.display = ''; }); }catch(e){}
+                                            }catch(e){}
+                                        }
+                                    }catch(e){ console.error('populate select error', e); }
+                                    // remove any old chooser buttons if present
                                     var old = document.getElementById('plate-chooser'); if(old) old.parentNode.removeChild(old);
-                                    chooser.id = 'plate-chooser'; showEl.parentNode.appendChild(chooser);
                                 } else {
+                                    // single plate: ensure wrapper visible and show plate text, hide select
+                                    try{
+                                        var wrapper = document.getElementById('client-car-select-wrapper');
+                                        if(wrapper){ wrapper.style.display = ''; }
+                                        var selectEl2 = document.getElementById('id_selected_client_car');
+                                        if(selectEl2){ selectEl2.style.display = 'none'; }
+                                        // hide vehicle toggle buttons for single plate
+                                        try{ document.querySelectorAll('.vehicle-select-toggle').forEach(function(b){ b.style.display = 'none'; }); }catch(e){}
+                                    }catch(e){}
                                     var old = document.getElementById('plate-chooser'); if(old) old.parentNode.removeChild(old);
                                 }
                             } else {
@@ -460,16 +548,34 @@ document.addEventListener('DOMContentLoaded', function() {
                                     // clear existing options
                                     selectEl.innerHTML = '';
                                     if(item.cars && item.cars.length){
+                                        // placeholder option to force explicit selection
+                                        var ph = document.createElement('option'); ph.value = ''; ph.text = 'Select vehicle'; ph.selected = true; ph.disabled = true; selectEl.appendChild(ph);
                                         item.cars.forEach(function(c){
-                                            var opt = document.createElement('option'); opt.value = c.id;
+                                            var opt = document.createElement('option'); opt.value = c.id || c.plate || '';
+                                            var brandName = (c.brand && (c.brand.name || c.brand)) || '';
+                                            var modelName = (c.model && (c.model.name || c.model)) || '';
+                                            opt.setAttribute('data-plate', c.plate || '');
+                                            opt.setAttribute('data-brand', brandName);
+                                            opt.setAttribute('data-model', modelName);
                                             var label = (c.plate || '');
-                                            var brand = c.brand || '';
-                                            var model = c.model || '';
-                                            var suffix = ((brand? (brand + ' ') : '') + (model || '')).trim();
+                                            var suffix = ((brandName? (brandName + ' ') : '') + (modelName || '')).trim();
                                             if(suffix) label = label + ' - ' + suffix;
                                             opt.text = label;
                                             selectEl.appendChild(opt);
                                         });
+                                        // if exactly one car, hide the select and show plain text under the label
+                                            if(item.cars.length === 1){
+                                            try{ selectEl.style.display = 'none'; }catch(e){}
+                                            try{ var only = item.cars[0]; var showEl = document.getElementById('selected-plate'); if(showEl){ var plateVal = only.plate || ''; var brRaw = (only.brand && (only.brand.name || only.brand)) || ''; var moRaw = (only.model && (only.model.name || only.model)) || ''; var br = (brRaw || '').toUpperCase(); var mo = (moRaw || '').toUpperCase(); var suffix = ''; if(br && mo){ suffix = br + ' - ' + mo; } else if(br){ suffix = br; } else if(mo){ suffix = mo; } var displayLabel = plateVal + (suffix? ('\t' + suffix) : ''); showEl.textContent = displayLabel; showEl.style.background = 'transparent'; showEl.style.border = '0'; showEl.style.padding = '0'; } }catch(e){}
+                                            // hide toggle buttons for single-car case
+                                            try{ document.querySelectorAll('.vehicle-select-toggle').forEach(function(b){ b.style.display = 'none'; }); }catch(e){}
+                                            // also set the select's value for form submission (even if hidden)
+                                            try{ selectEl.value = item.cars[0].id || item.cars[0].plate || ''; }catch(e){}
+                                            } else {
+                                                try{ selectEl.style.display = 'none'; var showEl = document.getElementById('selected-plate'); if(showEl) showEl.textContent = 'selection'; }catch(e){}
+                                        }
+                                    } else {
+                                        try{ selectEl.style.display = 'none'; }catch(e){}
                                     }
                                 }
                             }catch(ex){}
@@ -497,16 +603,17 @@ document.addEventListener('DOMContentLoaded', function() {
             // prevent clicks inside box from bubbling to document click handler
             box.addEventListener('click', function(ev){ ev.stopPropagation(); });
             box.appendChild(rowsContainer);
-            custSuggestions.appendChild(box);
-            // ensure container is visible and focus the inline search box
-            try{ custSuggestions.style.display = 'block'; localSearch.focus(); }catch(e){}
+            // append to the input's container so it visually sits below the input
+            container.appendChild(box);
+            // focus the inline search box
+            try{ localSearch.focus(); }catch(e){}
             var t = document.getElementById('customer-suggest-toggle'); if(t) t.textContent = '∧';
         }catch(err){ console.error('renderSuggestions error', err); }
     }
 
     // showInlineSuggestions: used by the arrow toggle to show inline suggestions
     function showInlineSuggestions(q){
-        console.log('showInlineSuggestions called, q=', q, 'custSuggestions exists=', !!custSuggestions);
+        if(window.DEBUG) console.log('showInlineSuggestions called, q=', q, 'custSuggestions exists=', !!custSuggestions);
         q = (q || '').trim();
 
         // if we have preloaded clients, filter locally
@@ -525,10 +632,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // fallback: query server
-        fetch('/clients/search/?q=' + encodeURIComponent(q))
-            .then(function(r){ return r.json(); })
+        window.fetchJson('/clients/search/?q=' + encodeURIComponent(q))
             .then(function(data){ renderSuggestions(data.results||[]); })
-            .catch(function(){ /* ignore errors */ });
+            .catch(function(err){ console.error('clients search failed', err); });
     }
     if(custInput){
         // prevent direct typing into the main customer input; clicking/focusing it opens the dropdown
@@ -539,13 +645,21 @@ document.addEventListener('DOMContentLoaded', function() {
             clearSuggestions();
         });
     }
+    // hide client-car wrapper initially if no client selected
+    try{
+        var clientWrapper = document.getElementById('client-car-select-wrapper');
+        var selectedClientId = (document.getElementById('selected_client_id') && document.getElementById('selected_client_id').value) || '';
+        if(clientWrapper && !selectedClientId){ clientWrapper.style.display = 'none'; var sel = document.getElementById('id_selected_client_car'); if(sel) sel.style.display = 'none'; var sp = document.getElementById('selected-plate'); if(sp) sp.textContent = ''; }
+        // if client exists but select is empty, leave the wrapper visible but keep select hidden until user toggles
+        if(clientWrapper && selectedClientId){ try{ clientWrapper.style.display = ''; var sel = document.getElementById('id_selected_client_car'); if(sel && sel.options && sel.options.length<=1){ sel.style.display = 'none'; } }catch(e){} }
+    }catch(e){}
     // magnifier button: show suggestions or open advanced modal
     var custBtn = document.getElementById('customer-search-btn');
-    console.log('customer search elements:', {custBtnExists: !!custBtn, custInputExists: !!custInput, custSuggestionsExists: !!custSuggestions});
+    if(window.DEBUG) console.log('customer search elements:', {custBtnExists: !!custBtn, custInputExists: !!custInput, custSuggestionsExists: !!custSuggestions});
         // magnifier should open advanced modal
         if(custBtn){
-            custBtn.addEventListener('click', function(e){
-                console.log('customer-search-btn (magnifier) clicked');
+                custBtn.addEventListener('click', function(e){
+                if(window.DEBUG) console.log('customer-search-btn (magnifier) clicked');
                 openCustomerModal(custInput ? custInput.value : '');
             });
             // fallback: make sure a direct onclick works even if event listeners are blocked
@@ -556,9 +670,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // arrow toggle: show inline suggestions
         var custToggle = document.getElementById('customer-suggest-toggle');
             if(custToggle){
-            custToggle.addEventListener('click', function(e){
+                custToggle.addEventListener('click', function(e){
                 e.stopPropagation();
-                console.log('customer-suggest-toggle clicked');
+                if(window.DEBUG) console.log('customer-suggest-toggle clicked');
                 try{ window.toggleCustomerSuggestions(); }catch(err){ console.error(err); }
             });
             // fallback onclick to call the same toggle helper
@@ -624,7 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var resultsBox = document.getElementById('modal-customer-results');
         if(!resultsBox) return;
         resultsBox.innerHTML = '<div style="padding:12px;color:#666">Searching...</div>';
-        fetch('/clients/search/?q=' + encodeURIComponent(q)).then(function(r){ return r.json(); }).then(function(data){ renderModalResults(data.results || []); }).catch(function(){ resultsBox.innerHTML = '<div style="padding:12px;color:#c00">Search failed</div>'; });
+        window.fetchJson('/clients/search/?q=' + encodeURIComponent(q)).then(function(data){ renderModalResults(data.results || []); }).catch(function(err){ resultsBox.innerHTML = '<div style="padding:12px;color:#c00">Search failed</div>'; console.error('modal clients search failed', err); });
     }
     function renderModalResults(list){
         var resultsBox = document.getElementById('modal-customer-results'); if(!resultsBox) return; resultsBox.innerHTML = '';
@@ -648,7 +762,23 @@ document.addEventListener('DOMContentLoaded', function() {
         // populate select with car ids
         try{
             var selectEl = document.getElementById('id_selected_client_car');
-            if(selectEl){ selectEl.innerHTML = ''; if(item.cars && item.cars.length){ item.cars.forEach(function(c){ var opt = document.createElement('option'); opt.value = c.id; var label = (c.plate||''); var brand = c.brand || ''; var model = c.model || ''; var suffix = ((brand? (brand + ' '):'') + (model||'')).trim(); if(suffix) label = label + ' - ' + suffix; opt.text = label; selectEl.appendChild(opt); }); } }
+            var wrapper = document.getElementById('client-car-select-wrapper');
+            if(selectEl){
+                selectEl.innerHTML = '';
+                if(item.cars && item.cars.length){
+                    item.cars.forEach(function(c){ var opt = document.createElement('option'); opt.value = c.id || c.plate || ''; var brandName = (c.brand && (c.brand.name || c.brand)) || ''; var modelName = (c.model && (c.model.name || c.model)) || ''; opt.setAttribute('data-plate', c.plate || ''); opt.setAttribute('data-brand', brandName); opt.setAttribute('data-model', modelName); var label = (c.plate||''); var suffix = ((brandName? (brandName + ' '):'') + (modelName||'')).trim(); if(suffix) label = label + ' - ' + suffix; opt.text = label; selectEl.appendChild(opt); });
+                    if(item.cars.length === 1){
+                        // single car: hide select, show plate text
+                        try{ if(wrapper) wrapper.style.display = ''; selectEl.style.display = 'none'; var only = item.cars[0]; var showEl = document.getElementById('selected-plate'); if(showEl){ var plateVal = only.plate || ''; var brRaw = (only.brand && (only.brand.name || only.brand)) || ''; var moRaw = (only.model && (only.model.name || only.model)) || ''; var br = (brRaw || '').toUpperCase(); var mo = (moRaw || '').toUpperCase(); var suffix = ''; if(br && mo){ suffix = br + ' - ' + mo; } else if(br){ suffix = br; } else if(mo){ suffix = mo; } var displayLabel = plateVal + (suffix? ('\t' + suffix) : ''); showEl.textContent = displayLabel; showEl.style.background = 'transparent'; showEl.style.border = '0'; showEl.style.padding = '0'; } }catch(e){}
+                        try{ selectEl.value = item.cars[0].id || item.cars[0].plate || ''; }catch(e){}
+                    } else {
+                        // multiple cars: show select and focus, show placeholder label
+                        try{ if(wrapper) wrapper.style.display = ''; selectEl.style.display = 'none'; var showEl = document.getElementById('selected-plate'); if(showEl) showEl.textContent = 'selection'; }catch(e){}
+                    }
+                } else {
+                    try{ if(wrapper) wrapper.style.display = 'none'; selectEl.style.display = 'none'; }catch(e){}
+                }
+            }
         }catch(e){}
         closeCustomerModal(); clearSuggestions();
     }
@@ -677,7 +807,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         document.getElementById('sub-total').textContent = subtotal.toFixed(3);
         document.getElementById('total-discount').textContent = totalDiscount.toFixed(3);
-        var grand = (subtotal - totalDiscount).toFixed(3);
+        // services subtotal
+        var svcSubtotal = 0;
+        document.querySelectorAll('#services-body .service-row').forEach(function(row){ try{ svcSubtotal += parseFloat(row.querySelector('.service-amount').value) || 0; }catch(e){} });
+        document.getElementById('services-sub-total').textContent = svcSubtotal.toFixed(3);
+        var grand = (svcSubtotal + (subtotal - totalDiscount)).toFixed(3);
         document.getElementById('grand-total').textContent = grand;
         // update bottom total display (visible sticky bar)
         try{ var bottom = document.getElementById('bottom-total'); if(bottom) bottom.textContent = 'BHD ' + parseFloat(grand).toFixed(3); }catch(e){}
@@ -695,28 +829,64 @@ document.addEventListener('DOMContentLoaded', function() {
             var row = el.closest('.item-row');
             updateRowAmount(row);
             recomputeTotals();
+            try{
+                if(el.classList.contains('item-qty')){
+                    var avail = row && row.dataset && row.dataset.inventoryQty ? Number(row.dataset.inventoryQty) : undefined;
+                    var trackStock = row && row.dataset && (row.dataset.inventoryTrackStock!==undefined) ? (row.dataset.inventoryTrackStock === 'true') : undefined;
+                    var req = Number(el.value) || 0;
+                    if(trackStock && avail !== undefined && !isNaN(avail) && req > avail){
+                        try{ showAvailabilityModal('Insufficient stock: available ' + avail + ' • requested ' + req); }catch(ex){}
+                    }
+                }
+            }catch(ex){}
         }
     });
     // helper: create and append a new item row, return the new row element
+    // debounce guard: prevent multiple handlers from inserting duplicate rows
     function createItemRow(focus){
+        try{
+            if(!window._lastCreateItemRowAt) window._lastCreateItemRowAt = 0;
+            var now = Date.now();
+            if(now - window._lastCreateItemRowAt < 250){ return null; }
+            window._lastCreateItemRowAt = now;
+        }catch(e){}
         var tbody = document.getElementById('items-body');
         var tr = document.createElement('tr'); tr.className='item-row';
         tr.innerHTML = `\
-            <td style="padding:6px;"><input type="text" class="item-desc" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-            <td style="padding:6px;"><input type="number" class="item-qty" step="0.1" value="1.0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-            <td style="padding:6px;"><input type="number" class="item-rate" step="0.01" value="0.00" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-            <td style="padding:6px;"><input type="number" class="item-discount" step="0.01" value="0.0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+            <td style="padding:6px;"><input type="text" class="item-desc" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/> <div class="stock-display" style="margin-top:6px;color:#16a34a;font-weight:600;font-size:13px;"></div></td>\
+            <td style="padding:6px;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+            <td style="padding:6px;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+            <td style="padding:6px;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
             <td style="padding:6px;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
             <td style="padding:6px;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;
         tbody.appendChild(tr);
         try{
             var newInput = tr.querySelector('.item-desc');
-            if(newInput){ attachInventoryAutocomplete(newInput); if(focus!==false) newInput.focus(); }
+            if(newInput){ try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); }catch(e){} if(focus!==false) newInput.focus(); }
+        }catch(e){}
+        try{
+            var qtyEl = tr.querySelector('.item-qty');
+            var stockEl = tr.querySelector('.stock-display');
+            if(qtyEl){
+                qtyEl.addEventListener('input', function(){
+                    try{
+                        var rowStock = tr.dataset.inventoryQty ? Number(tr.dataset.inventoryQty) : (tr.dataset.stock ? Number(tr.dataset.stock) : null);
+                        if(rowStock !== null && rowStock !== undefined && tr.dataset.inventoryTrackStock === 'true'){
+                            var v = Number(qtyEl.value) || 0;
+                            if(v > rowStock){
+                                try{ alert('⚠️ الكمية أكبر من المتوفر في المخزون'); }catch(e){}
+                                qtyEl.value = rowStock;
+                                try{ if(window.updateRowAmount) window.updateRowAmount(tr); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
+                            }
+                        }
+                    }catch(e){}
+                });
+            }
         }catch(e){}
         return tr;
     }
 
-    document.getElementById('add-row').addEventListener('click', function(){ createItemRow(true); });
+    document.getElementById('add-row').addEventListener('click', function(e){ try{ e.preventDefault(); e.stopPropagation(); }catch(ex){} createItemRow(true); });
 
     // --- Inventory autocomplete for Item Details ---
     var invTimer = null;
@@ -730,6 +900,23 @@ document.addEventListener('DOMContentLoaded', function() {
         try{ wrapper.style.position = wrapper.style.position || 'relative'; }catch(e){}
         var box = document.createElement('div');
         box.className = 'inventory-suggestions';
+        // position the suggestions box below the input and allow scrolling
+        try{
+            box.style.position = 'absolute';
+            box.style.left = '0px';
+            box.style.right = '0px';
+            box.style.top = (input.offsetHeight + 6) + 'px';
+            box.style.zIndex = 1200;
+            box.style.background = '#fff';
+            box.style.border = '1px solid #e6e6e6';
+            box.style.boxSizing = 'border-box';
+            box.style.maxHeight = '220px';
+            box.style.overflow = 'auto';
+            box.style.borderRadius = '6px';
+            box.style.boxShadow = '0 8px 30px rgba(2,6,23,0.06)';
+            box.style.padding = '4px 0';
+            box.style.width = '100%';
+        }catch(e){ }
         list.forEach(function(it){
             var row = document.createElement('div'); row.className = 'item-row-suggest';
             var title = document.createElement('div'); title.style.fontWeight='600'; title.textContent = it.name || (it.title||'');
@@ -738,10 +925,62 @@ document.addEventListener('DOMContentLoaded', function() {
             if(it.code) parts.push('Code: ' + it.code);
             if(it.sku) parts.push('SKU: ' + it.sku);
             if(it.price!==undefined) parts.push('Price: ' + parseFloat(it.price).toFixed(3));
+            // show available quantity when provided by server
+            if(it.quantity!==undefined && it.quantity!==null) parts.push('Available: ' + String(it.quantity));
             meta.textContent = parts.join(' • ');
             row.appendChild(title); row.appendChild(meta);
             row.addEventListener('click', function(e){
-                try{ input.value = it.name; var rowEl = input.closest('.item-row'); if(rowEl){ rowEl.dataset.inventoryId = it.id; var rateEl = rowEl.querySelector('.item-rate'); if(rateEl && it.price!==undefined) rateEl.value = parseFloat(it.price).toFixed(2); updateRowAmount(rowEl); recomputeTotals(); } }catch(err){console.error(err);} 
+                try{
+                    // Check availability if server provided `quantity`
+                    var rowEl = input.closest('.item-row');
+                    var requestedQty = 1;
+                    try{ requestedQty = Number((rowEl && rowEl.querySelector('.item-qty')) ? rowEl.querySelector('.item-qty').value : 1) || 1; }catch(ex){}
+                    // only enforce availability when the part is stock-tracked
+                    if(it.track_stock && it.quantity !== undefined && it.quantity !== null && Number(it.quantity) < requestedQty){
+                        // show shortage modal and prevent selection
+                        try{ showAvailabilityModal('Insufficient stock: available ' + (it.quantity||0) + ' • requested ' + requestedQty); }catch(ex){ console.error(ex); }
+                        return;
+                    }
+                    input.value = it.name;
+                    if(rowEl){
+                        rowEl.dataset.inventoryId = it.id;
+                        if(it.quantity!==undefined && it.quantity!==null) rowEl.dataset.inventoryQty = String(it.quantity);
+                        if(it.track_stock!==undefined && it.track_stock!==null) rowEl.dataset.inventoryTrackStock = String(Boolean(it.track_stock));
+                        var rateEl = rowEl.querySelector('.item-rate'); if(rateEl && it.price!==undefined) rateEl.value = parseFloat(it.price).toFixed(3);
+                        // set stock display inside the row
+                        try{
+                            var stockEl = rowEl.querySelector('.stock-display');
+                            if(stockEl){
+                                if(it.track_stock){
+                                    stockEl.innerText = 'Stock: ' + (it.quantity!==undefined && it.quantity!==null ? String(it.quantity) : '?');
+                                    stockEl.style.color = (it.quantity!==undefined && it.quantity!==null && Number(it.quantity) > 0) ? '#16a34a' : '#b91c1c';
+                                } else {
+                                    stockEl.innerText = '';
+                                }
+                            }
+                        }catch(ex){}
+                        updateRowAmount(rowEl); recomputeTotals();
+                        // attach qty clamp if needed
+                        try{
+                            var qtyEl = rowEl.querySelector('.item-qty');
+                            if(qtyEl){
+                                qtyEl.addEventListener('input', function(){
+                                    try{
+                                        var rowStock = rowEl.dataset.inventoryQty ? Number(rowEl.dataset.inventoryQty) : (rowEl.dataset.stock ? Number(rowEl.dataset.stock) : null);
+                                        if(rowStock !== null && rowStock !== undefined && rowEl.dataset.inventoryTrackStock === 'true'){
+                                            var v = Number(qtyEl.value) || 0;
+                                            if(v > rowStock){
+                                                try{ alert('⚠️ الكمية أكبر من المتوفر في المخزون'); }catch(e){}
+                                                qtyEl.value = rowStock;
+                                                try{ if(window.updateRowAmount) window.updateRowAmount(rowEl); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
+                                            }
+                                        }
+                                    }catch(e){}
+                                });
+                            }
+                        }catch(ex){}
+                    }
+                }catch(err){console.error(err);} 
                 closeInventorySuggestionsFor(input);
                 // ensure there's always an empty row available: add one if none
                 try{
@@ -755,51 +994,82 @@ document.addEventListener('DOMContentLoaded', function() {
         wrapper.appendChild(box);
     }
 
-    // Attach per-input inventory autocomplete helper for dynamic rows
-    function attachInventoryAutocomplete(input){
-        if(!input) return;
-        // avoid double-attaching
-        if(input._invAttached) return; input._invAttached = true;
-        var timer = null;
-        input.addEventListener('input', function(){
-            var q = (input.value||'').trim();
-            if(timer) clearTimeout(timer);
-            if(!q){ closeInventorySuggestionsFor(input); return; }
-            timer = setTimeout(function(){
-                var url = '/inventory/json/?q=' + encodeURIComponent(q);
-                fetch(url).then(function(r){ if(!r.ok) { console.warn('inventory fetch not ok', r.status); throw new Error('fetch failed'); } return r.json(); })
-                .then(function(data){
-                    var list = data.results || [];
-                    // normalize server fields to the shape expected by the renderer
-                    var mapped = list.map(function(it){
-                        return {
-                            id: it.id,
-                            name: it.name || it.title || '',
-                            code: it.code || '',
-                            sku: it.sku || '',
-                            // server may return sale_price or price
-                            price: (it.sale_price!==undefined) ? parseFloat(it.sale_price) : (it.price!==undefined? parseFloat(it.price) : undefined)
-                        };
+    // Compact, shared inventory autocomplete initializer
+    (function(){
+        function initInventoryAutocomplete(input){
+            if(!input || input._invInit) return; input._invInit = true;
+            var dd = null, timer = null, onWindowChange = null;
+            var wrapper = input.parentNode; try{ wrapper.style.position = wrapper.style.position || 'relative'; }catch(e){}
+            function close(){ if(dd){ try{ if(dd.parentNode) dd.parentNode.removeChild(dd); }catch(e){} dd = null; } if(onWindowChange){ window.removeEventListener('scroll', onWindowChange, true); window.removeEventListener('resize', onWindowChange); onWindowChange = null; } }
+            function positionDropdown(){ if(!dd) return; try{ var rect = input.getBoundingClientRect(); dd.style.left = (rect.left + window.scrollX) + 'px'; dd.style.top = (rect.bottom + window.scrollY + 6) + 'px'; dd.style.width = rect.width + 'px'; }catch(e){}
+            }
+            function render(list){ close();
+                dd = document.createElement('div'); dd.className='inventory-suggestions'; dd.style.position = 'absolute'; dd.style.zIndex = 9999; dd.style.boxSizing = 'border-box'; dd.style.maxHeight = '260px'; dd.style.overflow = 'auto'; dd.style.border = '1px solid #e6e6e6'; dd.style.background = '#fff'; dd.style.borderRadius = '6px'; dd.style.boxShadow = '0 8px 30px rgba(2,6,23,0.06)'; dd.style.padding = '4px 0';
+                if(!list || !list.length){ var empty = document.createElement('div'); empty.style.padding='8px'; empty.style.color='#666'; empty.textContent = 'No items'; dd.appendChild(empty); }
+                else{
+                    list.forEach(function(it){
+                        var row = document.createElement('div'); row.className='item-row-suggest'; row.style.padding='8px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid #f1f5f9';
+                        var title = document.createElement('div'); title.style.fontWeight='600'; title.textContent = it.name || (it.title||'');
+                        var meta = document.createElement('div'); meta.style.fontSize='13px'; meta.style.color='#6b7280';
+                        var parts = [];
+                        if(it.code) parts.push('Code: '+it.code);
+                        if(it.sku) parts.push('SKU: '+it.sku);
+                        if(it.price!==undefined) parts.push('Price: '+parseFloat(it.price).toFixed(3));
+                        if(it.quantity!==undefined && it.quantity!==null) parts.push('Available: '+String(it.quantity));
+                        meta.textContent = parts.join(' • ');
+                        row.appendChild(title); row.appendChild(meta);
+                        row.addEventListener('click', function(){
+                            try{
+                                var rowEl = input.closest('.item-row');
+                                var requestedQty = 1;
+                                try{ requestedQty = Number((rowEl && rowEl.querySelector('.item-qty'))?rowEl.querySelector('.item-qty').value:1)||1; }catch(e){}
+                                if(it.track_stock && it.quantity!==undefined && Number(it.quantity) < requestedQty){ showAvailabilityModal('Insufficient stock: available '+(it.quantity||0)+' • requested '+requestedQty); return; }
+                                input.value = it.name;
+                                if(rowEl){ rowEl.dataset.inventoryId = it.id; if(it.quantity!==undefined) rowEl.dataset.inventoryQty = String(it.quantity); if(it.track_stock!==undefined) rowEl.dataset.inventoryTrackStock = String(Boolean(it.track_stock)); var rateEl = rowEl.querySelector('.item-rate'); if(rateEl && it.price!==undefined) rateEl.value = parseFloat(it.price).toFixed(3); updateRowAmount(rowEl); recomputeTotals(); }
+                            }catch(e){ console.error(e); }
+                            close();
+                            try{ var hasEmpty=false; document.querySelectorAll('#items-body .item-desc').forEach(function(d){ if((d.value||'').trim()==='') hasEmpty=true; }); if(!hasEmpty) createItemRow(false); }catch(e){}
+                        });
+                        dd.appendChild(row);
                     });
-                    var qlow = q.toLowerCase();
-                    var filtered = mapped.filter(function(it){
-                        var name = (it.name||'').toLowerCase();
-                        var code = (it.code||'').toString().toLowerCase();
-                        var sku = (it.sku||'').toString().toLowerCase();
-                        return name.indexOf(qlow)!==-1 || (code && code.indexOf(qlow)!==-1) || (sku && sku.indexOf(qlow)!==-1);
-                    });
-                    renderInventorySuggestionsFor(input, filtered.slice(0,50));
-                }).catch(function(err){ console.error('inventory fetch error', err); });
-            }, 200);
-        });
-        input.addEventListener('blur', function(){ setTimeout(function(){ closeInventorySuggestionsFor(input); }, 200); });
-        input.addEventListener('focus', function(){ var q=(input.value||'').trim(); if(q){ var ev=new Event('input'); input.dispatchEvent(ev); } });
-    }
+                }
+                // append to body so it's not clipped by table overflow
+                document.body.appendChild(dd);
+                positionDropdown();
+                onWindowChange = function(){ positionDropdown(); };
+                window.addEventListener('scroll', onWindowChange, true);
+                window.addEventListener('resize', onWindowChange);
+            }
+            function fetchAndRender(q){
+                var fetchFn = (window.fetchInventory) ? window.fetchInventory : function(u){ var fetcher = (window.fetchJson)?window.fetchJson:function(url){ return fetch(url).then(function(r){ return r.json(); }); }; return fetcher('/inventory/json/?q=' + encodeURIComponent(u||'')).then(function(d){ return (d && d.results)? d.results : []; }); };
+                return fetchFn(q).then(function(list){
+                    var mapped = (list||[]).map(function(it){ return { id: it.id, name: it.name||it.title||'', code: it.code||'', sku: it.sku||'', price: (it.sale_price!==undefined)?parseFloat(it.sale_price):(it.price!==undefined?parseFloat(it.price):undefined), quantity: (it.quantity!==undefined && it.quantity!==null)?Number(it.quantity):undefined, track_stock: (it.track_stock!==undefined && it.track_stock!==null)?Boolean(it.track_stock):undefined }; });
+                    render(mapped.slice(0,50));
+                }).catch(function(){ close(); });
+            }
+            input.addEventListener('input', function(){ var q = (input.value||'').trim(); if(timer) clearTimeout(timer); if(!q){ close(); return; } timer = setTimeout(function(){ fetchAndRender(q); }, 160); });
+            // open suggestions on user click/focus or when there's existing content
+            var _invPointerActivate = false;
+            input.addEventListener('pointerdown', function(){ _invPointerActivate = true; setTimeout(function(){ _invPointerActivate = false; }, 250); });
+            input.addEventListener('focus', function(){ var q = (input.value||'').trim(); if(q || _invPointerActivate) fetchAndRender(q||''); });
+            // also open suggestions on user click when the field is empty
+            input.addEventListener('click', function(e){ var q = (input.value||'').trim(); if(!q){ fetchAndRender(''); } });
+            input.addEventListener('blur', function(){ setTimeout(close,150); setTimeout(function(){ lookupPartPrice(input.value).then(function(price){ if(price!==null){ try{ var tr = input.closest('.item-row'); var rateEl = tr && tr.querySelector('.item-rate'); if(rateEl) { rateEl.value = parseFloat(price).toFixed(3); updateRowAmount(tr); recomputeTotals(); } }catch(e){} } }); },180); });
+        }
+        window.initInventoryAutocomplete = initInventoryAutocomplete;
+    })();
 
     // attach to any existing item-desc inputs
     // if there are no rows yet, create an initial empty row
     if(document.querySelectorAll('#items-body .item-row').length === 0){ createItemRow(true); }
-    document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ attachInventoryAutocomplete(inp); });
+    document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ window.initInventoryAutocomplete(inp); }catch(e){} });
+    // ensure totals and bottom total reflect any server-rendered rows
+    try{ recomputeTotals(); }catch(e){}
+
+    // attach to any existing item-desc inputs (use shared initializer)
+    // if there are no rows yet, create an initial empty row
+    if(document.querySelectorAll('#items-body .item-row').length === 0){ createItemRow(true); }
+    document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ window.initInventoryAutocomplete(inp); }catch(e){} });
     // ensure totals and bottom total reflect any server-rendered rows
     try{ recomputeTotals(); }catch(e){}
 
@@ -810,18 +1080,125 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.inventory-suggestions').forEach(function(b){ b.parentNode && b.parentNode.removeChild(b); });
     });
 
+    // When the user changes the vehicle select, update the hidden plate and visible label
+    try{
+        var carSelect = document.getElementById('id_selected_client_car');
+        if(carSelect){
+            carSelect.addEventListener('change', function(){
+                try{
+                    var opt = this.options[this.selectedIndex];
+                    var plate = (opt && opt.getAttribute) ? (opt.getAttribute('data-plate') || opt.value) : (opt ? opt.value : '');
+                    var plateField = document.getElementById('id_plate_number'); if(plateField) plateField.value = plate;
+                    var showEl = document.getElementById('selected-plate'); if(showEl){ var plateVal = (opt && opt.getAttribute) ? (opt.getAttribute('data-plate') || opt.value) : (opt ? opt.value : ''); var br = ((opt && opt.getAttribute) ? (opt.getAttribute('data-brand') || '') : '') .toUpperCase(); var mo = ((opt && opt.getAttribute) ? (opt.getAttribute('data-model') || '') : '') .toUpperCase(); var suffix = ''; if(br && mo){ suffix = br + ' - ' + mo; } else if(br){ suffix = br; } else if(mo){ suffix = mo; } var displayLabel = plateVal + (suffix? ('\t' + suffix) : ''); showEl.textContent = displayLabel; showEl.style.background = 'transparent'; showEl.style.border = '0'; showEl.style.padding = '0'; }
+                }catch(e){/* ignore */}
+            });
+        }
+    }catch(e){/* ignore */}
+
+    // Toggle the vehicle select when the user clicks any small arrow button
+    try{
+        var vehToggles = document.querySelectorAll('.vehicle-select-toggle');
+        if(vehToggles && vehToggles.length){
+            vehToggles.forEach(function(btn){
+                btn.addEventListener('click', function(){
+                    try{
+                        var sel = document.getElementById('id_selected_client_car');
+                        if(!sel) return;
+                        // Always show the select (do not fallback to modal). User expects the dropdown.
+                        if(!sel.style.display || sel.style.display === 'none'){
+                            sel.style.display = '';
+                            try{ sel.focus(); }catch(e){}
+                        } else {
+                            sel.style.display = 'none';
+                        }
+                    }catch(e){/* ignore */}
+                });
+            });
+        }
+    }catch(e){}
+
+    // allow clicking the visible plate label to open the select for multi-car clients
+    try{
+        var sp = document.getElementById('selected-plate');
+        if(sp){
+            sp.style.cursor = 'pointer';
+            sp.addEventListener('click', function(){
+                try{
+                    var sel = document.getElementById('id_selected_client_car');
+                    if(!sel) return;
+                    if(sel.options && sel.options.length > 1){ sel.style.display = ''; try{ sel.focus(); }catch(e){} }
+                }catch(e){}
+            });
+        }
+    }catch(e){}
+
+    // Availability modal helper
+    function showAvailabilityModal(message){
+        try{
+            var mb = document.getElementById('availability-modal-backdrop');
+            if(!mb){
+                mb = document.createElement('div'); mb.id = 'availability-modal-backdrop'; mb.style.position='fixed'; mb.style.left='0'; mb.style.top='0'; mb.style.right='0'; mb.style.bottom='0'; mb.style.background='rgba(0,0,0,0.5)'; mb.style.display='flex'; mb.style.alignItems='center'; mb.style.justifyContent='center'; mb.style.zIndex=2000;
+                var card = document.createElement('div'); card.style.background='#fff'; card.style.padding='18px'; card.style.borderRadius='8px'; card.style.maxWidth='560px'; card.style.width='90%'; card.style.boxShadow='0 8px 30px rgba(2,6,23,0.2)';
+                var h = document.createElement('div'); h.style.fontWeight='700'; h.style.marginBottom='8px'; h.textContent = 'Stock Alert';
+                var p = document.createElement('div'); p.id='availability-modal-message'; p.style.marginBottom='12px'; p.style.color='#111';
+                var btn = document.createElement('button'); btn.textContent='Close'; btn.style.padding='8px 12px'; btn.style.border='none'; btn.style.background='#1976d2'; btn.style.color='#fff'; btn.style.borderRadius='6px'; btn.style.cursor='pointer';
+                btn.onclick = function(){ try{ mb.style.display='none'; }catch(e){} };
+                card.appendChild(h); card.appendChild(p); card.appendChild(btn); mb.appendChild(card); document.body.appendChild(mb);
+            }
+            var msgEl = document.getElementById('availability-modal-message'); if(msgEl) msgEl.textContent = message || '';
+            mb.style.display = 'flex';
+        }catch(e){ console.error('showAvailabilityModal failed', e); }
+    }
+
     // serialize items into hidden input on submit
     document.getElementById('maintenance-form').addEventListener('submit', function(e){
+        // Require explicit vehicle selection for clients with multiple cars
+        try{
+            var sel = document.getElementById('id_selected_client_car');
+            var selectedClientId = document.getElementById('selected_client_id') && document.getElementById('selected_client_id').value;
+            if(sel && selectedClientId){
+                // if there are real options (more than the placeholder) and no selection
+                var realOptions = Array.prototype.slice.call(sel.options).filter(function(o){ return o.value && !o.disabled; });
+                if(realOptions.length > 1 && (!sel.value || sel.value === '')){
+                    // show inline error near selector instead of alert
+                    e.preventDefault();
+                    try{
+                        var warn = document.getElementById('vehicle-select-warning');
+                        if(!warn){ warn = document.createElement('div'); warn.id = 'vehicle-select-warning'; warn.style.color = '#b71c1c'; warn.style.marginTop = '6px'; warn.style.fontWeight = '600'; warn.textContent = 'Please select a vehicle for the chosen customer.'; var wrapper = document.getElementById('client-car-select-wrapper'); if(wrapper) wrapper.appendChild(warn); }
+                        // open and focus select
+                        sel.style.display = '';
+                        try{ sel.focus(); }catch(e){}
+                    }catch(err){}
+                    return;
+                }
+            }
+        }catch(err){}
         recomputeTotals();
         var items = [];
+        // include services first (mark with service_id when available)
+        try{
+            if(window.serializeServiceItems){
+                var svcs = window.serializeServiceItems();
+                svcs.forEach(function(it){ items.push(it); });
+            } else {
+                // fallback: read services rows directly
+                document.querySelectorAll('#services-body .service-row').forEach(function(row){ try{ items.push({ description: row.querySelector('.service-desc').value, qty: parseFloatSafe(row.querySelector('.service-qty').value), rate: parseFloatSafe(row.querySelector('.service-rate').value), discount: 0, amount: parseFloatSafe(row.querySelector('.service-amount').value), service_id: row.dataset.serviceId ? parseInt(row.dataset.serviceId,10) : null }); }catch(e){} });
+            }
+        }catch(e){}
+        // then include parts items (require part_id)
         document.querySelectorAll('#items-body .item-row').forEach(function(row){
-            items.push({
-                description: row.querySelector('.item-desc').value,
-                qty: parseFloatSafe(row.querySelector('.item-qty').value),
-                rate: parseFloatSafe(row.querySelector('.item-rate').value),
-                discount: parseFloatSafe(row.querySelector('.item-discount').value),
-                amount: parseFloatSafe(row.querySelector('.item-amount').value)
-            });
+            try{
+                var partId = row.dataset.partId || row.dataset.inventoryId || null;
+                if(!partId) return; // skip rows without linked part
+                items.push({
+                    part_id: partId,
+                    description: row.querySelector('.item-desc').value,
+                    qty: parseFloatSafe(row.querySelector('.item-qty').value),
+                    rate: parseFloatSafe(row.querySelector('.item-rate').value),
+                    discount: parseFloatSafe(row.querySelector('.item-discount').value),
+                    amount: parseFloatSafe(row.querySelector('.item-amount').value)
+                });
+            }catch(e){}
         });
         document.getElementById('items_json').value = JSON.stringify(items);
     });
@@ -829,20 +1206,170 @@ document.addEventListener('DOMContentLoaded', function() {
     try{ window.serializeMaintenanceItems = function(){
         try{ recomputeTotals(); }catch(e){}
         var items = [];
-        document.querySelectorAll('#items-body .item-row').forEach(function(row){
+        var invalidRows = [];
+        document.querySelectorAll('#items-body .item-row').forEach(function(row, idx){
             try{
+                // clear previous error markers
+                try{ row.classList.remove('error-row'); var old = row.querySelector('.item-error'); if(old) old.parentNode.removeChild(old); }catch(e){}
+                var partId = row.dataset.partId || row.dataset.inventoryId || null;
+                var desc = row.querySelector('.item-desc') ? (row.querySelector('.item-desc').value||'').trim() : '';
+                var qty = parseFloatSafe(row.querySelector('.item-qty') ? row.querySelector('.item-qty').value : 0);
+                var rate = parseFloatSafe(row.querySelector('.item-rate') ? row.querySelector('.item-rate').value : 0);
+                var discount = parseFloatSafe(row.querySelector('.item-discount') ? row.querySelector('.item-discount').value : 0);
+                var amount = parseFloatSafe(row.querySelector('.item-amount') ? row.querySelector('.item-amount').value : 0);
+
+                // if no part selected but the row is empty, skip silently
+                if(!partId && !desc && (!qty || qty === 0) && (!rate || rate === 0)){
+                    return;
+                }
+
+                if(!partId){
+                    invalidRows.push(idx+1);
+                    try{ row.classList.add('error-row'); var msg = document.createElement('div'); msg.className = 'item-error'; msg.textContent = 'يجب اختيار القطعة من القائمة (اختر من الاقتراحات)'; row.appendChild(msg); }catch(e){}
+                    return;
+                }
+
                 items.push({
-                    description: row.querySelector('.item-desc') ? row.querySelector('.item-desc').value : '',
-                    qty: parseFloatSafe(row.querySelector('.item-qty') ? row.querySelector('.item-qty').value : 0),
-                    rate: parseFloatSafe(row.querySelector('.item-rate') ? row.querySelector('.item-rate').value : 0),
-                    discount: parseFloatSafe(row.querySelector('.item-discount') ? row.querySelector('.item-discount').value : 0),
-                    amount: parseFloatSafe(row.querySelector('.item-amount') ? row.querySelector('.item-amount').value : 0)
+                    part_id: partId,
+                    description: desc,
+                    qty: qty,
+                    rate: rate,
+                    discount: discount,
+                    amount: amount
                 });
             }catch(e){ }
         });
+
+        // show banner with invalid rows if any
+        try{
+            var banner = document.getElementById('form-items-error-banner');
+            if(invalidRows.length){
+                if(!banner){
+                    banner = document.createElement('div'); banner.id = 'form-items-error-banner'; banner.style.background = '#fff5f5'; banner.style.color = '#991b1b'; banner.style.padding = '10px'; banner.style.borderRadius = '6px'; banner.style.marginBottom = '12px';
+                    var form = document.querySelector('.maintenance-card form'); if(form) form.insertBefore(banner, form.firstChild);
+                }
+                banner.textContent = 'يرجى اختيار القطع من القائمة في الصفوف: ' + invalidRows.join(', ');
+                try{ var first = document.querySelector('#items-body .error-row'); if(first) first.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+                return false;
+            } else {
+                if(banner && banner.parentNode) banner.parentNode.removeChild(banner);
+            }
+        }catch(e){}
+
         var el = document.getElementById('items_json'); if(el) el.value = JSON.stringify(items);
-        try{ console.log('serializeMaintenanceItems set items_json =', document.getElementById('items_json').value); }catch(e){}
+        try{ if(window.DEBUG) console.log('serializeMaintenanceItems set items_json =', document.getElementById('items_json').value); }catch(e){}
+        return true;
     }; }catch(e){}
+
+    // Expose helpers globally so fallback handlers can call them if needed
+    try{
+        window.createItemRow = createItemRow;
+        // ensure both old and new global names point to the same initializer
+        try{ window.initInventoryAutocomplete = window.initInventoryAutocomplete || initInventoryAutocomplete; }catch(e){}
+        try{ window.attachInventoryAutocomplete = window.attachInventoryAutocomplete || initInventoryAutocomplete; }catch(e){}
+        // showInlineSuggestions and openCustomerModal are also exposed earlier
+    }catch(e){ console.error('expose helpers failed', e); }
+
+    // Delegated click fallback: handle clicks on controls even if their
+    // original listeners failed to attach (safety net for broken/aborted scripts)
+    document.addEventListener('click', function(e){
+        try{
+            var t = e.target;
+            if(!t) return;
+            // Add New Row
+            if(t.id === 'add-row' || (t.closest && t.closest('#add-row'))){
+                e.preventDefault();
+                try{ if(window.createItemRow) window.createItemRow(true); }catch(err){ console.error('createItemRow failed', err); }
+                return;
+            }
+            // Magnifier: open advanced customer modal
+            if(t.id === 'customer-search-btn' || (t.closest && t.closest('#customer-search-btn'))){
+                e.preventDefault();
+                try{ if(window.openCustomerModal) window.openCustomerModal((document.getElementById('customer-search')||{}).value||''); }catch(err){ console.error('openCustomerModal failed', err); }
+                return;
+            }
+            // Caret toggle: show inline suggestions
+            if(t.id === 'customer-suggest-toggle' || (t.closest && t.closest('#customer-suggest-toggle'))){
+                e.preventDefault();
+                try{ if(window.toggleCustomerSuggestions) window.toggleCustomerSuggestions(); else if(window.showInlineSuggestions) window.showInlineSuggestions(''); }catch(err){ console.error('toggleCustomerSuggestions/showInlineSuggestions failed', err); }
+                return;
+            }
+            // Click on the main customer input should show inline suggestions
+            if(t.id === 'customer-search' || (t.closest && t.closest('#customer-search'))){
+                try{ if(window.showInlineSuggestions) window.showInlineSuggestions(''); }catch(err){}
+                return;
+            }
+        }catch(e){ console.error('delegated click handler error', e); }
+    });
+    // Ensure the visible selected-plate includes brand/model when available
+    try{
+        var sp = document.getElementById('selected-plate');
+        if(sp && sp.textContent && sp.textContent.trim()){
+            var text = sp.textContent.trim();
+            // if already contains a dash, likely includes brand/model
+            if(text.indexOf('-') === -1){
+                var brand = '';
+                var model = '';
+                var wrapper = document.getElementById('client-car-select-wrapper');
+                if(wrapper){ brand = wrapper.getAttribute('data-brand') || wrapper.dataset.brand || ''; model = wrapper.getAttribute('data-model') || wrapper.dataset.model || ''; }
+                // try select option
+                if((!brand && !model)){
+                    var sel = document.getElementById('id_selected_client_car');
+                    if(sel && sel.options && sel.options.length){ var opt = sel.options[sel.selectedIndex] || sel.options[0]; if(opt){ brand = opt.getAttribute('data-brand') || opt.dataset.brand || ''; model = opt.getAttribute('data-model') || opt.dataset.model || ''; } }
+                }
+                // try clients_sample fallback
+                if((!brand && !model) && window.clients_sample && window.clients_sample.length){
+                    try{
+                        var cid = (document.getElementById('selected_client_id') && document.getElementById('selected_client_id').value) || '';
+                        if(cid){
+                            var clientObj = window.clients_sample.find(function(c){ return String(c.id) === String(cid); });
+                            if(clientObj && clientObj.cars && clientObj.cars.length){
+                                var plateOnly = text.split(/\s+/)[0];
+                                for(var i=0;i<clientObj.cars.length;i++){ var cc = clientObj.cars[i]; if((cc.plate||'') === plateOnly){ brand = (cc.brand && (cc.brand.name || cc.brand)) || ''; model = (cc.model && (cc.model.name || cc.model)) || ''; break; } }
+                            }
+                        }
+                    }catch(e){}
+                }
+                if(brand || model){ var br = (brand||'').toUpperCase(); var mo = (model||'').toUpperCase(); var suffix = ''; if(br && mo) suffix = ' ' + br + ' - ' + mo; else if(br) suffix = ' ' + br; else if(mo) suffix = ' ' + mo; sp.textContent = text + suffix; }
+            }
+        }
+    }catch(e){}
 });
+</script>
+<script>
+// Global fallback: ensure basic interactive controls respond even if
+// other scripts didn't initialize (runs immediately).
+    try{
+    if(window.DEBUG) console.log('Invoice page: global fallback script loaded');
+    document.addEventListener('click', function(e){
+        try{
+            var t = e.target;
+            if(!t) return;
+            // Add New Row
+            if(t.id === 'add-row' || (t.closest && t.closest('#add-row'))){
+                e.preventDefault();
+                try{ if(window.createItemRow) window.createItemRow(true); else console.warn('createItemRow not available'); }catch(err){ console.error('createItemRow failed', err); }
+                return;
+            }
+            // Magnifier: open advanced customer modal
+            if(t.id === 'customer-search-btn' || (t.closest && t.closest('#customer-search-btn'))){
+                e.preventDefault();
+                try{ if(window.openCustomerModal) window.openCustomerModal((document.getElementById('customer-search')||{}).value||''); else console.warn('openCustomerModal not available'); }catch(err){ console.error('openCustomerModal failed', err); }
+                return;
+            }
+            // Caret toggle: show inline suggestions
+            if(t.id === 'customer-suggest-toggle' || (t.closest && t.closest('#customer-suggest-toggle'))){
+                e.preventDefault();
+                try{ if(window.toggleCustomerSuggestions) window.toggleCustomerSuggestions(); else if(window.showInlineSuggestions) window.showInlineSuggestions(''); else console.warn('toggle/show suggestions not available'); }catch(err){ console.error('toggleCustomerSuggestions/showInlineSuggestions failed', err); }
+                return;
+            }
+            // Click on the main customer input should show inline suggestions
+            if(t.id === 'customer-search' || (t.closest && t.closest('#customer-search'))){
+                try{ if(window.showInlineSuggestions) window.showInlineSuggestions(''); }catch(err){}
+                return;
+            }
+        }catch(e){ console.error('global delegated click handler error', e); }
+    }, true);
+}catch(e){ console.error('global fallback init failed', e); }
 </script>
 {% endblock %}

@@ -29,6 +29,8 @@ class Part(models.Model):
 	track_stock = models.BooleanField(default=False, help_text='If true, selling this part will decrement stock quantity')
 	is_purchase = models.BooleanField(default=True, help_text='If true, this part can be purchased from suppliers')
 	is_sale = models.BooleanField(default=True, help_text='If true, this part can be sold to customers')
+	# Controls whether this Part is considered inventory (COGS) or an expense when used on invoices
+	is_inventory = models.BooleanField(default=True, help_text='If true, this part is inventory and contributes to COGS; if false it is treated as an expense')
 
 	class Meta:
 		ordering = ['code', 'name']

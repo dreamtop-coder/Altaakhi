@@ -7,18 +7,18 @@ from cars.maintenance_models import MaintenanceRecord
 from invoices.models import Invoice
 
 for car in Car.objects.all():
-    print(f"--- سيارة: {car.plate_number} ---")
-    # فحص سجلات الصيانة
+    print(f"--- Car: {car.plate_number} ---")
+    # inspect maintenance records
     maints = MaintenanceRecord.objects.filter(car=car)
     if maints.exists():
         for m in maints:
-            print(f"  صيانة: is_finished={m.is_finished}, التاريخ={m.created_at}")
+            print(f"  Maintenance: is_finished={m.is_finished}, created_at={m.created_at}")
     else:
-        print("  لا يوجد سجل صيانة")
+        print("  No maintenance records")
     # فحص الفواتير
     invoices = Invoice.objects.filter(car=car)
     if invoices.exists():
         for inv in invoices:
-            print(f"  فاتورة: paid={inv.paid}, رقم الفاتورة={inv.invoice_number}")
+            print(f"  Invoice: paid={inv.paid}, invoice_number={inv.invoice_number}")
     else:
-        print("  لا يوجد فاتورة")
+        print("  No invoices")

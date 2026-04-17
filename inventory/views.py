@@ -206,7 +206,24 @@ import json
 
 def inventory_search_json(request):
 	"""Return JSON list of parts for autocomplete (GET param: q)."""
+	# support lookup by id for direct retrieval
+	id_raw = request.GET.get('id')
 	q = request.GET.get('q', '').strip()
+	if id_raw:
+		try:
+			p = Part.objects.get(pk=int(id_raw))
+			result = {
+				'id': p.id,
+				'name': p.name,
+				'code': p.code or '',
+				'sale_price': str(p.sale_price),
+				'purchase_price': str(p.purchase_price),
+				'quantity': p.quantity,
+				'track_stock': bool(p.track_stock),
+			}
+			return JsonResponse({'results': [result]})
+		except Exception:
+			return JsonResponse({'results': []})
 	parts_qs = Part.objects.all().order_by('code')
 	if q:
 		parts_qs = parts_qs.filter(Q(name__icontains=q) | Q(code__icontains=q))
@@ -219,8 +236,47 @@ def inventory_search_json(request):
 			'id': p.id,
 			'name': p.name,
 			'code': p.code or '',
-			'sale_price': str(p.sale_price),
-			'quantity': p.quantity,
+				'sale_price': str(p.sale_price),
+			'purchase_price': str(p.purchase_price),
+				'quantity': p.quantity,
+				'stock': p.quantity,
+			'track_stock': bool(p.track_stock),
+		})
+	return JsonResponse({'results': results})
+
+
+def suppliers_search_json(request):
+	"""Return JSON list of suppliers for autocomplete (GET param: q)."""
+	# support lookup by id for direct retrieval
+	id_raw = request.GET.get('id')
+	q = request.GET.get('q', '').strip()
+	if id_raw:
+		try:
+			s = Supplier.objects.get(pk=int(id_raw))
+			result = {
+				'id': s.id,
+				'name': s.name,
+				'phone': s.phone or '',
+				'email': s.email or '',
+				'address': s.address or '',
+			}
+			return JsonResponse({'results': [result]})
+		except Exception:
+			return JsonResponse({'results': []})
+
+	suppliers_qs = Supplier.objects.all().order_by('name')
+	if q:
+		suppliers_qs = suppliers_qs.filter(Q(name__icontains=q) | Q(phone__icontains=q))
+
+	suppliers = suppliers_qs[:100]
+	results = []
+	for s in suppliers:
+		results.append({
+			'id': s.id,
+			'name': s.name,
+			'phone': s.phone or '',
+			'email': s.email or '',
+			'address': s.address or '',
 		})
 	return JsonResponse({'results': results})
 

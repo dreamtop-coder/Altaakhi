@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:900px;margin:24px auto;padding:18px;background:#fff;border-radius:8px;">
+  <h2>Session Bills Migration Results</h2>
+  <div style="margin-top:12px;">
+    <strong>Migrated:</strong>
+    {% if migrated %}
+      <ul>
+        {% for m in migrated %}
+          <li>Bill {{ m.number }} (ID: {{ m.id }})</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div>No migrated bills found in your session.</div>
+    {% endif %}
+  </div>
+  <div style="margin-top:12px;">
+    <strong>Failed:</strong>
+    {% if failed %}
+      <pre>{{ failed }}</pre>
+    {% else %}
+      <div>None</div>
+    {% endif %}
+  </div>
+  <div style="margin-top:18px;"><a href="/bills/" style="padding:8px 12px;background:#1976d2;color:#fff;border-radius:6px;text-decoration:none;">Back to Bills</a></div>
+</div>
+{% endblock %}

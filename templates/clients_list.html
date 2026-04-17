@@ -139,7 +139,7 @@
                         <td class="customer-id" style="padding:10px 0 10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">{{ client.customer_id }}</td>
                         <td style="padding:10px 0 10px 0;text-align:center;">{{ client.phone_number }}</td>
                         <td class="email" style="padding:10px 0 10px 0;">{{ client.email|default:'-' }}</td>
-                        <td style="padding:10px 0 10px 0;text-align:center;">{{ client.get_status_display }}</td>
+                        <td style="padding:10px 0 10px 0;text-align:center;">{{ client.status|status_en }}</td>
                         <td style="padding:10px 0 10px 0;text-align:center;">{{ client.created_at|date:'Y-m-d' }}</td>
                         <td class="amount-paid" style="padding:10px 0 10px 0;">{{ amounts_by_client|get_item:client.id|dict_get:"paid"|default:0|floatformat:3 }}</td>
                         <td class="amount-remaining" style="padding:10px 0 10px 0;">{{ amounts_by_client|get_item:client.id|dict_get:"remaining"|default:0|floatformat:3 }}</td>
@@ -153,7 +153,7 @@
     {% if not clients %}
         {% if search %}
         <div class="alert alert-warning" style="background:#ffeeba;color:#856404;padding:10px 15px;margin-bottom:10px;border-radius:6px;">
-            لا يوجد أي عميل مرتبط بهذا الرقم. إذا كنت تبحث برقم السيارة وتأكدت من وجودها، قد يكون العميل غير نشط أو هناك اختلاف في البيانات.
+            No client is associated with this number. If you searched by vehicle number and it exists, the client may be inactive or the data may not match.
         </div>
         {% endif %}
     {% endif %}

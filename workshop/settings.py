@@ -1,9 +1,15 @@
 # دعم CSRF مع ngrok
-CSRF_TRUSTED_ORIGINS = ['https://lizabeth-slippy-camilla.ngrok-free.dev']
+CSRF_TRUSTED_ORIGINS = [
+    'https://lizabeth-slippy-camilla.ngrok-free.dev',
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+]
 # صفحة تسجيل الدخول الافتراضية
 LOGIN_URL = '/users/login/'
 # الصفحة التي يتم إعادة التوجيه إليها بعد تسجيل الدخول
 LOGIN_REDIRECT_URL = '/dashboard/'
+# الصفحة التي يتم إعادة التوجيه إليها بعد تسجيل الخروج
+LOGOUT_REDIRECT_URL = '/'
 # الحقل الافتراضي لإنشاء الحقول التلقائية في النماذج
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 """
@@ -72,6 +78,7 @@ INSTALLED_APPS = [
     'services',
     'inventory',
     'invoices',
+    'bills',
     'reports',
     'settings',
     'bookings',
@@ -159,3 +166,18 @@ STATIC_URL = 'static/'
 
 # Custom user model
 AUTH_USER_MODEL = 'users.User'
+
+# Use file-based backend for local development: emails are written to files
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
+# Default sender address (display name + address)
+DEFAULT_FROM_EMAIL = 'Altaakhi Workshop <dreamtop@gmail.com>'
+
+# SMTP send example (uncomment and provide credentials to send real email):
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+# EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+# EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')  # e.g. dreamtop@gmail.com
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  # app password or SMTP password
+# Note: For Gmail, you must use an App Password (or configure OAuth) - see Google account security settings.

@@ -120,6 +120,7 @@
         <h3 id="modelModalTitle">Add Model</h3>
         <form id="modelForm" method="post" action="{% url 'add_model' %}">
             {% csrf_token %}
+            <div id="modelFormMsg" style="display:none;margin-bottom:8px;padding:8px;border-radius:6px;color:#a11;background:#ffecec"></div>
             <div style="display:flex;gap:8px;margin-top:8px">
                 <select name="brand" id="modelBrandSelect" style="padding:8px;border:1px solid #ddd;border-radius:6px">
                     {% for brand in brands %}
@@ -185,9 +186,9 @@ if (brandsTableBody) {
         brandsDeleteBtn.addEventListener('click', function(){
             const ids = rowCheckboxesBrands.filter(cb=>cb.checked).map(cb=>cb.dataset.id);
             if(ids.length===0) return; if(!confirm('Delete '+ids.length+' selected brands?')) return;
-            fetch('/brands/bulk-delete/', {
+            window.fetchJson('/brands/bulk-delete/', {
                 method: 'POST', headers: { 'Content-Type':'application/json', 'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1] }, body: JSON.stringify({ids: ids})
-            }).then(r=>r.json()).then(data=>{ if(data.ok) location.reload(); else alert('Delete failed'); }).catch(()=> alert('Delete error'));
+            }).then(data=>{ if(data.ok) location.reload(); else alert('Delete failed'); }).catch(()=> alert('Delete error'));
         });
     }
 
@@ -321,14 +322,14 @@ document.addEventListener('DOMContentLoaded', function(){
         const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id);
         if(ids.length===0) return;
         if(!confirm('Delete '+ids.length+' selected models?')) return;
-        fetch('/models/bulk-delete/', {
+        window.fetchJson('/models/bulk-delete/', {
             method: 'POST',
             headers: {
                 'Content-Type':'application/json',
                 'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/)||[])[1]
             },
             body: JSON.stringify({ids: ids})
-        }).then(r=>r.json()).then(data=>{
+        }).then(data=>{
             if(data.ok){ location.reload(); }
             else { alert('Delete failed'); }
         }).catch(()=> alert('Delete error'));
@@ -362,11 +363,11 @@ document.getElementById('brandForm').addEventListener('submit', function(e){
     const msgBox = document.getElementById('brandFormMsg');
     const saveBtn = document.getElementById('brandSaveBtn');
     saveBtn.disabled = true;
-    fetch(url, {
+    window.fetchJson(url, {
         method: 'POST',
         body: formData,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    }).then(r=>r.json()).then(data=>{
+    }).then(data=>{
         saveBtn.disabled = false;
         if(data.success){
             // append new brand row to table
@@ -388,6 +389,54 @@ document.getElementById('brandForm').addEventListener('submit', function(e){
         }
     }).catch(err=>{
         saveBtn.disabled = false;
+        msgBox.innerText = 'Network error'; msgBox.style.display='block';
+    });
+});
+// AJAX submit model form so modal does not redirect on validation errors
+document.getElementById('modelForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const url = this.action;
+    const formData = new FormData(this);
+    const msgBox = document.getElementById('modelFormMsg');
+    const saveBtn = this.querySelector('button[type="submit"]');
+    if(saveBtn) saveBtn.disabled = true;
+    window.fetchJson(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(data => {
+        if(saveBtn) saveBtn.disabled = false;
+        if(data.success){
+            // if added new model, append row; if edited, update existing row
+            const id = data.id;
+            const name = data.name;
+            const brandId = data.brand_id;
+            const tbody = document.getElementById('modelsTable');
+            // try to find existing row
+            let existing = document.querySelector('tr[data-model-id="'+id+'"]');
+            if(existing){
+                existing.setAttribute('data-model-name', name);
+                existing.setAttribute('data-brand-id', brandId);
+                existing.children[1].textContent = document.querySelector('#modelBrandSelect option[value="'+brandId+'"]')?.textContent || existing.children[1].textContent;
+                existing.children[2].textContent = name;
+            } else if(tbody){
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-brand-id', brandId);
+                tr.setAttribute('data-model-id', id);
+                tr.setAttribute('data-model-name', name);
+                tr.innerHTML = `<td style="padding:10px;text-align:center"><input class="model-row-checkbox" type="checkbox" data-id="${id}"></td><td style="padding:10px;text-align:center">${document.querySelector('#modelBrandSelect option[value="'+brandId+'"]')?.textContent||''}</td><td style="padding:10px;text-align:center">${name}</td>`;
+                tbody.appendChild(tr);
+            }
+            // ensure option exists in brand select
+            const brandSel = document.getElementById('modelBrandSelect');
+            if(brandSel && !brandSel.querySelector('option[value="'+brandId+'"]')){
+                const opt = document.createElement('option'); opt.value = brandId; opt.text = document.querySelector('#modelBrandSelect option[value="'+brandId+'"]')?.textContent || '' ; brandSel.appendChild(opt);
+            }
+            msgBox.style.display='none';
+            hide('modelModal');
+        } else {
+            msgBox.innerText = (data.errors && data.errors.length) ? data.errors.join('\n') : 'Error';
+            msgBox.style.display = 'block';
+        }
+    }).catch(err=>{
+        if(saveBtn) saveBtn.disabled = false;
         msgBox.innerText = 'Network error'; msgBox.style.display='block';
     });
 });

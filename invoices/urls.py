@@ -32,4 +32,17 @@ urlpatterns = [
     # Expenses
     path('expenses/', views.expenses_list, name='expenses_list'),
     path('expenses/add/', views.add_expense, name='add_expense'),
+    path('expenses/<int:expense_id>/edit/', views.edit_expense, name='edit_expense'),
+    path('expenses/<int:expense_id>/delete/', views.delete_expense, name='delete_expense'),
+    path('expenses/<int:expense_id>/complete/', views.complete_expense, name='complete_expense'),
+    path('expenses/category/add/', views.add_expense_category_ajax, name='add_expense_category_ajax'),
+    path('expenses/category/<int:cat_id>/edit/', views.edit_expense_category_ajax, name='edit_expense_category_ajax'),
+    path('expenses/category/<int:cat_id>/delete/', views.delete_expense_category_ajax, name='delete_expense_category_ajax'),
+    # Recurring expenses
+    path('recurring/', views.recurring_list, name='recurring_list'),
+    path('recurring/add/', views.add_recurring, name='add_recurring'),
+    path('recurring/<int:recurring_id>/edit/', views.edit_recurring, name='edit_recurring'),
+    path('recurring/<int:recurring_id>/delete/', views.delete_recurring, name='delete_recurring'),
+    path('recurring/<int:recurring_id>/create_now/', views.create_recurring_now, name='create_recurring_now'),
+    path('recurring/run/', views.run_recurring_once, name='run_recurring_once'),
 ]

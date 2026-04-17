@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width:900px;margin:0;padding:20px;">
+    <h2>Recurring Expenses</h2>
+    <div style="margin-bottom:12px;"><a href="{% url 'add_recurring' %}" class="btn">+ Add Recurring Expense</a></div>
+    <table style="width:100%;border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;">Name</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;">Category</th>
+                <th style="text-align:right;padding:8px;border-bottom:1px solid #eee;">Amount</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;">Frequency</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;">Next Date</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;">Active</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in recurrings %}
+            <tr>
+                <td style="padding:8px;border-bottom:1px solid #fafafa;">{{ r.name }}</td>
+                <td style="padding:8px;border-bottom:1px solid #fafafa;">{{ r.category.name }}</td>
+                <td style="padding:8px;border-bottom:1px solid #fafafa;text-align:right;">{% if r.amount %}{{ r.amount|floatformat:2 }}{% else %}<span style="color:#777;">—</span>{% endif %}</td>
+                <td style="padding:8px;border-bottom:1px solid #fafafa;">{{ r.frequency }} x{{ r.interval }}</td>
+                <td style="padding:8px;border-bottom:1px solid #fafafa;">{{ r.next_date }}</td>
+                <td style="padding:8px;border-bottom:1px solid #fafafa;">{{ r.active }}</td>
+                <td style="padding:8px;border-bottom:1px solid #fafafa;text-align:right;white-space:nowrap;">
+                    <a href="{% url 'edit_recurring' r.id %}" style="margin-right:8px;color:#1976d2;text-decoration:none;">Edit</a>
+                    <a href="{% url 'delete_recurring' r.id %}" style="margin-right:8px;color:#c62828;text-decoration:none;">Delete</a>
+                    <form method="post" action="{% url 'create_recurring_now' r.id %}" style="display:inline;margin:0;padding:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn" style="background:#ff9800;border:none;color:#fff;padding:6px 8px;margin-left:6px;">صرف الآن</button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="padding:12px;color:#666;">No recurring expenses configured.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top:12px;"><a href="{% url 'run_recurring_once' %}">Run due recurrences now (staff only)</a></div>
+</div>
+{% endblock %}

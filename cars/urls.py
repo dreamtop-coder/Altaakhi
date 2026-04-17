@@ -1,7 +1,7 @@
 from django.urls import path
 from . import views
 
-from .views_add_maintenance import add_maintenance_record, get_service_price, get_car_info, search_clients
+from .views_add_maintenance import add_maintenance_record, get_service_price, get_car_info, search_clients, get_services_json
 from .views import cars_ajax_filter
 
 urlpatterns = [
@@ -13,6 +13,8 @@ urlpatterns = [
     path('maintenance/delete/<int:record_id>/', views.delete_maintenance_record, name='delete_maintenance_record'),
     path('maintenance/finish/<int:record_id>/', views.finish_maintenance_record, name='finish_maintenance_record'),
     path('get-service-price/', get_service_price, name='get_service_price'),
+    path('services/json/', get_services_json, name='get_services_json'),
+    path('services/autocomplete/', get_services_json, name='services_autocomplete'),
     path('get-car-info/', get_car_info, name='get_car_info'),
     path('search-clients/', search_clients, name='search_clients'),
     path('cars/deliver/<int:car_id>/', views.deliver_car, name='deliver_car'),

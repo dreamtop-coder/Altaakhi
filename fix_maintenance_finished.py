@@ -5,7 +5,7 @@ django.setup()
 from cars.maintenance_models import MaintenanceRecord
 from invoices.models import Invoice
 
-# تحديث كل سجل صيانة ليصبح is_finished=True إذا كانت الفاتورة مدفوعة
+# Update maintenance records: set is_finished=True when related invoice is paid
 count = 0
 for record in MaintenanceRecord.objects.all():
     if record.invoice and record.invoice.paid:
@@ -13,4 +13,4 @@ for record in MaintenanceRecord.objects.all():
             record.is_finished = True
             record.save()
             count += 1
-print(f"تم تحديث {count} سجل صيانة إلى is_finished=True للفواتير المدفوعة.")
+print(f"Updated {count} maintenance records to is_finished=True for paid invoices.")
