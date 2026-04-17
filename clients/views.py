@@ -1,5 +1,4 @@
 
-print("=== TEST: ملف clients/views.py تم تحميله ===")
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Client
 from cars.models import Car
@@ -13,18 +12,11 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 def clients_list(request):
-	print("=== TEST INSIDE FUNCTION ===")
 	search = request.GET.get('search', '').strip()
-	print(f"[DEBUG] قيمة البحث المستلمة: '{search}'")
 	clients_qs = Client.objects.all()
 	cars_matched_by_search = {}  # client_id -> list of matched plate_numbers
 	if search:
 		normalized_search = search.replace(' ', '').upper()
-		print(f"[DEBUG] Normalized search: '{normalized_search}'")
-		print("[DEBUG] --- جميع أرقام السيارات في قاعدة البيانات بعد التطبيع ---")
-		for car in Car.objects.all():
-			normalized_plate = car.plate_number.replace(' ', '').upper() if car.plate_number else ''
-			print(f"[DEBUG] plate_number='{car.plate_number}' | normalized='{normalized_plate}' | len={len(car.plate_number)} | client_id={car.client_id}")
 		# البحث في جميع الحقول كما هو
 		car_ids = [car.client_id for car in Car.objects.all() if car.plate_number and normalized_search in car.plate_number.replace(' ', '').upper()]
 		clients_qs = Client.objects.filter(
@@ -39,9 +31,8 @@ def clients_list(request):
 			matched_plates = [car.plate_number for car in client.cars.all() if car.plate_number and normalized_search in car.plate_number.replace(' ', '').upper()]
 			if matched_plates:
 				cars_matched_by_search[client.id] = matched_plates
-		print(f"[DEBUG] نتائج البحث بعد الفلترة: {clients_qs.count()} | البحث: '{search}' | أرقام السيارات المطابقة بعد التطبيع: {cars_matched_by_search}")
 	clients_qs = clients_qs.order_by('id')
-	print(f"[DEBUG] عدد العملاء بعد الفلترة: {clients_qs.count()} | البحث: {search}")
+	# Debug prints removed for production
 
 	# --- Pagination / per_page handling ---
 	# supported per-page options (integer or 0 for 'all')
