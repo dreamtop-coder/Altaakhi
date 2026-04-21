@@ -22,7 +22,7 @@
             var tr = document.createElement('tr'); tr.className = 'item-row';
             // cell: description
             var tdDesc = document.createElement('td'); tdDesc.style.padding = '6px';
-            var inpDesc = document.createElement('input'); inpDesc.type = 'text'; inpDesc.className = 'item-desc'; inpDesc.placeholder = 'Item details'; inpDesc.style.cssText = 'width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:14px;color:#374151;font-weight:400;font-family:inherit;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;';
+            var inpDesc = document.createElement('input'); inpDesc.type = 'text'; inpDesc.className = 'item-desc'; inpDesc.placeholder = 'Service'; inpDesc.style.cssText = 'width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:14px;color:#374151;font-weight:400;font-family:inherit;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;';
             inpDesc.dataset.autocomplete = 'inventory';
             tdDesc.appendChild(inpDesc);
             // cell: qty
@@ -65,12 +65,36 @@
 
     window.serializeMaintenanceItems = function(){
         try{
+            // allow toggling via window.DEBUG_ITEMS for quick debugging
+            if(typeof window.DEBUG_ITEMS === 'undefined') window.DEBUG_ITEMS = false;
+            // ensure every row (service or item) has a client-side id so the server
+            // can distinguish intentional duplicates from accidental ones
+            try{ document.querySelectorAll('.service-row').forEach(function(r){ try{ if(!r.getAttribute('data-client-row-id')){ var _cid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('c' + Date.now() + Math.floor(Math.random()*1000000)); r.setAttribute('data-client-row-id', _cid); } }catch(e){} }); }catch(e){}
+            try{ document.querySelectorAll('#items-body .item-row').forEach(function(r){ try{ if(!r.getAttribute('data-client-row-id')){ var _cid2 = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('c' + Date.now() + Math.floor(Math.random()*1000000)); r.setAttribute('data-client-row-id', _cid2); } }catch(e){} }); }catch(e){}
+
             var services = (window.serializeServiceItems? window.serializeServiceItems() : []);
             var items = [];
-            document.querySelectorAll('#items-body .item-row').forEach(function(row){ try{ var desc = row.querySelector('.item-desc')? row.querySelector('.item-desc').value : ''; var qty = parseFloat(row.querySelector('.item-qty').value)||0; var rate = parseFloat(row.querySelector('.item-rate').value)||0; var disc = parseFloat(row.querySelector('.item-discount').value)||0; var amt = parseFloat(row.querySelector('.item-amount').value)||0; if((desc||'').trim()==='' && qty===0) return; items.push({ description: desc, qty: qty, rate: rate, discount: disc, amount: amt }); }catch(e){} });
+            document.querySelectorAll('#items-body .item-row').forEach(function(row){ try{ var desc = row.querySelector('.item-desc')? row.querySelector('.item-desc').value : ''; var qty = parseFloat(row.querySelector('.item-qty').value)||0; var rate = parseFloat(row.querySelector('.item-rate').value)||0; var disc = parseFloat(row.querySelector('.item-discount').value)||0; var amt = parseFloat(row.querySelector('.item-amount').value)||0; if((desc||'').trim()==='' && qty===0) return; var obj = { description: desc, qty: qty, rate: rate, disc: disc, discount: disc, amount: amt }; var iid = row.dataset && row.dataset.invoiceItemId ? parseInt(row.dataset.invoiceItemId,10) : null; if(iid) obj.invoice_item_id = iid; try{ var cid = row.getAttribute && row.getAttribute('data-client-row-id'); if(cid) obj.client_row_id = cid; }catch(e){} items.push(obj); }catch(e){} });
             var combined = services.concat(items);
+            // If the UI recorded removed service/invoice-item markers, include
+            // them as deleted entries so the server can remove them on save.
+            try{
+                if(window.__removedServiceMarkers && window.__removedServiceMarkers.length){
+                    window.__removedServiceMarkers.forEach(function(m){ try{ combined.push(m); }catch(e){} });
+                }
+                // legacy support: numeric ids previously stored in __removedServiceIds
+                if(!window.__removedServiceIds) window.__removedServiceIds = [];
+                if(window.__removedServiceIds && window.__removedServiceIds.length){
+                    window.__removedServiceIds.forEach(function(rid){ try{ var n = parseInt(rid); if(!isNaN(n)) combined.push({ service_id: n, _deleted: true }); }catch(e){} });
+                }
+            }catch(e){}
             var hidden = document.getElementById('items_json');
+            if(!hidden){
+                // create hidden input if missing so server receives payload
+                try{ hidden = document.createElement('input'); hidden.type = 'hidden'; hidden.id = 'items_json'; hidden.name = 'items_json'; var f = document.getElementById('invoice-form'); if(f) f.appendChild(hidden); }catch(e){}
+            }
             if(hidden) hidden.value = JSON.stringify(combined);
+            if(window.DEBUG_ITEMS) console.log('serializeMaintenanceItems -> items_json length=', hidden && hidden.value ? hidden.value.length : 0, 'rows=', combined.length);
             return true;
         }catch(e){ console.error('serializeMaintenanceItems failed', e); return false; }
     };
@@ -91,11 +115,16 @@
             var grand = (sub - discTotal) + svcTotal;
             document.getElementById('grand-total').textContent = toFixed3(grand);
             var bottom = document.getElementById('bottom-total'); if(bottom) bottom.textContent = 'BHD ' + toFixed3(grand);
+            // keep the hidden form amount in sync with the computed total so
+            // client-side changes (add/remove rows) reflect in the form value
+            // even before the user explicitly submits. The server-side saved
+            // invoice.amount will still reflect persisted data until Save.
+            try{ var fa = document.getElementById('form-amount'); if(fa) fa.value = toFixed3(grand); }catch(e){}
             return true;
         }catch(e){ console.error('recomputeTotals failed', e); return false; }
     };
 
-    window.initItemsTable = function(){ try{ var btn = document.getElementById('add-row'); if(btn) btn.addEventListener('click', function(e){ e.preventDefault(); createItemRow(true); }); if(document.querySelectorAll('#items-body .item-row').length === 0) createItemRow(false); // ensure totals update
+    window.initItemsTable = function(){ try{ var btn = document.getElementById('add-row'); if(btn) btn.addEventListener('click', function(e){ e.preventDefault(); createItemRow(true); }); try{ var isMaintenancePage = !!(window.__isMaintenancePage); if(!isMaintenancePage){ if(document.querySelectorAll('#items-body .item-row').length === 0) createItemRow(false); } }catch(e){ if(document.querySelectorAll('#items-body .item-row').length === 0) createItemRow(false); } // ensure totals update
         // initialize existing server-rendered rows so their inputs get autocomplete and event handlers
         try{
             document.querySelectorAll('#items-body .item-row').forEach(function(row){
@@ -130,8 +159,22 @@
                                         try{ if(rEl) rEl.value = (row.querySelector('.item-rate') && row.querySelector('.item-rate').value) || rEl.value; }catch(e){}
                                         try{ if(dEl) dEl.value = (row.querySelector('.item-discount') && row.querySelector('.item-discount').value) || dEl.value; }catch(e){}
                                         try{ if(aEl) aEl.value = (row.querySelector('.item-amount') && row.querySelector('.item-amount').value) || aEl.value; }catch(e){}
-                                        // replace old row with new service row
-                                        row.parentNode.replaceChild(newTr, row);
+                                        // insert the new service row into the services tbody so it
+                                        // is treated as a service (not an item). Removing the old
+                                        // item-row keeps the DOM structure correct and ensures
+                                        // serialization picks up the service on save.
+                                        try{
+                                            var svcBody = document.getElementById('services-body');
+                                            if(svcBody){
+                                                svcBody.appendChild(newTr);
+                                                try{ if(window.attachServiceRowEvents) attachServiceRowEvents(newTr); }catch(e){}
+                                                // remove the original item-row from items tbody
+                                                try{ if(row && row.parentNode) row.parentNode.removeChild(row); }catch(e){}
+                                            } else {
+                                                // fallback: replace in-place
+                                                row.parentNode.replaceChild(newTr, row);
+                                            }
+                                        }catch(e){ try{ row.parentNode.replaceChild(newTr, row); }catch(err){} }
                                         try{ if(window.initServicesTable) window.initServicesTable(); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
                                     }
                                 }catch(e){}
@@ -145,6 +188,71 @@
     }catch(e){ console.error('initItemsTable failed', e); } };
 
     // initialize when DOM ready if called
-    document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} });
+    function attachFormSubmit(){
+        try{
+            var form = document.getElementById('invoice-form');
+            if(!form) return;
+            if(form._serializeAttached) return; form._serializeAttached = true;
+            // per-form submitting lock to prevent double-submit
+            if(typeof form._submitting === 'undefined') form._submitting = false;
+            form.addEventListener('submit', function(e){
+                try{
+                    if(form._submitting){
+                        if(window.DEBUG_ITEMS) console.log('submit blocked: already submitting');
+                        e.preventDefault();
+                        return false;
+                    }
+                    // mark as submitting early to prevent duplicate submissions
+                    form._submitting = true;
+                    // ensure totals are up-to-date before serializing and submitting
+                    try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
+                    // attempt standard serialization
+                    var ok = true;
+                    try{ ok = !!(window.serializeMaintenanceItems && window.serializeMaintenanceItems()); }catch(err){ ok = false; }
+                    // defensive fallback: if hidden field is empty, build combined payload synchronously
+                    try{
+                        var hidden = document.getElementById('items_json');
+                        if(!hidden || !(hidden.value && hidden.value.trim())){
+                            if(window.DEBUG_ITEMS) console.log('Serialize fallback triggered: building items_json');
+                            var combined = [];
+                            try{ if(window.serializeServiceItems) { combined = combined.concat(window.serializeServiceItems()); } }catch(e){}
+                            try{ document.querySelectorAll('#items-body .item-row').forEach(function(row){ try{ var desc = row.querySelector('.item-desc')? row.querySelector('.item-desc').value : ''; var qty = parseFloat(row.querySelector('.item-qty').value)||0; var rate = parseFloat(row.querySelector('.item-rate').value)||0; var disc = parseFloat(row.querySelector('.item-discount').value)||0; var amt = parseFloat(row.querySelector('.item-amount').value)||0; if((desc||'').trim()==='' && qty===0) return; var obj = { description: desc, qty: qty, rate: rate, disc: disc, discount: disc, amount: amt }; var iid = row.dataset && row.dataset.invoiceItemId ? parseInt(row.dataset.invoiceItemId,10) : null; if(iid) obj.invoice_item_id = iid; try{ var cid = row.getAttribute && row.getAttribute('data-client-row-id'); if(!cid){ cid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('c' + Date.now() + Math.floor(Math.random()*1000000)); row.setAttribute('data-client-row-id', cid); } if(cid) obj.client_row_id = cid; }catch(e){} combined.push(obj); }catch(e){} }); }catch(e){}
+                            try{ if(window.__removedServiceMarkers && window.__removedServiceMarkers.length){ window.__removedServiceMarkers.forEach(function(m){ try{ combined.push(m); }catch(e){} }); } }catch(e){}
+                            if(!hidden){ hidden = document.createElement('input'); hidden.type='hidden'; hidden.id='items_json'; hidden.name='items_json'; var f = document.getElementById('invoice-form'); if(f) f.appendChild(hidden); }
+                            hidden.value = JSON.stringify(combined);
+                            if(window.DEBUG_ITEMS) console.log('Serialize fallback produced items_json length=', hidden.value.length);
+                        }
+                    }catch(err){ if(window.DEBUG_ITEMS) console.error('serialize fallback error', err); }
+                    // if still empty but there are visible rows, block submit so data isn't lost
+                    try{
+                        var hiddenNow = document.getElementById('items_json');
+                        var hasVisible = (document.querySelectorAll('.service-row').length + document.querySelectorAll('#items-body .item-row').length) > 0;
+                        if(hasVisible && (!hiddenNow || !(hiddenNow.value && hiddenNow.value.trim()))){
+                            e.preventDefault();
+                            form._submitting = false; // release lock
+                            try{ alert('Failed to prepare invoice items for saving. Please try again or reload the page.'); }catch(ai){}
+                            return false;
+                        }
+                    }catch(err){ if(window.DEBUG_ITEMS) console.error('post-serialize check failed', err); }
+                    // allow submit to proceed (form._submitting remains true until navigation)
+                }catch(err){ if(window.DEBUG_ITEMS) console.error('submit handler error', err); form._submitting = false; }
+            });
+                    // update hidden amount field from computed grand-total and
+                    // sanitize to a numeric string to avoid server-side parsing issues
+                    var grandText = (document.getElementById('grand-total') && document.getElementById('grand-total').textContent) ? document.getElementById('grand-total').textContent : '';
+                    var numeric = (grandText+"").replace(/[^0-9.\-]/g,'');
+                    var fa = document.getElementById('form-amount');
+                    if(fa){ fa.value = (numeric !== '') ? (parseFloat(numeric).toFixed(3)) : '0.000'; }
+                }catch(err){}
+            });
+        }catch(e){}
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){}
+        try{ attachFormSubmit(); }catch(e){}
+    });
+
+    // If scripts run after DOMContentLoaded, ensure the submit handler is still attached
+    try{ if(document.readyState && document.readyState !== 'loading'){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} try{ attachFormSubmit(); }catch(e){} } }catch(e){}
 
 })();

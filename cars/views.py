@@ -67,56 +67,92 @@ def get_work_duration_dates(car):
 	"""
 	Compute start and end datetimes for a car's actual work duration.
 	"""
-	maintenance_records = list(car.maintenance_records.all().order_by('created_at'))
-	if not maintenance_records:
+	# Prefer computing duration for the most recent job (invoice-linked records)
+	from django.utils import timezone
+	from cars.maintenance_models import MaintenanceRecord
+	# all maintenance records ordered by created_at
+	all_records_qs = MaintenanceRecord.objects.filter(car=car).order_by('created_at')
+	if not all_records_qs.exists():
 		return None, None
-	start = maintenance_records[0].created_at
-	# إذا هناك فاتورة مدفوعة، استخدم تاريخ الدفع
+	# If there's a recent invoice, prefer the maintenance records tied to that invoice
+	latest_invoice = car.invoices.order_by('-created_at').first()
+	if latest_invoice:
+		recs_for_inv = list(all_records_qs.filter(invoice=latest_invoice).order_by('created_at'))
+		if recs_for_inv:
+			start = recs_for_inv[0].created_at
+			# prefer last payment date when available
+			try:
+				last_payment = latest_invoice.payments.filter(status='paid').order_by('-payment_date').first()
+				if last_payment and getattr(last_payment, 'payment_date', None):
+					end = last_payment.payment_date
+				else:
+					end = latest_invoice.created_at or recs_for_inv[-1].created_at
+			except Exception:
+				end = latest_invoice.created_at or recs_for_inv[-1].created_at
+			return start, end
+	# Fallback: use first maintenance as start and prefer last paid invoice/payment or last finished record
+	first_rec = all_records_qs.first()
+	start = first_rec.created_at
 	paid_invoices = car.invoices.filter(paid=True).order_by('-created_at')
 	if paid_invoices.exists():
 		last_paid = paid_invoices.first()
 		last_payment = last_paid.payments.filter(status='paid').order_by('-payment_date').first()
-		if last_payment:
+		if last_payment and getattr(last_payment, 'payment_date', None):
 			end = last_payment.payment_date
 			return start, end
-	# إذا لا يوجد فاتورة مدفوعة، استخدم آخر صيانة منتهية
-	finished_records = [r for r in maintenance_records if r.is_finished]
+	# use last finished maintenance record
+	finished_records = list(all_records_qs.filter(is_finished=True).order_by('created_at'))
 	if finished_records:
 		end = finished_records[-1].created_at
 		return start, end
-	# إذا لا يوجد شيء، احسب حتى الآن
-	from django.utils import timezone
+	# otherwise use now
 	return start, timezone.now()
 
 def get_work_duration_days(car):
 	"""
 	Compute total work duration in days (1 day if same day, 2 if one-day diff, etc.).
 	"""
-	maintenance_records = list(car.maintenance_records.all().order_by('created_at'))
-	if not maintenance_records:
+	from django.utils import timezone
+	from cars.maintenance_models import MaintenanceRecord
+	all_records_qs = MaintenanceRecord.objects.filter(car=car).order_by('created_at')
+	if not all_records_qs.exists():
 		return None
-	start = maintenance_records[0].created_at
-	# إذا هناك فاتورة مدفوعة، استخدم تاريخ الدفع
+	# Prefer job-scoped duration when there's a recent invoice
+	latest_invoice = car.invoices.order_by('-created_at').first()
+	if latest_invoice:
+		recs_for_inv = all_records_qs.filter(invoice=latest_invoice).order_by('created_at')
+		if recs_for_inv.exists():
+			start = recs_for_inv.first().created_at
+			# end is last payment date or invoice.created_at
+			last_payment = latest_invoice.payments.filter(status='paid').order_by('-payment_date').first()
+			if last_payment and getattr(last_payment, 'payment_date', None):
+				end = last_payment.payment_date
+			else:
+				end = latest_invoice.created_at or recs_for_inv.last().created_at
+			days = (end.date() - start.date()).days + 1
+			if days < 0:
+				return None
+			return days
+	# Fallback: use first maintenance as start and prefer last paid invoice/payment or last finished record
+	first_rec = all_records_qs.first()
+	start = first_rec.created_at
 	paid_invoices = car.invoices.filter(paid=True).order_by('-created_at')
 	if paid_invoices.exists():
 		last_paid = paid_invoices.first()
 		last_payment = last_paid.payments.filter(status='paid').order_by('-payment_date').first()
-		if last_payment:
+		if last_payment and getattr(last_payment, 'payment_date', None):
 			end = last_payment.payment_date
 			days = (end.date() - start.date()).days + 1
 			if days < 0:
 				return None
 			return days
-	# إذا لا يوجد فاتورة مدفوعة، استخدم آخر صيانة منتهية
-	finished_records = [r for r in maintenance_records if r.is_finished]
+	finished_records = list(all_records_qs.filter(is_finished=True).order_by('created_at'))
 	if finished_records:
 		end = finished_records[-1].created_at
 		days = (end.date() - start.date()).days + 1
 		if days < 0:
 			return None
 		return days
-	# إذا لا يوجد شيء، احسب حتى الآن
-	from django.utils import timezone
 	end = timezone.now()
 	days = (end.date() - start.date()).days + 1
 	if days < 0:
@@ -199,6 +235,20 @@ def cars_ajax_filter(request):
 	# Dashboard: when filtering `done`, show only the latest 6 cars to avoid page
 	# bloat (user requested). Keep ordering by '-created_at' from queryset above.
 	if status == 'done':
+		# Sort delivered cars by their latest maintenance activity (delivery_date or created_at)
+		# so recently completed work appears first even if the Car record is old.
+		def _last_activity(car):
+			try:
+				mr = car.maintenance_records.order_by('-created_at', '-id').first()
+				if not mr:
+					return car.created_at
+				# prefer delivery_date when available
+				return mr.delivery_date or mr.created_at or car.created_at
+			except Exception:
+				return getattr(car, 'created_at', None)
+		# sort in-place by last activity descending then limit
+		cars = sorted(cars, key=_last_activity, reverse=True)
+		# Limit to the most recent 6 delivered cars for compact dashboard view
 		cars = cars[:6]
 	for car in cars:
 		# attach derived status for template usage
@@ -391,9 +441,13 @@ def change_status(request, car_id):
 def maintenance_list(request):
 	from .maintenance_models import MaintenanceRecord
 	plate_number = request.GET.get('plate_number', '').strip()
+	# filter for delivery status: '1' shows only records with delivery_date set
+	delivered = request.GET.get('delivered')
 	qs = MaintenanceRecord.objects.select_related('car', 'service', 'invoice').order_by('-created_at')
 	if plate_number:
 		qs = qs.filter(car__plate_number__icontains=plate_number)
+	if delivered and str(delivered) in ('1','true','yes'):
+		qs = qs.filter(delivery_date__isnull=False)
 	# Pagination / per-page handling (match other lists)
 	per_page_options = [25,50,100,200,'all']
 	per_page_raw = request.GET.get('per_page')
@@ -488,8 +542,19 @@ def edit_maintenance_record(request, record_id):
 			'notes': record.notes,
 		}
 		try:
-			if getattr(record, 'created_at', None):
-				initial['created_at'] = record.created_at.strftime('%Y-%m-%dT%H:%M')
+			# Prefer the linked invoice's created_at when present so the
+			# maintenance date reflects the invoice date (historical entries).
+			inv_dt = None
+			try:
+				if getattr(record, 'invoice', None) and getattr(record.invoice, 'created_at', None):
+					inv_dt = record.invoice.created_at
+			except Exception:
+				inv_dt = None
+			if inv_dt:
+				initial['created_at'] = inv_dt.strftime('%Y-%m-%dT%H:%M')
+			else:
+				if getattr(record, 'created_at', None):
+					initial['created_at'] = record.created_at.strftime('%Y-%m-%dT%H:%M')
 		except Exception:
 			pass
 		try:

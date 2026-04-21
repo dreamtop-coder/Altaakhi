@@ -1,0 +1,30 @@
+{
+  "client_id": 2,
+  "client_name": "اسامة مبارك الدوسري",
+  "backup": [
+    {
+      "id": 77,
+      "client_id": 2,
+      "invoice_id": 82,
+      "invoice_number": "INV-000065",
+      "amount": 10.0,
+      "payment_date": "2026-04-17T12:00:00+00:00",
+      "method": "benefit",
+      "status": "paid",
+      "reference": "0000065",
+      "notes": ""
+    },
+    {
+      "id": 78,
+      "client_id": 2,
+      "invoice_id": 82,
+      "invoice_number": "INV-000065",
+      "amount": 10.0,
+      "payment_date": "2026-04-17T22:17:30.616324+00:00",
+      "method": "cash",
+      "status": "paid",
+      "reference": "AUTO-20260417221730",
+      "notes": null
+    }
+  ]
+}

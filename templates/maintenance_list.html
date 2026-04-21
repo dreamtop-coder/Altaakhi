@@ -1,5 +1,5 @@
 <style>
-./* تخصيص الهيدر لهذه الصفحة فقط */
+/* تخصيص الهيدر لهذه الصفحة فقط */
 .topbar {
     width: 100% !important;
     margin-right: 0 !important;
@@ -49,7 +49,7 @@
 .table-head-wrap { direction:ltr; }
 .table-body-scroll { direction:ltr; }
 
-.table-head-wrap table, .table-body-scroll table { direction:rtl; }
+.cars-table { direction: rtl; }
 
 .cars-table th { background:#f7f7f7; padding:8px; border:1px solid #eee; text-align:left; position:relative; box-sizing:border-box; }
 
@@ -63,7 +63,6 @@
 /* hover state for table rows to show pointer and subtle gray background */
 #maintenance-table-body tbody tr.row-hover { cursor: pointer; background: #f5f6f7; }
 </style>
-</style>
 <div style="max-width:none; width:100%; padding:18px 0 22px 0; direction:rtl; overflow-x:hidden;">
     <div style="background:transparent;padding:28px 0 22px 0;border-radius:0;box-shadow:none;direction:rtl;display:flex;flex-direction:column;align-items:stretch;width:100%;margin:0;">
     <div class="maintenance-header-mobile-center" style="display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;gap:12px;margin-bottom:20px;width:100%;direction:ltr;text-align:left;">
@@ -71,6 +70,13 @@
         <!-- فلاتر البحث -->
         <form class="search-filters-desktop" method="get" style="width:100%;max-width:520px;margin:0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:flex-start;">
             <input type="text" name="plate_number" placeholder="Search by Plate Number" value="{{ plate_number|default:'' }}" style="padding:6px 12px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
+            <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#f6f7f8;border-radius:6px;border:1px solid #e6e6e6;color:#333;">
+                <input type="checkbox" name="delivered" value="1" {% if request.GET.delivered == '1' or request.GET.delivered == 'true' or request.GET.delivered == 'yes' %}checked{% endif %} style="margin:0;">
+                <span title="Show delivered vehicles" style="display:inline-flex;align-items:center;gap:6px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3 12L8 17L21 4" stroke="#1976d2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    تسليم
+                </span>
+            </label>
             <button type="submit" style="padding:6px 24px;background:#1976d2;color:#fff;border:none;border-radius:6px;font-weight:bold;">Search</button>
         </form>
     </div>
@@ -89,14 +95,14 @@
                     /* Keep page RTL; but force scrollbars on the right by setting scroll wrappers to LTR,
                        while keeping the inner tables RTL so cell content remains right-to-left */
                     .table-head-wrap, .table-body-scroll { direction: ltr; }
-                    .table-head-wrap table, .table-body-scroll table { direction: ltr; }
+                    .cars-table { direction: rtl; }
                     .table-body-scroll { overflow-y: auto; overflow-x: auto; }
                     /* visible resize handle */
                     .resize-handle { position: absolute; right: 0; top: 0; width: 10px; height: 100%; cursor: col-resize; z-index: 5; }
                     .resize-handle:hover { background: rgba(0,0,0,0.03); }
                     .resize-handle:before { content: ''; position: absolute; left: 3px; top: 8px; width: 2px; height: calc(100% - 16px); background: rgba(0,0,0,0.06); border-radius: 1px; }
                 </style>
-                <table id="maintenance-table-head" class="cars-table" aria-hidden="false" style="direction:ltr; table-layout: fixed; width:100%; border-collapse:collapse;">
+                <table id="maintenance-table-head" class="cars-table" aria-hidden="false" style="table-layout: fixed; width:100%; border-collapse:collapse;">
                 <thead>
                     <tr>
                         <th style="padding:8px;border:1px solid #eee;width:36px;text-align:center;"><input type="checkbox" id="select-all-maintenance"><div class="resize-handle" data-col="select"></div></th>
@@ -115,7 +121,7 @@
             </table>
         </div>
         <div class="table-body-scroll" style="overflow:auto; max-height:60vh;">
-            <table id="maintenance-table-body" class="cars-table" style="direction:ltr; table-layout: fixed; width:100%; border-collapse:collapse;">
+            <table id="maintenance-table-body" class="cars-table" style="table-layout: fixed; width:100%; border-collapse:collapse;">
                 <tbody>
                 {% for record in records %}
                     <tr data-record-id="{{ record.id }}" data-invoice-id="{% if record.invoice %}{{ record.invoice.id }}{% endif %}">
@@ -167,9 +173,11 @@
         const deleteBtn = document.getElementById('maintenance-bulk-delete');
         const resetBtn = document.getElementById('maintenance-reset-columns');
         const editBtn = document.getElementById('maintenance-bulk-edit');
+        const editInvoiceBase = "{% url 'invoices:edit_invoice' 0 %}";
 
         function updateToolbar(){
-            const checked = rowCheckboxes.filter(cb => cb.checked).map(cb => cb.dataset.id);
+            const checkedEls = Array.from(document.querySelectorAll('.maintenance-row-checkbox:checked'));
+            const checked = checkedEls.map(cb => cb.dataset.id);
             if(checked.length>0){
                 toolbar.style.display='flex';
                 selectedCount.textContent = checked.length + ' Selected';
@@ -180,13 +188,13 @@
             // show Edit when exactly one item is selected
             try{
                 if(editBtn){
-                        if(checked.length===1){ 
+                            if(checked.length===1){ 
                             // find selected checkbox element to read invoice id
-                            const sel = rowCheckboxes.find(cb => cb.checked);
+                            const sel = document.querySelector('.maintenance-row-checkbox:checked');
                             const invId = sel ? sel.dataset.invoiceId : null;
                             if(invId){
                                 editBtn.style.display='inline-block';
-                                editBtn.onclick = function(){ window.location.href = '/invoices/edit/' + invId + '/'; };
+                                editBtn.onclick = function(){ window.location.href = editInvoiceBase.replace('0', invId); };
                             } else {
                                 // fallback to maintenance edit if no invoice
                                 editBtn.style.display='inline-block';
@@ -197,11 +205,14 @@
                     }
             }catch(e){}
         }
-        if(selectAll){ selectAll.addEventListener('change', function(){ rowCheckboxes.forEach(cb => cb.checked = selectAll.checked); updateToolbar(); }); }
+        if(selectAll){ selectAll.addEventListener('change', function(){ document.querySelectorAll('.maintenance-row-checkbox').forEach(cb => { cb.checked = selectAll.checked; if(cb.closest){ const tr = cb.closest('tr'); if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected'); } }); updateToolbar(); }); }
         rowCheckboxes.forEach(cb=> cb.addEventListener('change', function(){ const tr = cb.closest('tr'); if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected'); updateToolbar(); }));
 
-        if(deleteBtn){ deleteBtn.addEventListener('click', function(){ const ids = rowCheckboxes.filter(cb=>cb.checked).map(cb=>cb.dataset.id); if(ids.length===0) return; if(!confirm('Delete '+ids.length+' selected records?')) return; alert('Bulk delete not implemented on this endpoint.'); }); }
-        if(resetBtn){ resetBtn.addEventListener('click', function(){ if(!confirm('Reset saved column widths to defaults?')) return; try{ localStorage.removeItem('maintenance_table_col_widths_v1'); }catch(e){} location.reload(); }); }
+        // delegated handler to support dynamically-added rows
+        document.addEventListener('change', function(e){ try{ if(e.target && e.target.matches && e.target.matches('.maintenance-row-checkbox')){ const cb = e.target; const tr = cb.closest && cb.closest('tr'); if(tr){ if(cb.checked) tr.classList.add('row-selected'); else tr.classList.remove('row-selected'); } updateToolbar(); } }catch(ex){} });
+
+        if(deleteBtn){ deleteBtn.addEventListener('click', function(){ const ids = Array.from(document.querySelectorAll('.maintenance-row-checkbox:checked')).map(cb=>cb.dataset.id); if(ids.length===0) return; if(!confirm('Delete '+ids.length+' selected records?')) return; alert('Bulk delete not implemented on this endpoint.'); }); }
+        if(resetBtn){ resetBtn.addEventListener('click', function(){ if(!confirm('Reset saved column widths to defaults?')) return; try{ localStorage.removeItem('maintenance_table_col_widths_v2'); }catch(e){} location.reload(); }); }
 
         const rows = Array.from(document.querySelectorAll('#maintenance-table-body tbody tr[data-record-id]'));
         rows.forEach(function(tr){
@@ -209,12 +220,12 @@
             tr.addEventListener('mouseleave', () => tr.classList.remove('row-hover'));
             tr.addEventListener('click', function(e){
                     const target = e.target;
-                    // allow interactions with real inputs/buttons/links
-                    if(target && (target.tagName === 'INPUT' || target.closest('button') || target.closest('a'))) return;
+                    // allow interactions with real inputs/buttons/links (including labels)
+                    if(target && target.closest && target.closest('input, button, a, label')) return;
                     // Toggle the row checkbox when the row is clicked
                     try{
                         const cb = tr.querySelector('.maintenance-row-checkbox');
-                        if(cb){ cb.checked = !cb.checked; if(cb.dispatchEvent){ cb.dispatchEvent(new Event('change',{bubbles:true})); } }
+                        if(cb){ if(cb && typeof cb.click === 'function'){ cb.click(); } else { cb.checked = !cb.checked; if(cb.dispatchEvent){ cb.dispatchEvent(new Event('change',{bubbles:true})); } } }
                     }catch(err){ console.error('row toggle error', err); }
                 });
         });
@@ -224,7 +235,7 @@
             const head = document.getElementById('maintenance-table-head');
             const body = document.getElementById('maintenance-table-body');
             if(!head || !body) return;
-            const STORAGE_KEY = 'maintenance_table_col_widths_v1';
+            const STORAGE_KEY = 'maintenance_table_col_widths_v2';
             const ths = head.querySelectorAll('th');
             const bodyRows = Array.from(body.querySelectorAll('tbody tr'));
             const wrapper = document.querySelector('.table-wrapper');

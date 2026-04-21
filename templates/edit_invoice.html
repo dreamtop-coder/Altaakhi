@@ -78,7 +78,7 @@
                     <tbody id="services-body">
                         {% for item in invoice_items %}
                             {% if item.service_id %}
-                                <tr class="service-row" data-service-id="{{ item.service_id }}">
+                                <tr class="service-row" data-service-id="{{ item.service_id }}" {% if item.id %}data-invoice-item-id="{{ item.id }}"{% endif %}>
                                     <td style="padding:8px 12px;vertical-align:middle;">
                                         <div class="service-label" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:14px;color:#374151;font-weight:400;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;display:block;background:#fff">{{ item.description }}</div>
                                         <input type="hidden" class="service-desc" value="{{ item.description }}" />
@@ -95,7 +95,7 @@
                     <tbody id="items-body">
                         {% for item in invoice_items %}
                             {% if not item.service_id %}
-                                <tr class="item-row">
+                                <tr class="item-row" {% if item.id %}data-invoice-item-id="{{ item.id }}"{% endif %}>
                                     <td style="padding:8px 12px;"><input type="text" class="item-desc" value="{{ item.description }}" style="width:100%;padding:8px;border:1px solid #eee;border-radius:6px;" /></td>
                                     <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="{{ item.qty|floatformat:0 }}" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
                                     <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="{{ item.rate|floatformat:3 }}" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>

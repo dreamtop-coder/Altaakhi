@@ -102,7 +102,15 @@ class InvoiceItem(models.Model):
 		if self.service:
 			self.item_type = 'service'
 			try:
-				self.rate = self.service.default_price or self.rate
+				# Only apply the service default price when no explicit rate
+				# was provided (i.e. rate is falsy or zero). This allows per-invoice
+				# price overrides while keeping defaults for empty rows.
+				try:
+					from decimal import Decimal as _D
+					if self.rate is None or _D(str(self.rate)) == _D('0'):
+						self.rate = self.service.default_price or self.rate
+				except Exception:
+					self.rate = self.service.default_price or self.rate
 			except Exception:
 				pass
 			# clear part when service present
@@ -110,7 +118,13 @@ class InvoiceItem(models.Model):
 		elif self.part:
 			self.item_type = 'part'
 			try:
-				self.rate = self.part.sale_price or self.rate
+				# Only use part.sale_price when no explicit rate provided.
+				try:
+					from decimal import Decimal as _D
+					if self.rate is None or _D(str(self.rate)) == _D('0'):
+						self.rate = self.part.sale_price or self.rate
+				except Exception:
+					self.rate = self.part.sale_price or self.rate
 			except Exception:
 				pass
 			# clear service when part present

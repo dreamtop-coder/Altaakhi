@@ -41,9 +41,12 @@
 
     window.initInventoryAutocomplete = function(input){
         if(!input || input._invInit) return;
+        // debug: log attempts to initialize inventory autocomplete
+        try{ console.log('[inv] initInventoryAutocomplete for', input, 'dataset=', input && input.dataset); }catch(e){}
         // do not initialize inventory autocomplete on inputs explicitly marked for services
-        try{ if(input.dataset && input.dataset.autocomplete === 'service') return; }catch(e){}
+        try{ if(input.dataset && input.dataset.autocomplete === 'service'){ try{ console.log('[inv] skipped binding (service-marked input)'); }catch(e){} return; } }catch(e){}
         input._invInit = true;
+        try{ console.log('[inv] bound inventory autocomplete to', input); }catch(e){}
         var dd = null, timer = null, onWindowChange = null;
         function close(){ if(dd){ try{ if(dd.parentNode) dd.parentNode.removeChild(dd); }catch(e){} dd = null; } if(onWindowChange){ window.removeEventListener('scroll', onWindowChange, true); window.removeEventListener('resize', onWindowChange); onWindowChange = null; } }
         function positionDropdown(){ if(!dd) return; try{ var rect = input.getBoundingClientRect(); dd.style.left = (rect.left + window.scrollX) + 'px'; dd.style.top = (rect.bottom + window.scrollY + 6) + 'px'; dd.style.width = rect.width + 'px'; }catch(e){} }
@@ -175,6 +178,7 @@
                 if(tr){ tr.dataset.partId = ''; tr.dataset.selected = 'false'; }
             }catch(e){}
             var q = (input.value||'').trim();
+            try{ console.log('[inv] input event on', input, 'value=', q); }catch(e){}
             if(timer) clearTimeout(timer);
             if(!q){ close(); return; }
             timer = setTimeout(function(){ fetchAndRender(q); }, 160);
@@ -182,9 +186,27 @@
         // open suggestions on user click/focus or when there's existing content
         var _invPointerActivate = false;
         input.addEventListener('pointerdown', function(){ _invPointerActivate = true; setTimeout(function(){ _invPointerActivate = false; }, 250); });
-        input.addEventListener('focus', function(){ var q = (input.value||'').trim(); if(q || _invPointerActivate) fetchAndRender(q||''); });
+        // On focus/click, prefer showing services if the current value matches a service
+        function checkServicesThenInventory(q, allowEmpty){
+            try{
+                var qq = (q||'').trim();
+                if(!qq && !allowEmpty) return fetchAndRender('');
+                // query services endpoint quickly to see if there are matching services
+                var svcUrl = '/services/autocomplete/?q=' + encodeURIComponent(qq||'');
+                try{ fetcher(svcUrl).then(function(sd){ var sres = (sd && sd.results)? sd.results : []; if(sres && sres.length){ // prefer service behavior
+                            try{ console.log('[inv] switching to service autocomplete for input', input, 'q=', qq); }catch(e){}
+                            try{ if(input.dataset) input.dataset.autocomplete = 'service'; }catch(e){}
+                            try{ if(window.initServiceAutocomplete) { window.initServiceAutocomplete(input); if(input._svcFetchAndRender) input._svcFetchAndRender(qq); } }catch(e){}
+                            return; }
+                        // no services; fallback to inventory
+                        fetchAndRender(qq);
+                    }).catch(function(){ fetchAndRender(qq); });
+                }catch(e){ fetchAndRender(qq); }
+            }catch(e){ fetchAndRender(q); }
+        }
+        input.addEventListener('focus', function(){ var q = (input.value||'').trim(); if(q || _invPointerActivate) checkServicesThenInventory(q, false); });
         // also open suggestions on user click when the field is empty (show full list)
-        input.addEventListener('click', function(e){ var q = (input.value||'').trim(); if(!q){ fetchAndRender(''); } });
+        input.addEventListener('click', function(e){ var q = (input.value||'').trim(); if(!q){ checkServicesThenInventory('', true); } else { checkServicesThenInventory(q, false); } });
         input.addEventListener('blur', function(){ setTimeout(close,150); setTimeout(function(){ window.lookupPartPrice(input.value).then(function(price){ if(price!==null){ try{ var tr = input.closest('.item-row'); var rateEl = tr && tr.querySelector('.item-rate'); if(rateEl) { rateEl.value = parseFloat(price).toFixed(2); if(window.updateRowAmount) window.updateRowAmount(tr); if(window.recomputeTotals) window.recomputeTotals(); } }catch(e){} } }); },180); });
     };
 })();

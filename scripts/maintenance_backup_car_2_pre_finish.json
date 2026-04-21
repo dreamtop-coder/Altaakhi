@@ -1,0 +1,18 @@
+[
+  {
+    "id": 2,
+    "is_finished": true,
+    "ready_at": "2026-03-22T21:49:48.008476+00:00",
+    "delivery_date": "2023-09-10T21:50:00+00:00",
+    "price": 50.0,
+    "invoice_id": 2
+  },
+  {
+    "id": 79,
+    "is_finished": true,
+    "ready_at": "2026-04-17T22:16:32.271068+00:00",
+    "delivery_date": null,
+    "price": 10.0,
+    "invoice_id": 82
+  }
+]

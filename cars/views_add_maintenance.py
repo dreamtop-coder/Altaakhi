@@ -443,12 +443,15 @@ def add_maintenance_record(request):
                     from django.db import transaction
                     from invoices.models import InvoiceItem
                     with transaction.atomic():
+                        # Prefer using the invoice creation date as the maintenance
+                        # record date when an invoice exists (keeps dates consistent).
+                        created_at_value = (getattr(invoice, 'created_at', None) if invoice else None) or maintenance_date
                         mr = MaintenanceRecord.objects.create(
                             car=car,
                             service=service,
                             price=price or 0,
                             notes=notes,
-                            created_at=maintenance_date,
+                            created_at=created_at_value,
                             invoice=invoice
                         )
                         # If an invoice exists but there are no explicit items_json rows,
@@ -641,12 +644,13 @@ def add_maintenance_record(request):
                                                 pass
                                         # create a single maintenance record representing the invoice
                                         from django.utils import timezone
+                                        created_at_value = (getattr(invoice, 'created_at', None) if invoice else None) or maintenance_date
                                         mr = MaintenanceRecord.objects.create(
                                             car=car,
                                             service=svc,
                                             price=float(invoice.amount or 0),
                                             notes='Created from invoice items',
-                                            created_at=maintenance_date,
+                                            created_at=created_at_value,
                                             invoice=invoice,
                                             is_finished=bool(invoice.paid),
                                             ready_at=(invoice.created_at if invoice.paid else None),
@@ -681,12 +685,13 @@ def add_maintenance_record(request):
                                         except Exception:
                                             pass
                                     from django.utils import timezone
+                                    created_at_value = (getattr(invoice, 'created_at', None) if invoice else None) or maintenance_date
                                     MaintenanceRecord.objects.create(
                                         car=car,
                                         service=svc,
                                         price=float(invoice.amount or 0),
                                         notes='Created from invoice',
-                                        created_at=maintenance_date,
+                                        created_at=created_at_value,
                                         invoice=invoice,
                                         is_finished=bool(invoice.paid),
                                         ready_at=(invoice.created_at if invoice.paid else None),

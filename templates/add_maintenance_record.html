@@ -248,7 +248,7 @@
                     <table id="maintenance-items-table" style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:14px;">
                         <thead>
                             <tr style="text-align:left;color:#444;border-bottom:1px solid #eee;">
-                                <th style="padding:8px 6px;width:45%">Item Details</th>
+                                <th style="padding:8px 6px;width:45%">Service</th>
                                 <th style="padding:8px 6px;width:12%">Quantity</th>
                                 <th style="padding:8px 6px;width:12%">Rate</th>
                                 <th style="padding:8px 6px;width:12%">Discount %</th>
@@ -330,6 +330,10 @@
 <script src="{% static 'js/services-table.js' %}?v=2"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){} });
+</script>
+<script>
+    // mark page so items JS won't create a default inventory item row
+    window.__isMaintenancePage = true;
 </script>
 <script src="{% static 'js/inventory-autocomplete.js' %}?v=2"></script>
 <script src="{% static 'js/items-table.v2.js' %}?v=1"></script>
@@ -1060,15 +1064,8 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
 
     // attach to any existing item-desc inputs
-    // if there are no rows yet, create an initial empty row
-    if(document.querySelectorAll('#items-body .item-row').length === 0){ createItemRow(true); }
-    document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ window.initInventoryAutocomplete(inp); }catch(e){} });
-    // ensure totals and bottom total reflect any server-rendered rows
-    try{ recomputeTotals(); }catch(e){}
-
-    // attach to any existing item-desc inputs (use shared initializer)
-    // if there are no rows yet, create an initial empty row
-    if(document.querySelectorAll('#items-body .item-row').length === 0){ createItemRow(true); }
+    // if there are no rows yet, create an initial empty row (skip on maintenance page)
+    if(document.querySelectorAll('#items-body .item-row').length === 0 && !window.__isMaintenancePage){ createItemRow(true); }
     document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ window.initInventoryAutocomplete(inp); }catch(e){} });
     // ensure totals and bottom total reflect any server-rendered rows
     try{ recomputeTotals(); }catch(e){}

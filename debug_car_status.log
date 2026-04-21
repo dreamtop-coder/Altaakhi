@@ -383,3 +383,22 @@ STATUS-TRANSITION: car_id=1 -> in_progress
 BEFORE: car_id=62 status=waiting
 STATUS-TRANSITION: car_id=62 -> in_progress
 BEFORE: car_id=62 status=done
+BEFORE: car_id=1 status=paid_waiting_collection
+FINAL-CHANGE: car_id=1 was paid_waiting_collection, setting to waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=1 status=paid_waiting_collection
+FINAL-CHANGE: car_id=1 was paid_waiting_collection, setting to waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=2 status=done
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=2 status=waiting
+STATUS-TRANSITION: car_id=2 -> in_progress
+BEFORE: car_id=3 status=waiting
+STATUS-TRANSITION: car_id=3 -> in_progress
+BEFORE: car_id=4 status=waiting
+STATUS-TRANSITION: car_id=4 -> in_progress
+BEFORE: car_id=5 status=waiting
+STATUS-TRANSITION: car_id=5 -> in_progress

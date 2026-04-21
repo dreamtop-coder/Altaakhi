@@ -55,6 +55,7 @@ ALLOWED_HOSTS = [
     '192.168.10.200',
     'localhost',
     '127.0.0.1',
+    'testserver',
     'lizabeth-slippy-camilla.ngrok-free.dev',
     'altaakhitowers.com',
     'www.altaakhitowers.com'

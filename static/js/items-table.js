@@ -93,7 +93,7 @@
         }catch(e){ console.error('recomputeTotals failed', e); return false; }
     };
 
-    window.initItemsTable = function(){ try{ var btn = document.getElementById('add-row'); if(btn) btn.addEventListener('click', function(e){ e.preventDefault(); createItemRow(true); }); if(document.querySelectorAll('#items-body .item-row').length === 0) createItemRow(false); // ensure totals update
+    window.initItemsTable = function(){ try{ var btn = document.getElementById('add-row'); if(btn) btn.addEventListener('click', function(e){ e.preventDefault(); createItemRow(true); }); if(document.querySelectorAll('#items-body .item-row').length === 0 && !window.__isMaintenancePage) createItemRow(false); // ensure totals update
         try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
     }catch(e){ console.error('initItemsTable failed', e); } };
 

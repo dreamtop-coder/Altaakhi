@@ -1,0 +1,20 @@
+{
+  "invoice": {
+    "id": 82,
+    "invoice_number": "INV-000065",
+    "amount": 10.0,
+    "paid": true,
+    "created_at": "2026-04-17T00:00:00+00:00",
+    "car_id": 2,
+    "client_id": 2
+  },
+  "payments_before": [
+    {
+      "id": 77,
+      "amount": 10.0,
+      "status": "paid",
+      "reference": "0000065",
+      "payment_date": "2026-04-17T12:00:00+00:00"
+    }
+  ]
+}

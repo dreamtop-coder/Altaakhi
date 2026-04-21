@@ -1,0 +1,87 @@
+{
+  "invoices": [
+    {
+      "id": 80,
+      "invoice_number": "INV-000065",
+      "client_id": 1,
+      "car_id": 1,
+      "amount": 120.0,
+      "paid": true,
+      "created_at": "2026-03-09T00:00:00+00:00",
+      "type": "maintenance"
+    },
+    {
+      "id": 81,
+      "invoice_number": "INV-000066",
+      "client_id": 1,
+      "car_id": 1,
+      "amount": 10.0,
+      "paid": true,
+      "created_at": "2026-04-17T00:00:00+00:00",
+      "type": "maintenance"
+    }
+  ],
+  "invoice_items": [
+    {
+      "id": 99,
+      "invoice_id": 80,
+      "description": "Invoice items (created)",
+      "service_id": 1,
+      "part_id": null,
+      "quantity": 1.0,
+      "rate": 120.0,
+      "total": 120.0
+    },
+    {
+      "id": 100,
+      "invoice_id": 81,
+      "description": "Brake removal",
+      "service_id": 4,
+      "part_id": null,
+      "quantity": 1.0,
+      "rate": 10.0,
+      "total": 10.0
+    }
+  ],
+  "payments": [
+    {
+      "id": 75,
+      "invoice_id": 80,
+      "amount": 120.0,
+      "status": "paid",
+      "reference": "0000065",
+      "payment_date": "2026-04-17T12:00:00+00:00"
+    },
+    {
+      "id": 76,
+      "invoice_id": 81,
+      "amount": 10.0,
+      "status": "paid",
+      "reference": "0000066",
+      "payment_date": "2026-04-17T12:00:00+00:00"
+    }
+  ],
+  "maintenance_links": [
+    {
+      "invoice_id": 80,
+      "id": 76,
+      "created_at": "2026-04-17 21:22:00+00:00",
+      "delivery_date": "2026-04-18 00:34:00+00:00",
+      "price": "123.45"
+    },
+    {
+      "invoice_id": 80,
+      "id": 77,
+      "created_at": "2026-04-17 21:22:00+00:00",
+      "delivery_date": "2026-04-18 00:33:00+00:00",
+      "price": "120.00"
+    },
+    {
+      "invoice_id": 81,
+      "id": 78,
+      "created_at": "2026-04-17 21:30:00+00:00",
+      "delivery_date": "2026-04-18 00:33:00+00:00",
+      "price": "10.00"
+    }
+  ]
+}

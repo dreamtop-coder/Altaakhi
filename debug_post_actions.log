@@ -164,3 +164,12 @@ POST-COMPLETE: car_id=1 status=in_progress invoice_id=1 amount=70.0
 POST-COMPLETE: car_id=1 status=in_progress invoice_id=1 amount=70.0
 POST-COMPLETE: car_id=62 status=in_progress invoice_id=78 amount=120.0
 POST-COMPLETE: car_id=62 status=done invoice_id=79 amount=10.0
+POST-COMPLETE: car_id=1 status=in_progress invoice_id=80 amount=120.0
+POST-COMPLETE: car_id=1 status=in_progress invoice_id=1 amount=70.0
+POST-COMPLETE: car_id=1 status=in_progress invoice_id=81 amount=10.0
+POST-COMPLETE: car_id=2 status=done invoice_id=82 amount=10.0
+POST-COMPLETE: car_id=1 status=in_progress invoice_id=1 amount=120.0
+POST-COMPLETE: car_id=2 status=in_progress invoice_id=2 amount=100.0
+POST-COMPLETE: car_id=3 status=in_progress invoice_id=3 amount=110.0
+POST-COMPLETE: car_id=4 status=in_progress invoice_id=4 amount=120.0
+POST-COMPLETE: car_id=5 status=in_progress invoice_id=5 amount=20.0

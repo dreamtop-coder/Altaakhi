@@ -952,7 +952,7 @@
                     try{
                         var dj_msgs = [
                             {% for message in messages %}
-                                {text: {{ message|escapejs|safe }}, level: '{{ message.tags }}' },
+                                {text: '{{ message|escapejs }}', level: '{{ message.tags }}' },
                             {% endfor %}
                         ];
                         dj_msgs.forEach(function(m){ createToast(m.text, m.level || 'info'); });

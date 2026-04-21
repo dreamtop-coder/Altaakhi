@@ -1549,7 +1549,15 @@ def edit_invoice(request, invoice_id):
                                     d = Decimal(str(it.get('disc', 0) or 0))
                                 except Exception:
                                     d = Decimal('0')
-                                normalized.append({'description': desc, 'qty': q, 'rate': r, 'disc': d, 'part_id': (part.id if part else None)})
+                                # preserve any provided invoice_item_id so we can do per-item CRUD
+                                inv_item_id = None
+                                try:
+                                    inv_item_id = it.get('invoice_item_id') or it.get('id')
+                                    if inv_item_id is not None:
+                                        inv_item_id = int(inv_item_id)
+                                except Exception:
+                                    inv_item_id = None
+                                normalized.append({'description': desc, 'qty': q, 'rate': r, 'disc': d, 'part_id': (part.id if part else None), 'invoice_item_id': inv_item_id})
                         except Exception:
                             normalized = data
 
@@ -1566,7 +1574,7 @@ def edit_invoice(request, invoice_id):
                                 messages.error(request, msg)
                                 return HttpResponseBadRequest(msg)
 
-                            # apply changes in a single atomic transaction: lock parts, delete old items, create new, update parts
+                            # apply changes in a single atomic transaction using per-item CRUD
                             with transaction.atomic():
                                 try:
                                     if part_ids:
@@ -1574,23 +1582,22 @@ def edit_invoice(request, invoice_id):
                                 except Exception:
                                     pass
 
-                                # restore inventory for existing invoice items before deleting them
+                                # build existing items map by id for per-item operations
+                                existing_map = {}
+                                try:
+                                    for ex in InvoiceItem.objects.filter(invoice=invoice):
+                                        existing_map[int(ex.id)] = ex
+                                except Exception:
+                                    existing_map = {}
+
+                                seen = set()
+                                # helper: restore stock for a single persisted item and apply stock for a persisted item
                                 try:
                                     from inventory.utils import apply_inventory_changes_for_invoice
-                                    existing_items = []
-                                    for ex in InvoiceItem.objects.filter(invoice=invoice):
-                                        try:
-                                            existing_items.append({'description': ex.description or '', 'qty': float(ex.quantity or 0)})
-                                        except Exception:
-                                            existing_items.append({'description': ex.description or '', 'qty': 0})
-                                    if existing_items:
-                                        try:
-                                            apply_inventory_changes_for_invoice(existing_items, decrement=False)
-                                        except Exception:
-                                            pass
                                 except Exception:
-                                    pass
-                                InvoiceItem.objects.filter(invoice=invoice).delete()
+                                    apply_inventory_changes_for_invoice = None
+
+                                # Process each incoming normalized item: UPDATE if invoice_item_id provided and exists, else CREATE
                                 for it in normalized:
                                     desc = (it.get('description') or '').strip()
                                     q = it.get('qty', Decimal('0'))
@@ -1601,14 +1608,61 @@ def edit_invoice(request, invoice_id):
                                     line_total = (line_before - line_disc)
                                     if (not desc) and q == Decimal('0') and r == Decimal('0') and d == Decimal('0'):
                                         continue
-                                    serv = None
-                                    if desc:
+
+                                    inv_item_id = it.get('invoice_item_id')
+                                    if inv_item_id and inv_item_id in existing_map:
+                                        # UPDATE path
+                                        obj = existing_map.get(inv_item_id)
                                         try:
-                                            serv = ServiceModel.objects.filter(name__iexact=desc).first()
+                                            # restore stock for the old persisted item before changing quantities
+                                            if apply_inventory_changes_for_invoice:
+                                                try:
+                                                    apply_inventory_changes_for_invoice([{'description': obj.description or '', 'qty': float(obj.quantity or 0)}], decrement=False)
+                                                except Exception:
+                                                    pass
                                         except Exception:
+                                            pass
+
+                                        # update fields
+                                        try:
                                             serv = None
+                                            if desc:
+                                                try:
+                                                    serv = ServiceModel.objects.filter(name__iexact=desc).first()
+                                                except Exception:
+                                                    serv = None
+                                            obj.service = serv
+                                            obj.description = desc
+                                            obj.quantity = q
+                                            obj.rate = r
+                                            obj.discount = d
+                                            obj.total = line_total
+                                            obj.save()
+                                            seen.add(inv_item_id)
+                                        except Exception:
+                                            # surface unexpected update failures
+                                            raise
+
+                                        # apply new stock movement for updated item
+                                        try:
+                                            if apply_inventory_changes_for_invoice:
+                                                try:
+                                                    apply_inventory_changes_for_invoice([{'description': obj.description or '', 'qty': float(obj.quantity or 0)}], decrement=True)
+                                                except Exception:
+                                                    pass
+                                        except Exception:
+                                            pass
+                                        continue
+
+                                    # CREATE path
                                     try:
-                                        InvoiceItem.objects.create(
+                                        serv = None
+                                        if desc:
+                                            try:
+                                                serv = ServiceModel.objects.filter(name__iexact=desc).first()
+                                            except Exception:
+                                                serv = None
+                                        new_obj = InvoiceItem.objects.create(
                                             invoice=invoice,
                                             service=serv,
                                             description=desc,
@@ -1620,10 +1674,34 @@ def edit_invoice(request, invoice_id):
                                     except Exception:
                                         raise
 
+                                    # apply stock decrement for created item
+                                    try:
+                                        if apply_inventory_changes_for_invoice:
+                                            try:
+                                                apply_inventory_changes_for_invoice([{'description': new_obj.description or '', 'qty': float(new_obj.quantity or 0)}], decrement=True)
+                                            except Exception:
+                                                pass
+                                    except Exception:
+                                        pass
+
+                                # DELETE any existing items not seen in this payload
                                 try:
-                                    apply_inventory_changes_for_invoice(normalized, decrement=True)
+                                    for ex_id, ex_obj in list(existing_map.items()):
+                                        if ex_id not in seen:
+                                            try:
+                                                if apply_inventory_changes_for_invoice:
+                                                    try:
+                                                        apply_inventory_changes_for_invoice([{'description': ex_obj.description or '', 'qty': float(ex_obj.quantity or 0)}], decrement=False)
+                                                    except Exception:
+                                                        pass
+                                            except Exception:
+                                                pass
+                                            try:
+                                                ex_obj.delete()
+                                            except Exception:
+                                                pass
                                 except Exception:
-                                    raise
+                                    pass
                         except Exception:
                             # if anything unexpected happens, abort and surface a generic message
                             from django.contrib import messages
