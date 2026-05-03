@@ -174,7 +174,7 @@
                     ev.preventDefault();
                     var name = nameInput.value.trim(); if(!name) { alert('Enter category name'); nameInput.focus(); return; }
                     var data = new URLSearchParams(); data.append('name', name);
-                    fetchJson("{% url 'add_expense_category_ajax' %}", {
+                    fetchJson("{% url 'invoices:add_expense_category_ajax' %}", {
                         method: 'POST', headers: { 'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '', 'Accept':'application/json', 'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8' }, body: data.toString()
                     }).then(function(json){ if(json && json.success){ var opt = document.createElement('option'); opt.value = json.id; opt.textContent = json.name; select.appendChild(opt); select.value = json.id; modal.style.display='none'; } else { alert('Could not add category: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown')); } }).catch(function(err){ var msg = (err && (err.error || err.text || err.message)) || JSON.stringify(err); alert('Request failed: ' + msg); });
                 });
