@@ -119,7 +119,7 @@
             <tbody>
                 {% for payment in payments %}
                 <tr>
-                    <td style="width:36px;text-align:center;"><input type="checkbox" class="select-payment" value="{{ payment.ids|join:"," }}" data-ids="{{ payment.ids|join:"," }}" data-invoices='{{ payment.invoices_json|escapejs }}' /></td>
+                    <td style="width:36px;text-align:center;"><input type="checkbox" class="select-payment" value="{{ payment.ids|join:"," }}" data-ids="{{ payment.ids|join:"," }}" data-invoices="{{ payment.invoices_json|escapejs }}" /></td>
                     <td class="col-name" style="text-align:right;">{{ payment.client_name }}</td>
                     <td>{{ payment.payment_date|date:'Y-m-d' }}</td>
                     <td>{{ payment.reference|default:'-' }}{% if payment.invoices_count and payment.invoices_count > 1 %} &nbsp; <small style="color:#666;">({{ payment.invoices_count }} invoices)</small>{% endif %}</td>
