@@ -368,14 +368,14 @@
           save.addEventListener('click', function(){
             var newName = inp.value.trim(); if(!newName) { alert('Enter name'); inp.focus(); return; }
             var data = new URLSearchParams(); data.append('name', newName);
-            fetchJson("{% url 'edit_expense_category_ajax' 0 %}".replace('/0/', '/'+opt.value+'/'), {
+            fetchJson("{% url 'invoices:edit_expense_category_ajax' 0 %}".replace('/0/', '/'+opt.value+'/'), {
               method: 'POST', headers: { 'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '', 'Content-Type':'application/x-www-form-urlencoded' }, body: data.toString()
             }).then(function(json){ if(json && json.success){ opt.text = json.name; container.textContent = json.name; } else { alert('Could not rename: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown')); container.textContent=old; } }).catch(function(err){ var msg = (err && (err.error||err.text||err.message)) || JSON.stringify(err); alert('Request failed: '+msg); container.textContent=old; });
           });
           cancel.addEventListener('click', function(){ container.textContent = old; });
         }
 
-        function doDelete(opt){ if(!confirm('Delete category "'+opt.text+'"?')) return; fetchJson("{% url 'delete_expense_category_ajax' 0 %}".replace('/0/', '/'+opt.value+'/'), { method:'POST', headers:{ 'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '' } }).then(function(json){ if(json && json.success){ var parent = opt.parentNode; if(parent) parent.removeChild(opt); document.body.removeChild(manageOverlay); setTimeout(openManageModal, 50); } else { alert('Could not delete: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown')); } }).catch(function(err){ var msg = (err && (err.error||err.text||err.message)) || JSON.stringify(err); alert('Request failed: '+msg); }); }
+        function doDelete(opt){ if(!confirm('Delete category "'+opt.text+'"?')) return; fetchJson("{% url 'invoices:delete_expense_category_ajax' 0 %}".replace('/0/', '/'+opt.value+'/'), { method:'POST', headers:{ 'X-CSRFToken': (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '' } }).then(function(json){ if(json && json.success){ var parent = opt.parentNode; if(parent) parent.removeChild(opt); document.body.removeChild(manageOverlay); setTimeout(openManageModal, 50); } else { alert('Could not delete: ' + (json && (json.error || json.text) ? (json.error || json.text) : 'Unknown')); } }).catch(function(err){ var msg = (err && (err.error||err.text||err.message)) || JSON.stringify(err); alert('Request failed: '+msg); }); }
       }
     })();
   </script>
