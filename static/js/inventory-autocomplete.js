@@ -1,212 +1,220 @@
-(function(){
-    // Lightweight inventory autocomplete helpers used by multiple templates.
-    // Exposes: window.fetchInventory(q), window.lookupPartPrice(name), window.initInventoryAutocomplete(input)
+;(function () {
+    if (window.__inventoryAutocompleteLoaded) return;
+    window.__inventoryAutocompleteLoaded = true;
 
-    function fetcher(u){ return (window.fetchJson?window.fetchJson:function(url){ return fetch(url).then(function(r){ return r.json(); }); })(u); }
+    const FetchCache = {};
 
-    window.fetchInventory = function(q){
-        // fetch inventory and services in parallel and merge results
-        var urlInv = '/inventory/json/?q=' + encodeURIComponent(q||'');
-        // use the services autocomplete endpoint (match services-table)
-        var urlSvc = '/services/autocomplete/?q=' + encodeURIComponent(q||'');
-        return Promise.all([fetcher(urlInv).catch(function(){ return {results:[]}; }), fetcher(urlSvc).catch(function(){ return {results:[]}; })])
-            .then(function(res){
-                var inv = (res[0] && res[0].results)? res[0].results : [];
-                var svc = (res[1] && res[1].results)? res[1].results : [];
-                // normalize service items to inventory-like shape if needed
-                var mappedSvc = svc.map(function(it){ return Object.assign({}, it, { name: it.name, sale_price: it.sale_price, code: it.code || '', track_stock: false, quantity: null }); });
-                // merge by name, services appended after inventory but avoid duplicates by name
-                var merged = inv.slice();
-                var names = new Set(merged.map(function(i){ return (i.name||'').toLowerCase(); }));
-                mappedSvc.forEach(function(s){ if(!names.has((s.name||'').toLowerCase())){ merged.push(s); names.add((s.name||'').toLowerCase()); } });
+    function fetcher(url, opts) {
+        if (FetchCache[url]) return FetchCache[url];
+        const p = (window.fetchJson ? window.fetchJson(url) : fetch(url, opts).then(r => r.json())).finally(() => { try{ delete FetchCache[url]; }catch(e){} });
+        FetchCache[url] = p;
+        return p;
+    }
+
+    window.fetchInventory = function (q) {
+        q = (q || '').trim();
+        // Always perform merged fetch even for empty query so clicking empty inputs shows defaults
+        const invUrl = '/inventory/json/?q=' + encodeURIComponent(q);
+        const svcUrl = '/services/autocomplete/?q=' + encodeURIComponent(q);
+        // If on the sales-invoice page, return only inventory (no services)
+        try{ var pageFlag = (document && document.body && document.body.dataset && document.body.dataset.page) ? document.body.dataset.page : null; }catch(e){ var pageFlag = null; }
+        if(pageFlag === 'sales-invoice'){
+            return fetcher(invUrl).then(r => (r.results || [])).catch(() => ([]));
+        }
+        // default: merged inventory + services suggestions
+        return Promise.all([fetcher(invUrl).catch(() => ({ results: [] })), fetcher(svcUrl).catch(() => ({ results: [] }))])
+            .then(([inv, svc]) => {
+                const invList = inv.results || [];
+                const svcList = svc.results || [];
+                const mappedSvc = svcList.map(s => ({ ...s, type: 'service', track_stock: false }));
+                const names = new Set(invList.map(i => (i.name || '').toLowerCase()));
+                const merged = invList.slice();
+                mappedSvc.forEach(s => { if (!names.has((s.name || '').toLowerCase())) merged.push(s); });
                 return merged;
-            }).catch(function(){ return []; });
+            });
     };
 
-    // inventory only (parts) fetch - used by item inputs so services are not mixed into parts list
-    window.fetchInventoryParts = function(q){
-        var urlInv = '/inventory/json/?q=' + encodeURIComponent(q||'');
-        return fetcher(urlInv).then(function(data){ return (data && data.results)? data.results : []; }).catch(function(){ return []; });
+    window.fetchInventoryParts = function (q) {
+        q = (q || '').trim();
+        if (!q) return Promise.resolve([]);
+        return fetcher('/inventory/json/?q=' + encodeURIComponent(q)).then(r => r.results || []);
     };
 
-    window.lookupPartPrice = function(name){
-        if(!name) return Promise.resolve(null);
-        return window.fetchInventory(name).then(function(list){
-            if(!list || !list.length) return null;
-            var match = list.find(function(it){ return (it.name||'').toLowerCase() === (name||'').toLowerCase(); }) || list[0];
-            var price = (match && (match.sale_price!==undefined ? match.sale_price : (match.price!==undefined ? match.price : null)));
-            return (price!==null && price!==undefined) ? parseFloat(price) : null;
-        }).catch(function(){ return null; });
+    window.fetchByType = function (q, type) {
+        q = (q || '').trim();
+        if (!q) return Promise.resolve([]);
+        if (type === 'service') return fetcher('/services/autocomplete/?q=' + encodeURIComponent(q)).then(r => r.results || []);
+        return fetcher('/inventory/json/?q=' + encodeURIComponent(q)).then(r => r.results || []);
     };
 
-    window.initInventoryAutocomplete = function(input){
-        if(!input || input._invInit) return;
-        // debug: log attempts to initialize inventory autocomplete
-        try{ console.log('[inv] initInventoryAutocomplete for', input, 'dataset=', input && input.dataset); }catch(e){}
-        // do not initialize inventory autocomplete on inputs explicitly marked for services
-        try{ if(input.dataset && input.dataset.autocomplete === 'service'){ try{ console.log('[inv] skipped binding (service-marked input)'); }catch(e){} return; } }catch(e){}
-        input._invInit = true;
-        try{ console.log('[inv] bound inventory autocomplete to', input); }catch(e){}
-        var dd = null, timer = null, onWindowChange = null;
-        function close(){ if(dd){ try{ if(dd.parentNode) dd.parentNode.removeChild(dd); }catch(e){} dd = null; } if(onWindowChange){ window.removeEventListener('scroll', onWindowChange, true); window.removeEventListener('resize', onWindowChange); onWindowChange = null; } }
-        function positionDropdown(){ if(!dd) return; try{ var rect = input.getBoundingClientRect(); dd.style.left = (rect.left + window.scrollX) + 'px'; dd.style.top = (rect.bottom + window.scrollY + 6) + 'px'; dd.style.width = rect.width + 'px'; }catch(e){} }
-        function render(list){
-            close();
-            dd = document.createElement('div');
-            dd.className = 'inventory-suggestions';
-            dd.style.position = 'absolute';
-            dd.style.zIndex = 9999;
-            dd.style.boxSizing = 'border-box';
-            dd.style.maxHeight = '260px';
-            dd.style.overflow = 'auto';
-            dd.style.border = '1px solid #e6e6e6';
-            dd.style.background = '#fff';
-            dd.style.borderRadius = '6px';
-            dd.style.boxShadow = '0 8px 30px rgba(2,6,23,0.06)';
-            dd.style.padding = '4px 0';
+    window.lookupPartPrice = function (name) {
+        if (!name) return Promise.resolve(null);
+        return window.fetchInventory(name).then(list => {
+            if (!list || !list.length) return null;
+            const match = list.find(it => (it.name || '').toLowerCase() === (name || '').toLowerCase()) || list[0];
+            const price = (match && (match.sale_price !== undefined ? match.sale_price : (match.price !== undefined ? match.price : null)));
+            return (price !== null && price !== undefined) ? parseFloat(price) : null;
+        }).catch(() => null);
+    };
 
-            if(!list || !list.length){
-                var empty = document.createElement('div');
-                empty.style.padding = '8px';
-                empty.style.color = '#666';
-                empty.textContent = 'No items';
-                dd.appendChild(empty);
-            } else {
-                list.forEach(function(it){
-                    var row = document.createElement('div');
-                    row.className = 'item-row-suggest';
-                    row.style.padding = '8px';
-                    row.style.cursor = 'pointer';
-                    row.style.borderBottom = '1px solid #f1f5f9';
-                    var title = document.createElement('div');
-                    title.style.fontWeight = '600';
-                    var stockVal = (it.stock!==undefined && it.stock!==null) ? Number(it.stock) : (it.quantity!==undefined?Number(it.quantity):undefined);
-                    var stockText = '';
-                    if(it.track_stock){
-                        if(stockVal === undefined){ stockText = ' (Stock: ? )'; }
-                        else if(stockVal > 0){ stockText = ' (Stock: ' + stockVal + ')'; }
-                        else { stockText = ' (Out of stock ⚠️)'; }
-                    }
-                    title.textContent = (it.name || (it.title||'')) + stockText;
-                    var meta = document.createElement('div');
-                    meta.style.fontSize = '13px';
-                    meta.style.color = '#6b7280';
-                    var parts = [];
-                    if(it.code) parts.push('Code: '+it.code);
-                    if(it.sku) parts.push('SKU: '+it.sku);
-                    if(it.price!==undefined) parts.push('Price: '+parseFloat(it.price).toFixed(3));
-                    if(stockVal!==undefined && stockVal!==null) parts.push('Available: '+String(stockVal));
-                    meta.textContent = parts.join(' • ');
-                    row.appendChild(title);
-                    row.appendChild(meta);
+    window.initInventoryAutocomplete = function (input) {
+        try{ if(window.__debugInventory) console.debug('[inv-autocomplete] init called for', input, '._invBound=', input && input._invBound); }catch(e){}
+        if (!input){ try{ if(window.__debugInventory) console.debug('[inv-autocomplete] init aborted: no input'); }catch(e){}; return; }
+        if (input._invBound){ try{ if(window.__debugInventory) console.debug('[inv-autocomplete] init aborted: already bound', input); }catch(e){}; return; }
+        input._invBound = true;
+        try{ if(window.__debugInventory) console.debug('[inv-autocomplete] bound input', input); }catch(e){}
+        let dd = null, timer = null;
 
-                    if(it.track_stock && (stockVal===0 || (stockVal!==undefined && Number(stockVal) <= 0))){
-                        row.classList.add('out-of-stock');
-                    }
-
-                    row.addEventListener('click', function(){
-                        try{
-                            var rowEl = input.closest('.item-row');
-                            var requestedQty = 1;
-                            try{ requestedQty = Number((rowEl && rowEl.querySelector('.item-qty'))?rowEl.querySelector('.item-qty').value:1)||1; }catch(e){}
-                            var allowOut = false;
-                            try{ if(input && input.dataset && input.dataset.allowOutOfStock==='true') allowOut = true; }catch(e){}
-                            try{ if(window.inventory_allow_out_of_stock) allowOut = true; }catch(e){}
-
-                            // prevent selection entirely if tracked and stock <= 0 (unless explicitly allowed)
-                            if(it.track_stock && (stockVal===0 || (stockVal!==undefined && Number(stockVal) <= 0)) && !allowOut){
-                                try{ if(window.showAvailabilityModal) window.showAvailabilityModal('هذه القطعة غير متوفرة'); else alert('هذه القطعة غير متوفرة'); }catch(e){}
-                                return;
-                            }
-
-                            if(it.track_stock && it.quantity!==undefined && Number(it.quantity) < requestedQty && !allowOut){ try{ if(window.showAvailabilityModal) window.showAvailabilityModal('Insufficient stock: available '+(it.quantity||0)+' • requested '+requestedQty); }catch(e){} return; }
-
-                            input.value = it.name;
-                            if(rowEl){
-                                rowEl.dataset.inventoryId = it.id;
-                                rowEl.dataset.partId = it.id;
-                                rowEl.dataset.selected = 'true';
-                                if(it.quantity!==undefined) rowEl.dataset.inventoryQty = String(it.quantity);
-                                if(it.track_stock!==undefined) rowEl.dataset.inventoryTrackStock = String(Boolean(it.track_stock));
-                                var rateEl = rowEl.querySelector('.item-rate');
-                                if(rateEl && it.price!==undefined) rateEl.value = parseFloat(it.price).toFixed(2);
-                                try{ if(window.updateRowAmount) window.updateRowAmount(rowEl); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
-                            }
-                        }catch(e){console.error(e);} 
-                        close();
-                        try{ var hasEmpty=false; document.querySelectorAll('#items-body .item-desc').forEach(function(d){ if((d.value||'').trim()==='') hasEmpty=true; }); if(!hasEmpty && window.createItemRow) window.createItemRow(false); }catch(e){}
-                    });
-
-                    dd.appendChild(row);
-                });
-            }
-            document.body.appendChild(dd);
-            positionDropdown();
-            onWindowChange = function(){ positionDropdown(); };
-            window.addEventListener('scroll', onWindowChange, true);
-            window.addEventListener('resize', onWindowChange);
-        }
-        function fetchAndRender(q){
-            // prefer inventory-only fetch for item inputs; fallback to merged fetchInventory if available
-            var fetchFn = (window.fetchInventoryParts) ? window.fetchInventoryParts : ((window.fetchInventory) ? window.fetchInventory : function(u){ return fetcher('/inventory/json/?q=' + encodeURIComponent(u||'')).then(function(d){ return (d && d.results)? d.results : []; }); });
-            var rawQ = (q||'')+''; rawQ = rawQ.replace(/\u00A0/g,' ').trim();
-            fetchFn(rawQ).then(function(list){
-                var mapped = (list||[]).map(function(it){
-                    var qty = (it.stock!==undefined && it.stock!==null) ? Number(it.stock) : ((it.quantity!==undefined && it.quantity!==null) ? Number(it.quantity) : undefined);
-                    return {
-                        id: it.id,
-                        name: it.name||it.title||'',
-                        code: it.code||'',
-                        sku: it.sku||'',
-                        price: (it.sale_price!==undefined)?parseFloat(it.sale_price):(it.price!==undefined?parseFloat(it.price):undefined),
-                        quantity: qty,
-                        stock: qty,
-                        track_stock: (it.track_stock!==undefined && it.track_stock!==null)?Boolean(it.track_stock):undefined
-                    };
-                });
-                if((mapped||[]).length === 0 && rawQ !== ''){
-                    // fallback: show full list if exact lookup failed (helps when server-rendered value has encoding differences)
-                    fetchFn('').then(function(all){ var mappedAll = (all||[]).map(function(it){ var qty = (it.stock!==undefined && it.stock!==null) ? Number(it.stock) : ((it.quantity!==undefined && it.quantity!==null) ? Number(it.quantity) : undefined); return { id: it.id, name: it.name||it.title||'', code: it.code||'', sku: it.sku||'', price: (it.sale_price!==undefined)?parseFloat(it.sale_price):(it.price!==undefined?parseFloat(it.price):undefined), quantity: qty, stock: qty, track_stock: (it.track_stock!==undefined && it.track_stock!==null)?Boolean(it.track_stock):undefined }; }); render(mappedAll.slice(0,50)); }).catch(function(){ render(mapped.slice(0,50)); });
+        function close() { try{
+            if (dd){ try{ dd.setAttribute && dd.setAttribute('data-__closing','1'); }catch(e){}
+                if(window.dropdownManager && typeof window.dropdownManager.closeOwner === 'function'){
+                    try{ window.dropdownManager.closeOwner('inventory', {force: true}); }catch(e){}
                 } else {
-                    render(mapped.slice(0,50));
+                    try{ if(dd.style) dd.style.display = 'none'; if(dd.classList && (dd.classList.contains('inventory-dd')||dd.classList.contains('svc-dd'))) try{ dd.innerHTML = ''; }catch(e){} }catch(e){}
                 }
-            }).catch(function(){ close(); });
-        }
-        input.addEventListener('input', function(){
+            }
+        }catch(e){} dd = null; }
+
+        function render(list) {
+            try{ if(window.__debugInventory) console.debug('[inv-autocomplete] render items=', (list && list.length) || 0, 'for', input); }catch(e){}
+            close();
+            dd = document.createElement('div'); dd.className = 'inventory-dd'; dd.style.position = 'absolute'; dd.style.zIndex = 9999; dd.style.background = '#fff'; dd.style.border = '1px solid #ddd';
+            // constrain height and show scrollbar when list is long
+            try{ dd.style.maxHeight = '240px'; dd.style.overflowY = 'auto'; dd.style.overflowX = 'hidden'; dd.style.boxSizing = 'border-box'; }catch(e){}
+            try{ dd.style.width = input.offsetWidth + 'px'; }catch(e){}
+                const currentVal = ((input && input.value) ? (input.value||'').trim().toLowerCase() : '');
+                // Move exact match to top when opening full list and highlight it
+                const q = currentVal;
+                var renderList = (list || []).slice();
+                try{
+                    if(q){
+                        var ix = renderList.findIndex(function(itm){ var n = (itm.name||itm.title||''); return n && n.toLowerCase() === q; });
+                        if(ix > 0){ var ex = renderList.splice(ix,1)[0]; renderList.unshift(ex); }
+                    }
+                }catch(e){}
+
+                (renderList || []).forEach(it => {
+                    const row = document.createElement('div');
+                    row.style.padding = '6px 8px';
+                    row.style.cursor = 'pointer';
+                    row.style.pointerEvents = 'auto';
+                    row.style.position = 'relative';
+                    row.style.zIndex = 10003;
+                    // Render name left, and price/quantity details on the right when available
+                    try{
+                        const name = it.name || it.title || '';
+                        var priceVal = null;
+                        try{ if(it.sale_price!==undefined && it.sale_price!==null) priceVal = it.sale_price; }catch(e){}
+                        try{ if(priceVal===null && it.price!==undefined && it.price!==null) priceVal = it.price; }catch(e){}
+                        var qty = null;
+                        try{ if(it.quantity!==undefined && it.quantity!==null) qty = String(it.quantity); }catch(e){}
+
+                        // build two-line layout: title (with out-of-stock) and meta line
+                        var titleDiv = document.createElement('div');
+                        titleDiv.style.fontWeight = '600';
+                        titleDiv.style.marginBottom = '4px';
+                        try{
+                            if(it.track_stock === true && (qty === '0' || qty === 0)){
+                                titleDiv.innerHTML = (name || '') + ' <span style="color:#b91c1c;font-weight:600;margin-left:6px;font-size:12px;">(Out of stock ⚠️)</span>';
+                            } else {
+                                titleDiv.textContent = name;
+                            }
+                        }catch(e){ titleDiv.textContent = name; }
+
+                        var metaDiv = document.createElement('div');
+                        metaDiv.style.fontSize = '13px';
+                        metaDiv.style.color = '#6b7280';
+                        var metaParts = [];
+                        if(priceVal !== null && priceVal !== undefined) metaParts.push('Price: <strong>' + parseFloat(priceVal).toFixed(3) + '</strong>');
+                        if(qty !== null) metaParts.push('Available: <strong>' + qty + '</strong>');
+                        metaDiv.innerHTML = metaParts.join(' &nbsp;•&nbsp; ');
+
+                        // clear previous content and append
+                        row.innerHTML = '';
+                        row.appendChild(titleDiv);
+                        row.appendChild(metaDiv);
+                        // highlight exact match when opening full list on focus/click
+                        try{
+                            var nm = (name||'').toLowerCase();
+                            if(currentVal && nm === currentVal){
+                                row.style.background = '#f3f4f6';
+                                try{ row.scrollIntoView && row.scrollIntoView({block:'nearest'}); }catch(e){}
+                            }
+                        }catch(e){}
+                    }catch(e){ row.textContent = it.name || it.title || ''; }
+                    function selectItemFromRow(ev){
+                        try{ ev && ev.preventDefault && ev.preventDefault(); }catch(e){}
+                        try{ ev && ev.stopPropagation && ev.stopPropagation(); }catch(e){}
+                        try{ window.__svcSelecting = true; setTimeout(function(){ try{ window.__svcSelecting = false; }catch(e){} }, 250); }catch(e){}
+                        // set value first
+                        try{ input.value = it.name || (it.title||''); }catch(e){}
+                        // update row dataset, hidden inputs and UI
+                        const tr = input.closest && input.closest('.item-row');
+                        if(tr){
+                            // infer type when not explicitly present
+                            var inferred = (it && it.type) ? it.type : ((it && it.track_stock) ? 'inventory' : 'service');
+                            try{ tr.dataset.type = inferred || 'inventory'; }catch(e){}
+                            try{ tr.dataset.inventoryQty = (it.quantity!==undefined ? String(it.quantity) : '1'); }catch(e){}
+                            try{ tr.dataset.inventoryTrackStock = (it.track_stock!==undefined ? String(Boolean(it.track_stock)) : 'false'); }catch(e){}
+                            // update id fields depending on inferred type
+                            try{
+                                if(inferred === 'service'){
+                                    try{ tr.dataset.serviceId = it.id; }catch(e){}
+                                    try{ delete tr.dataset.inventoryId; delete tr.dataset.partId; }catch(e){}
+                                } else {
+                                    try{ tr.dataset.inventoryId = it.id; }catch(e){}
+                                    try{ tr.dataset.partId = it.id; }catch(e){}
+                                    try{ delete tr.dataset.serviceId; }catch(e){}
+                                }
+                            }catch(e){}
+                            // set hidden input for server serialization
+                            try{ var hh = tr.querySelector && tr.querySelector('.item-type-hidden'); if(hh) hh.value = (inferred === 'service' ? 'service' : 'inventory'); }catch(e){}
+                            try{
+                                var rateEl = tr.querySelector && tr.querySelector('.item-rate');
+                                var priceVal = null;
+                                try{ if(it.sale_price!==undefined) priceVal = it.sale_price; }catch(e){}
+                                try{ if(priceVal===null && it.price!==undefined) priceVal = it.price; }catch(e){}
+                                try{ if(priceVal===null && it.rate!==undefined) priceVal = it.rate; }catch(e){}
+                                if(rateEl && priceVal!==null && priceVal!==undefined){ rateEl.value = parseFloat(priceVal).toFixed(3); }
+                            }catch(e){}
+                            try{ if(window.updateRowAmount) window.updateRowAmount(tr); }catch(e){}
+                            try{ if(inferred === 'service'){ if(window.recomputeTotals) window.recomputeTotals(); try{ if(!window._servicesTableInit && window.onServiceSelected) window.onServiceSelected(tr, it); }catch(e){} } else { if(window.recomputeTotals) window.recomputeTotals(); } }catch(e){}
+                        }
+                        // close after updates
+                        try{ setTimeout(function(){ close(); }, 0); }catch(e){}
+                    }
+                    row.addEventListener('mousedown', selectItemFromRow, false);
+                    row.addEventListener('touchstart', selectItemFromRow, {passive:false});
+                dd.appendChild(row);
+            });
             try{
-                var tr = input.closest && input.closest('.item-row');
-                if(tr){ tr.dataset.partId = ''; tr.dataset.selected = 'false'; }
+                    if(window.dropdownManager && typeof window.dropdownManager.open === 'function'){
+                    dd.setAttribute('data-dropdown-owner','inventory');
+                    window.dropdownManager.open(dd,'inventory');
+                    try{ if(window.__debugInventory) console.debug('[inv-autocomplete] OPENED DD'); }catch(e){}
+                } else {
+                    document.body.appendChild(dd);
+                }
+                const rect = input.getBoundingClientRect();
+                dd.style.left = rect.left + window.scrollX + 'px';
+                dd.style.top = rect.bottom + window.scrollY + 'px';
             }catch(e){}
-            var q = (input.value||'').trim();
-            try{ console.log('[inv] input event on', input, 'value=', q); }catch(e){}
-            if(timer) clearTimeout(timer);
-            if(!q){ close(); return; }
-            timer = setTimeout(function(){ fetchAndRender(q); }, 160);
-        });
-        // open suggestions on user click/focus or when there's existing content
-        var _invPointerActivate = false;
-        input.addEventListener('pointerdown', function(){ _invPointerActivate = true; setTimeout(function(){ _invPointerActivate = false; }, 250); });
-        // On focus/click, prefer showing services if the current value matches a service
-        function checkServicesThenInventory(q, allowEmpty){
-            try{
-                var qq = (q||'').trim();
-                if(!qq && !allowEmpty) return fetchAndRender('');
-                // query services endpoint quickly to see if there are matching services
-                var svcUrl = '/services/autocomplete/?q=' + encodeURIComponent(qq||'');
-                try{ fetcher(svcUrl).then(function(sd){ var sres = (sd && sd.results)? sd.results : []; if(sres && sres.length){ // prefer service behavior
-                            try{ console.log('[inv] switching to service autocomplete for input', input, 'q=', qq); }catch(e){}
-                            try{ if(input.dataset) input.dataset.autocomplete = 'service'; }catch(e){}
-                            try{ if(window.initServiceAutocomplete) { window.initServiceAutocomplete(input); if(input._svcFetchAndRender) input._svcFetchAndRender(qq); } }catch(e){}
-                            return; }
-                        // no services; fallback to inventory
-                        fetchAndRender(qq);
-                    }).catch(function(){ fetchAndRender(qq); });
-                }catch(e){ fetchAndRender(qq); }
-            }catch(e){ fetchAndRender(q); }
         }
-        input.addEventListener('focus', function(){ var q = (input.value||'').trim(); if(q || _invPointerActivate) checkServicesThenInventory(q, false); });
-        // also open suggestions on user click when the field is empty (show full list)
-        input.addEventListener('click', function(e){ var q = (input.value||'').trim(); if(!q){ checkServicesThenInventory('', true); } else { checkServicesThenInventory(q, false); } });
-        input.addEventListener('blur', function(){ setTimeout(close,150); setTimeout(function(){ window.lookupPartPrice(input.value).then(function(price){ if(price!==null){ try{ var tr = input.closest('.item-row'); var rateEl = tr && tr.querySelector('.item-rate'); if(rateEl) { rateEl.value = parseFloat(price).toFixed(2); if(window.updateRowAmount) window.updateRowAmount(tr); if(window.recomputeTotals) window.recomputeTotals(); } }catch(e){} } }); },180); });
+
+        function fetchAndRender(q) { try{ if(window.__debugInventory) console.debug('[inv-autocomplete] fetchAndRender q=', q, 'for', input); }catch(e){} return window.fetchInventory(q).then(render).catch(() => render([])); }
+
+        input.addEventListener('input', function(){ try{ clearTimeout(timer); }catch(e){} const q = (input.value||'').trim(); if(!q){ try{ fetchAndRender(''); }catch(e){}; return; } timer = setTimeout(function(){ fetchAndRender(q); }, 150); });
+        // always open suggestions on focus/click and show full list; typing will filter
+        input.addEventListener('focus', function(){ try{ fetchAndRender(''); }catch(e){} });
+        input.addEventListener('click', function(){ try{ fetchAndRender(''); }catch(e){} });
+        // Allow tests to disable the auto-close behavior by setting
+        // `window.__disableInventoryAutoClose = true` in the console.
+        input.addEventListener('blur', function(){ try{ if(window.__disableInventoryAutoClose) return; }catch(e){}
+            try{
+                // delay closing slightly to allow focus to move to another input in the table
+                setTimeout(function(){ try{ if(window.__disableInventoryAutoClose) return; close(); }catch(e){} }, 150);
+            }catch(e){}
+        });
     };
+
 })();
