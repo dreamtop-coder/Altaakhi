@@ -6,7 +6,7 @@
     <form method="post">
         {% csrf_token %}
         <button type="submit" style="background:#c62828;color:#fff;padding:8px 12px;border-radius:6px;border:none;margin-right:8px;">Yes, delete</button>
-        <a href="{% url 'recurring_list' %}" style="background:#eee;color:#333;padding:8px 12px;border-radius:6px;text-decoration:none;">Cancel</a>
+        <a href="{% url 'invoices:recurring_list' %}" style="background:#eee;color:#333;padding:8px 12px;border-radius:6px;text-decoration:none;">Cancel</a>
     </form>
 </div>
 {% endblock %}
