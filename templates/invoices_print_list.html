@@ -3,8 +3,13 @@
 <div class="print-invoices-main-container" style="max-width:900px;margin:0;padding:32px 28px 22px 28px;direction:ltr;">
     <h2 style="text-align:left;color:#1976d2;margin-bottom:18px;">Print Invoices by Car Number</h2>
     <form method="get" class="search-form-print-invoices" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:flex-start;">
-        <input type="text" name="car_number" placeholder="Car Number" value="{{ request.GET.car_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
-        <input type="text" name="invoice_number" placeholder="Invoice #" value="{{ request.GET.invoice_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
+        <input type="text" name="car_number" placeholder="Car Number" value="{{ request.GET.car_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
+        <input type="text" name="invoice_number" placeholder="Invoice #" value="{{ request.GET.invoice_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
+        <select name="type" style="padding:7px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;">
+            <option value="" {% if not request.GET.type %}selected{% endif %}>All</option>
+            <option value="sales" {% if request.GET.type == 'sales' %}selected{% endif %}>Sales</option>
+            <option value="maintenance" {% if request.GET.type == 'maintenance' %}selected{% endif %}>Maintenance</option>
+        </select>
         <button type="submit" style="background:#1976d2;color:#fff;padding:8px 22px;border-radius:6px;font-weight:bold;border:none;">Search</button>
     </form>
         <style>

@@ -194,15 +194,26 @@ def print_invoice(request, invoice_id):
 @login_required
 def invoices_print_list(request):
     # Order by id descending so newest invoice numbers appear first (INV-00000...)
-    # Include both sales and maintenance invoices for printing/searching.
-    invoices = Invoice.objects.select_related('client', 'car').filter(type__in=['sales', 'maintenance']).order_by('-id')
+    invoices = Invoice.objects.select_related('client', 'car').order_by('-id')
+    # read filters from request
     car_number = request.GET.get('car_number', '').strip()
     invoice_number = request.GET.get('invoice_number', '').strip()
+    type_filter = (request.GET.get('type') or '').strip().lower()
+
+    # apply type filter: allow 'sales', 'maintenance', or all (default)
+    if type_filter == 'sales':
+        invoices = invoices.filter(type='sales')
+    elif type_filter == 'maintenance':
+        invoices = invoices.filter(type='maintenance')
+    else:
+        invoices = invoices.filter(type__in=['sales', 'maintenance'])
+
     if car_number:
         invoices = invoices.filter(car__plate_number__icontains=car_number)
     if invoice_number:
         invoices = invoices.filter(invoice_number__icontains=invoice_number)
-    return render(request, 'invoices_print_list.html', {'invoices': invoices})
+
+    return render(request, 'invoices_print_list.html', {'invoices': invoices, 'selected_type': type_filter})
 
 
 @login_required
