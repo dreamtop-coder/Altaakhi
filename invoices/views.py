@@ -2844,6 +2844,16 @@ def payments_list(request):
         grp['amount'] = float(grp.get('amount', 0)) + payment_amount
         grp['unused'] = float(grp.get('unused', 0)) + unused_amount
         grp['invoices_count'] = grp.get('invoices_count', 0) + 1
+        # store invoice-level applied amount for receipts
+        try:
+            inv_num = (p.invoice.invoice_number or '')
+        except Exception:
+            inv_num = ''
+        try:
+            applied = float(amount_applied)
+        except Exception:
+            applied = 0.0
+        grp.setdefault('invoices', []).append({'invoice_number': inv_num, 'applied': round(applied, 3)})
         # keep the latest payment_date for display
         try:
             if p.payment_date and (not grp['payment_date'] or p.payment_date > grp['payment_date']):
@@ -2853,6 +2863,7 @@ def payments_list(request):
 
     # convert groups dict to list preserving most-recent payment_date ordering
     payments = []
+    import json
     for g in groups.values():
         payments.append({
             'id': g['ids'][0] if g['ids'] else None,
@@ -2865,6 +2876,8 @@ def payments_list(request):
             'amount': round(float(g['amount'] or 0), 3),
             'unused': round(float(g['unused'] or 0), 3),
             'invoices_count': g.get('invoices_count', 0),
+            'invoices': g.get('invoices', []),
+            'invoices_json': json.dumps(g.get('invoices', []), default=str),
         })
 
     # sort by payment_date desc
