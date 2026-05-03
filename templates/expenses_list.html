@@ -3,7 +3,7 @@
 <div style="max-width:900px;margin:0;padding:20px;">
   <h2>Expenses</h2>
   <div style="margin-bottom:12px;">Total: <strong>{{ total|default:0|floatformat:3 }}</strong></div>
-  <div style="margin-bottom:12px;"><a href="{% url 'add_expense' %}" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;">+ Add Expense</a></div>
+  <div style="margin-bottom:12px;"><a href="{% url 'invoices:add_expense' %}" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;">+ Add Expense</a></div>
   <table style="width:100%;border-collapse:collapse;">
     <thead>
       <tr style="background:#f6f9ff;color:#1a237e;">
