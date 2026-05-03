@@ -1,0 +1,5 @@
+<div style="display:inline-flex; border:1px solid #ccc; border-radius:6px; overflow:hidden; vertical-align:middle; margin-left:6px;">
+    <button type="submit" name="type" value="" style="padding:7px 12px; border:0; background:{% if not selected_type %}#f0f0f0{% else %}#fff{% endif %}; cursor:pointer;">All</button>
+    <button type="submit" name="type" value="sales" style="padding:7px 12px; border-left:1px solid rgba(0,0,0,0.06); background:{% if selected_type == 'sales' %}#f0f0f0{% else %}#fff{% endif %}; cursor:pointer;">Sales</button>
+    <button type="submit" name="type" value="maintenance" style="padding:7px 12px; border-left:1px solid rgba(0,0,0,0.06); background:{% if selected_type == 'maintenance' %}#f0f0f0{% else %}#fff{% endif %}; cursor:pointer;">Maintenance</button>
+</div>

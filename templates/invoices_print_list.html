@@ -5,11 +5,7 @@
     <form method="get" class="search-form-print-invoices" style="margin-bottom:18px;display:flex;gap:12px;align-items:center;justify-content:flex-start;">
         <input type="text" name="car_number" placeholder="Car Number" value="{{ request.GET.car_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
         <input type="text" name="invoice_number" placeholder="Invoice #" value="{{ request.GET.invoice_number }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
-        <div style="display:inline-flex; border:1px solid #ccc; border-radius:6px; overflow:hidden; vertical-align:middle; margin-left:6px;">
-            <button type="submit" name="type" value="" style="padding:7px 12px; border:0; background:{% if not selected_type %}#f0f0f0{% else %}#fff{% endif %}; cursor:pointer;">All</button>
-            <button type="submit" name="type" value="sales" style="padding:7px 12px; border-left:1px solid rgba(0,0,0,0.06); border:0; background:{% if selected_type == 'sales' %}#f0f0f0{% else %}#fff{% endif %}; cursor:pointer;">Sales</button>
-            <button type="submit" name="type" value="maintenance" style="padding:7px 12px; border-left:1px solid rgba(0,0,0,0.06); border:0; background:{% if selected_type == 'maintenance' %}#f0f0f0{% else %}#fff{% endif %}; cursor:pointer;">Maintenance</button>
-        </div>
+        {% include 'includes/invoice_type_segment.html' with selected_type=selected_type %}
         <button type="submit" style="background:#1976d2;color:#fff;padding:8px 22px;border-radius:6px;font-weight:bold;border:none;">Search</button>
     </form>
         <style>
