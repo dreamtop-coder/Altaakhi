@@ -134,12 +134,68 @@ def account_statement_view(request):
 @login_required
 def print_invoice(request, invoice_id):
     invoice = get_object_or_404(Invoice, id=invoice_id)
-    return render(request, 'payment_success.html', {'invoice': invoice})
+    from django.db.models import Sum
+    from decimal import Decimal
+    # compute subtotals for services and parts to display correct breakdown on print
+    try:
+        # Robust classification: treat an invoice line as a service when
+        # - item_type == 'service' OR
+        # - a service FK is present OR
+        # - the description matches a known Service.name (case-insensitive)
+        from services.models import Service
+        service_names = set([s.name.strip().lower() for s in Service.objects.all() if s.name])
+        services_total = Decimal('0')
+        parts_total = Decimal('0')
+        for it in invoice.items.all():
+            try:
+                desc = (it.description or '').strip().lower()
+            except Exception:
+                desc = ''
+            is_service = False
+            if getattr(it, 'item_type', None) == 'service':
+                is_service = True
+            if getattr(it, 'service', None) is not None:
+                is_service = True
+            if not is_service and desc:
+                for svc in service_names:
+                    try:
+                        if svc and (svc in desc or desc in svc):
+                            is_service = True
+                            break
+                    except Exception:
+                        continue
+            try:
+                line_total = it.total or Decimal('0')
+            except Exception:
+                try:
+                    line_total = Decimal(str(getattr(it, 'total', 0) or 0))
+                except Exception:
+                    line_total = Decimal('0')
+            if is_service:
+                services_total += line_total
+            else:
+                parts_total += line_total
+    except Exception:
+        services_total = Decimal('0')
+        parts_total = Decimal('0')
+    try:
+        paid_amount = invoice.payments.filter(status='paid').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    except Exception:
+        paid_amount = Decimal('0')
+    remaining = (invoice.amount or Decimal('0')) - (paid_amount or Decimal('0'))
+    return render(request, 'payment_success.html', {
+        'invoice': invoice,
+        'services_total': services_total,
+        'parts_total': parts_total,
+        'paid_amount': paid_amount,
+        'remaining_balance': remaining,
+    })
 
 @login_required
 def invoices_print_list(request):
     # Order by id descending so newest invoice numbers appear first (INV-00000...)
-    invoices = Invoice.objects.select_related('client', 'car').order_by('-id')
+    # Include both sales and maintenance invoices for printing/searching.
+    invoices = Invoice.objects.select_related('client', 'car').filter(type__in=['sales', 'maintenance']).order_by('-id')
     car_number = request.GET.get('car_number', '').strip()
     invoice_number = request.GET.get('invoice_number', '').strip()
     if car_number:
@@ -498,13 +554,10 @@ def expenses_list(request):
     fd = request.GET.get('from')
     td = request.GET.get('to')
     qs = Expense.objects.select_related('category').order_by('-date')
-    try:
-        if fd:
-            qs = qs.filter(date__gte=fd)
-        if td:
-            qs = qs.filter(date__lte=td)
-    except Exception:
-        pass
+    if fd:
+        qs = qs.filter(date__gte=fd)
+    if td:
+        qs = qs.filter(date__lte=td)
 
     total = qs.aggregate(total=Sum('amount'))['total'] or 0
 
@@ -558,7 +611,7 @@ def add_expense(request):
             except Exception:
                 pass
             exp.save()
-            return redirect('expenses_list')
+            return redirect('invoices:expenses_list')
     else:
         form = ExpenseForm()
         # Hide the bill selector on creation page — not needed for add
@@ -651,7 +704,7 @@ def edit_expense(request, expense_id):
                 obj.save()
             except Exception:
                 pass
-            return redirect('expenses_list')
+                return redirect('invoices:expenses_list')
     else:
         form = ExpenseForm(instance=exp)
         # Hide the bill selector on edit page — not needed
@@ -697,7 +750,7 @@ def delete_expense(request, expense_id):
             messages.success(request, 'Expense deleted.')
         except Exception:
             messages.error(request, 'Could not delete expense.')
-        return redirect('expenses_list')
+        return redirect('invoices:expenses_list')
     return render(request, 'expenses_delete.html', {'expense': exp})
 
 
@@ -717,7 +770,7 @@ def complete_expense(request, expense_id):
                 messages.success(request, 'Expense completed and posted.')
             except Exception:
                 messages.error(request, 'Could not complete expense.')
-            return redirect('expenses_list')
+            return redirect('invoices:expenses_list')
     else:
         form = CompleteExpenseForm(instance=exp)
     return render(request, 'expenses_complete.html', {'form': form, 'expense': exp})
@@ -742,7 +795,7 @@ def add_recurring(request):
             except Exception:
                 pass
             rec.save()
-            return redirect('recurring_list')
+            return redirect('invoices:recurring_list')
     else:
         # prefill next_date and start_date with today
         from django.utils import timezone
@@ -780,7 +833,7 @@ def add_recurring(request):
 def run_recurring_once(request):
     # staff-only utility endpoint to run due recurrences immediately (for testing)
     if not getattr(request.user, 'is_staff', False):
-        return redirect('invoices_list')
+        return redirect('invoices:invoices_list')
     from .models import RecurringExpense, Expense
     import datetime
     from django.utils import timezone
@@ -845,7 +898,7 @@ def edit_recurring(request, recurring_id):
                 obj.save()
             except Exception:
                 pass
-            return redirect('recurring_list')
+            return redirect('invoices:recurring_list')
     else:
         form = RecurringExpenseForm(instance=rec)
     # provide user list for Payee dynamic dropdown (used when Payee = 'salary')
@@ -886,7 +939,7 @@ def delete_recurring(request, recurring_id):
             messages.success(request, 'Recurring expense deleted.')
         except Exception:
             messages.error(request, 'Could not delete recurring expense.')
-        return redirect('recurring_list')
+        return redirect('invoices:recurring_list')
     return render(request, 'recurring_delete.html', {'recurring': rec})
 
 
@@ -902,9 +955,9 @@ def create_recurring_now(request, recurring_id):
             messages.success(request, f'Expense created (id={e.id}).')
         except Exception as exc:
             messages.error(request, f'Could not create expense: {exc}')
-        return redirect('recurring_list')
+        return redirect('invoices:recurring_list')
     # If GET, just redirect back (or could show a confirmation)
-    return redirect('recurring_list')
+    return redirect('invoices:recurring_list')
 
 
 @login_required
@@ -1213,7 +1266,27 @@ def add_invoice(request):
         from decimal import Decimal
         from django.db import transaction
         from django.http import HttpResponseBadRequest
-        items_json = request.POST.get('items_json')
+        # Support multiple `items_json` fields (some clients append an extra
+        # empty value). Prefer the last non-empty, non-'[]' payload.
+        items_json = None
+        try:
+            vals = request.POST.getlist('items_json')
+            if vals:
+                # prefer last meaningful value
+                cand = None
+                for v in reversed(vals):
+                    try:
+                        if v and v.strip() and v.strip() != '[]':
+                            cand = v
+                            break
+                    except Exception:
+                        continue
+                items_json = cand if cand is not None else (vals[-1] if vals else None)
+        except Exception:
+            try:
+                items_json = request.POST.get('items_json')
+            except Exception:
+                items_json = None
         # simple subject field (single-line) saved on Invoice
         subject = request.POST.get('subject')
         selected_client_id = request.POST.get('selected_client_id')
@@ -1230,6 +1303,26 @@ def add_invoice(request):
         except Exception:
             items = []
 
+        # For sales invoices we only consider inventory (parts). Filter out
+        # non-part rows (services or malformed entries) and require at least
+        # one part row to proceed. This prevents creating blank sales
+        # invoices when the UI posts service-only rows.
+        # Accept either `item_type` or legacy `type` keys; consider any entry
+        # with a `part_id` as a stock item.
+        stock_items = []
+        for it in items:
+            try:
+                t = it.get('item_type') or it.get('type') or ''
+                if (t and (str(t).lower() in ('part', 'parts', 'inventory'))) or it.get('part_id'):
+                    stock_items.append(it)
+            except Exception:
+                continue
+        if not stock_items:
+            from django.http import HttpResponseBadRequest
+            return HttpResponseBadRequest('يرجى إضافة سلعة واحدة على الأقل للفواتير المبيعات')
+        # Replace items with filtered stock items for the remainder of this flow
+        items = stock_items
+
         # early availability check
         try:
             from inventory.utils import check_items_availability, apply_inventory_changes_for_invoice
@@ -1242,17 +1335,22 @@ def add_invoice(request):
         except Exception:
             return HttpResponseBadRequest('فشل التحقق من المخزون')
 
-        # create invoice and items transactionally
+        # create invoice and items inside a single transaction so the client
+        # redirect (print view) always sees a fully committed, consistent
+        # invoice with its items and correct amount.
         try:
-            from django.db import IntegrityError
+            from django.db import IntegrityError, transaction
             import time, re
-            # Attempt creation with retry on UNIQUE constraint collisions
             attempt = 0
             use_invoice_number = next_invoice_number or 'INV-000001'
             invoice = None
-            while True:
-                try:
-                    with transaction.atomic():
+            total_amount = Decimal('0')
+
+            # Entire create/update happens in one atomic block
+            with transaction.atomic():
+                # Attempt creation with retry on UNIQUE constraint collisions
+                while True:
+                    try:
                         invoice = Invoice.objects.create(
                             invoice_number=use_invoice_number,
                             client=client_obj,
@@ -1260,107 +1358,96 @@ def add_invoice(request):
                             amount=0,
                             paid=False,
                             created_at=timezone.now(),
-                            type='stock',
+                            type='sales',
                             subject=(subject or '')
                         )
-                    break
-                except IntegrityError:
-                    attempt += 1
-                    if attempt > 10:
-                        # fallback to timestamp-suffixed unique value
-                        use_invoice_number = f"{use_invoice_number}-{int(time.time())}-{attempt}"
-                    else:
-                        # try to increment numeric tail if in INV-000001 format
-                        if use_invoice_number and use_invoice_number.upper().startswith('INV-'):
-                            try:
-                                tail = int(use_invoice_number.split('INV-')[-1])
-                                tail += 1
-                                use_invoice_number = f"INV-{tail:06d}"
-                            except Exception:
-                                use_invoice_number = use_invoice_number + f"-{attempt}"
+                        break
+                    except IntegrityError:
+                        attempt += 1
+                        if attempt > 10:
+                            use_invoice_number = f"{use_invoice_number}-{int(time.time())}-{attempt}"
                         else:
-                            m = re.search(r"(\d+)$", use_invoice_number or '')
-                            if m:
+                            if use_invoice_number and use_invoice_number.upper().startswith('INV-'):
                                 try:
-                                    num = int(m.group(1)) + 1
-                                    use_invoice_number = use_invoice_number[:m.start(1)] + str(num)
+                                    tail = int(use_invoice_number.split('INV-')[-1])
+                                    tail += 1
+                                    use_invoice_number = f"INV-{tail:06d}"
                                 except Exception:
                                     use_invoice_number = use_invoice_number + f"-{attempt}"
                             else:
-                                use_invoice_number = use_invoice_number + f"-{attempt}"
+                                m = re.search(r"(\d+)$", use_invoice_number or '')
+                                if m:
+                                    try:
+                                        num = int(m.group(1)) + 1
+                                        use_invoice_number = use_invoice_number[:m.start(1)] + str(num)
+                                    except Exception:
+                                        use_invoice_number = use_invoice_number + f"-{attempt}"
+                                else:
+                                    use_invoice_number = use_invoice_number + f"-{attempt}"
 
-            if not invoice:
-                raise Exception('Failed to create invoice after retries')
-
-            total_amount = Decimal('0')
-            from .models import InvoiceItem
-            for it in items:
-                desc = (it.get('description') or '').strip()
-                try:
-                    qty = Decimal(str(it.get('qty') or 0))
-                except Exception:
-                    qty = Decimal('0')
-                try:
-                    rate = Decimal(str(it.get('rate') or 0))
-                except Exception:
-                    rate = Decimal('0')
-                try:
-                    discount = Decimal(str(it.get('discount') or 0))
-                except Exception:
-                    discount = Decimal('0')
-                line_total = (qty * rate * (Decimal('1') - (discount / Decimal('100')))).quantize(Decimal('0.001'))
-                if not desc and qty == 0 and rate == 0:
-                    continue
-                # Ignore service entries on stock invoice (frontend may send them)
-                service_id = it.get('service_id') if isinstance(it, dict) else None
-                part_id = it.get('part_id') if isinstance(it, dict) else None
-                if service_id:
-                    # safe-ignore services in stock sale
-                    continue
-
-                # try to resolve part if provided
-                part = None
-                try:
-                    if part_id:
-                        from inventory.models import Part as InventoryPart
-                        part = InventoryPart.objects.filter(id=part_id).first()
-                except Exception:
-                    part = None
-
-                # Only create invoice item for parts (stock sale)
-                # Require `part_id` resolution from the frontend; do not fallback to name
-                if not part:
-                    # Enforce: reject any stock invoice that includes an item
-                    # without a resolved `part_id`. This prevents ambiguous
-                    # legacy name-only rows from being accepted in new data.
+                # create all invoice items
+                from .models import InvoiceItem
+                for it in items:
+                    desc = (it.get('description') or '').strip()
                     try:
-                        logger.warning(
-                            f"Invoice rejected: missing part_id | user={getattr(request, 'user', None)} | data={request.POST.dict() if hasattr(request.POST, 'dict') else str(request.POST)}"
-                        )
+                        qty = Decimal(str(it.get('qty') or 0))
+                    except Exception:
+                        qty = Decimal('0')
+                    try:
+                        rate = Decimal(str(it.get('rate') or 0))
+                    except Exception:
+                        rate = Decimal('0')
+                    try:
+                        discount = Decimal(str(it.get('discount') or 0))
+                    except Exception:
+                        discount = Decimal('0')
+                    line_total = (qty * rate * (Decimal('1') - (discount / Decimal('100')))).quantize(Decimal('0.001'))
+
+                    service_id = it.get('service_id') if isinstance(it, dict) else None
+                    part_id = it.get('part_id') if isinstance(it, dict) else None
+                    inv_item_id = it.get('invoice_item_id') if isinstance(it, dict) else None
+                    try:
+                        if (not desc) and (not service_id) and (not part_id) and (not inv_item_id) and (rate == 0):
+                            continue
                     except Exception:
                         pass
-                    return HttpResponseBadRequest('Part selection required for all items in stock invoice')
+                    if service_id:
+                        continue
 
-                InvoiceItem.objects.create(
-                    invoice=invoice,
-                    part=part,
-                    item_type='part',
-                    description=desc,
-                    quantity=qty,
-                    rate=rate,
-                    discount=discount,
-                    total=line_total
-                )
-                total_amount += line_total
+                    part = None
+                    try:
+                        if part_id:
+                            from inventory.models import Part as InventoryPart
+                            part = InventoryPart.objects.filter(id=part_id).first()
+                    except Exception:
+                        part = None
 
-                # inventory adjustments are applied in batch below via
-                # `apply_inventory_changes_for_invoice(items, decrement=True)`
-                # to avoid double-decrement and keep rounding consistent.
+                    if not part:
+                        try:
+                            logger.warning(
+                                f"Invoice rejected: missing part_id | user={getattr(request, 'user', None)} | data={request.POST.dict() if hasattr(request.POST, 'dict') else str(request.POST)}"
+                            )
+                        except Exception:
+                            pass
+                        raise Exception('Part selection required for all items in stock invoice')
 
-            # apply inventory decrement for stock sale
-            apply_inventory_changes_for_invoice(items, decrement=True)
-            invoice.amount = float(total_amount)
-            invoice.save()
+                    InvoiceItem.objects.create(
+                        invoice=invoice,
+                        part=part,
+                        item_type='part',
+                        description=desc,
+                        quantity=qty,
+                        rate=rate,
+                        discount=discount,
+                        total=line_total
+                    )
+                    total_amount += line_total
+
+                # apply inventory decrement for stock sale
+                apply_inventory_changes_for_invoice(items, decrement=True)
+
+                invoice.amount = float(total_amount)
+                invoice.save()
         except Exception as e:
             return HttpResponseBadRequest('فشل في إنشاء الفاتورة: ' + str(e))
         from django.shortcuts import redirect
@@ -1372,9 +1459,9 @@ def add_invoice(request):
                 return redirect(f'/invoices/print/{invoice.id}/')
         except Exception:
             pass
-        return redirect('invoices_list')
+        return redirect('invoices:invoices_list')
 
-    return render(request, 'add_maintenance_record.html', {'form': form, 'car_instance': None, 'clients_sample': clients_sample, 'next_invoice_number': next_invoice_number, 'invoice_type': 'stock'})
+    return render(request, 'add_maintenance_record.html', {'form': form, 'car_instance': None, 'clients_sample': clients_sample, 'next_invoice_number': next_invoice_number, 'invoice_type': 'sales'})
 from django.db import models
 from cars.maintenance_models import MaintenanceRecord
 from .forms import EditInvoiceForm
@@ -1566,6 +1653,36 @@ def edit_invoice(request, invoice_id):
                             from django.contrib import messages
                             from django.http import HttpResponseBadRequest
 
+                            # Deduplicate incoming items: collapse entries that refer to the
+                            # same service/part/description with identical rate+discount.
+                            try:
+                                merged = {}
+                                for it in normalized:
+                                    try:
+                                        svc = it.get('service_id') or it.get('svc_id') or None
+                                        part = it.get('part_id') or it.get('part') or None
+                                        desc_key = (it.get('description') or '').strip().lower()
+                                        rate_key = str(it.get('rate') or '')
+                                        disc_key = str(it.get('disc') or '')
+                                        # prefer stable key: service id if present, else part id, else description
+                                        primary = ('svc:%s' % str(int(svc))) if svc is not None else (('part:%s' % str(int(part))) if part is not None else ('desc:%s' % desc_key))
+                                    except Exception:
+                                        primary = 'desc:' + ((it.get('description') or '') or '').strip().lower()
+                                    key = (primary, rate_key, disc_key)
+                                    if key in merged:
+                                        try:
+                                            merged[key]['qty'] = merged[key].get('qty', 0) + it.get('qty', 0)
+                                        except Exception:
+                                            pass
+                                    else:
+                                        # shallow copy to avoid mutating original
+                                        merged[key] = dict(it)
+                                # replace normalized with merged list (preserve order loosely)
+                                normalized = list(merged.values())
+                            except Exception:
+                                pass
+
+                            # validate availability first
                             shortages = check_items_availability(normalized, existing_items_map)
                             if shortages:
                                 first = shortages[0]
@@ -1574,7 +1691,8 @@ def edit_invoice(request, invoice_id):
                                 messages.error(request, msg)
                                 return HttpResponseBadRequest(msg)
 
-                            # apply changes in a single atomic transaction using per-item CRUD
+                            # Full rebuild strategy: restore stock for all existing items, delete them,
+                            # then create every incoming item from `normalized` and apply stock decrements.
                             with transaction.atomic():
                                 try:
                                     if part_ids:
@@ -1582,22 +1700,32 @@ def edit_invoice(request, invoice_id):
                                 except Exception:
                                     pass
 
-                                # build existing items map by id for per-item operations
-                                existing_map = {}
+                                # restore stock for all existing items
                                 try:
-                                    for ex in InvoiceItem.objects.filter(invoice=invoice):
-                                        existing_map[int(ex.id)] = ex
+                                    existing_objs = list(InvoiceItem.objects.filter(invoice=invoice))
                                 except Exception:
-                                    existing_map = {}
-
-                                seen = set()
-                                # helper: restore stock for a single persisted item and apply stock for a persisted item
+                                    existing_objs = []
                                 try:
                                     from inventory.utils import apply_inventory_changes_for_invoice
                                 except Exception:
                                     apply_inventory_changes_for_invoice = None
 
-                                # Process each incoming normalized item: UPDATE if invoice_item_id provided and exists, else CREATE
+                                if apply_inventory_changes_for_invoice:
+                                    for ex in existing_objs:
+                                        try:
+                                            apply_inventory_changes_for_invoice([{'description': ex.description or '', 'qty': float(ex.quantity or 0)}], decrement=False)
+                                        except Exception:
+                                            pass
+
+                                # remove all previous items
+                                try:
+                                    InvoiceItem.objects.filter(invoice=invoice).delete()
+                                except Exception:
+                                    pass
+
+                                # create all incoming items and track total
+                                created_objs = []
+                                total_amount_decimal = Decimal('0')
                                 for it in normalized:
                                     desc = (it.get('description') or '').strip()
                                     q = it.get('qty', Decimal('0'))
@@ -1606,107 +1734,122 @@ def edit_invoice(request, invoice_id):
                                     line_before = q * r
                                     line_disc = (line_before * d) / Decimal('100') if d else Decimal('0')
                                     line_total = (line_before - line_disc)
-                                    if (not desc) and q == Decimal('0') and r == Decimal('0') and d == Decimal('0'):
-                                        continue
-
-                                    inv_item_id = it.get('invoice_item_id')
-                                    if inv_item_id and inv_item_id in existing_map:
-                                        # UPDATE path
-                                        obj = existing_map.get(inv_item_id)
-                                        try:
-                                            # restore stock for the old persisted item before changing quantities
-                                            if apply_inventory_changes_for_invoice:
-                                                try:
-                                                    apply_inventory_changes_for_invoice([{'description': obj.description or '', 'qty': float(obj.quantity or 0)}], decrement=False)
-                                                except Exception:
-                                                    pass
-                                        except Exception:
-                                            pass
-
-                                        # update fields
-                                        try:
-                                            serv = None
-                                            if desc:
-                                                try:
-                                                    serv = ServiceModel.objects.filter(name__iexact=desc).first()
-                                                except Exception:
-                                                    serv = None
-                                            obj.service = serv
-                                            obj.description = desc
-                                            obj.quantity = q
-                                            obj.rate = r
-                                            obj.discount = d
-                                            obj.total = line_total
-                                            obj.save()
-                                            seen.add(inv_item_id)
-                                        except Exception:
-                                            # surface unexpected update failures
-                                            raise
-
-                                        # apply new stock movement for updated item
-                                        try:
-                                            if apply_inventory_changes_for_invoice:
-                                                try:
-                                                    apply_inventory_changes_for_invoice([{'description': obj.description or '', 'qty': float(obj.quantity or 0)}], decrement=True)
-                                                except Exception:
-                                                    pass
-                                        except Exception:
-                                            pass
-                                        continue
-
-                                    # CREATE path
+                                    # Determine explicit ids so we don't drop valid rows with empty desc
                                     try:
-                                        serv = None
-                                        if desc:
+                                        svc_id = it.get('service_id') or it.get('svc_id') or None
+                                    except Exception:
+                                        svc_id = None
+                                    try:
+                                        pid = it.get('part_id') or it.get('part') or None
+                                    except Exception:
+                                        pid = None
+                                    try:
+                                        inv_it_id = it.get('invoice_item_id') or it.get('id') or None
+                                    except Exception:
+                                        inv_it_id = None
+                                    # skip placeholders: no desc, no ids, and zero rate/amount
+                                    try:
+                                        if (not desc) and (not svc_id) and (not pid) and (not inv_it_id) and (r == Decimal('0')):
+                                            continue
+                                    except Exception:
+                                        pass
+
+                                    serv = None
+                                    # Prefer explicit service_id from the payload, fallback to name match
+                                    try:
+                                        if svc_id is not None:
+                                            try:
+                                                serv = ServiceModel.objects.filter(id=int(svc_id)).first()
+                                            except Exception:
+                                                serv = None
+                                        # Fallback: try to match by name (exact, contains, or substring heuristics)
+                                        if not serv and desc:
                                             try:
                                                 serv = ServiceModel.objects.filter(name__iexact=desc).first()
                                             except Exception:
                                                 serv = None
-                                        new_obj = InvoiceItem.objects.create(
-                                            invoice=invoice,
-                                            service=serv,
-                                            description=desc,
-                                            quantity=q,
-                                            rate=r,
-                                            discount=d,
-                                            total=line_total
-                                        )
-                                    except Exception:
-                                        raise
-
-                                    # apply stock decrement for created item
-                                    try:
-                                        if apply_inventory_changes_for_invoice:
                                             try:
-                                                apply_inventory_changes_for_invoice([{'description': new_obj.description or '', 'qty': float(new_obj.quantity or 0)}], decrement=True)
+                                                if not serv:
+                                                    serv = ServiceModel.objects.filter(name__icontains=desc).first()
+                                            except Exception:
+                                                serv = None
+                                            # final fallback: iterate services and match by substring (safer for small sets)
+                                            try:
+                                                if not serv:
+                                                    for s in ServiceModel.objects.all():
+                                                        try:
+                                                            if s.name and (s.name.strip().lower() in desc.lower() or desc.lower() in s.name.strip().lower()):
+                                                                serv = s
+                                                                break
+                                                        except Exception:
+                                                            continue
                                             except Exception:
                                                 pass
+                                    except Exception:
+                                        serv = None
+
+                                    # If a part_id was provided or could be resolved, attach the Part
+                                    part_obj = None
+                                    try:
+                                        if pid is not None:
+                                            try:
+                                                part_obj = Part.objects.filter(id=int(pid)).first()
+                                            except Exception:
+                                                part_obj = None
+                                    except Exception:
+                                        part_obj = None
+
+                                    # Ensure item_type and FK consistency when creating
+                                    # Prefer linking to a Service when available, otherwise treat as part
+                                    try:
+                                        create_kwargs = {
+                                            'invoice': invoice,
+                                            'service': serv,
+                                            'part': (None if serv else part_obj),
+                                            'description': desc,
+                                            'quantity': q,
+                                            'rate': r,
+                                            'discount': d,
+                                            'total': line_total,
+                                            'item_type': ('service' if serv else 'part')
+                                        }
+                                    except Exception:
+                                        create_kwargs = {
+                                            'invoice': invoice,
+                                            'service': serv,
+                                            'part': part_obj,
+                                            'description': desc,
+                                            'quantity': q,
+                                            'rate': r,
+                                            'discount': d,
+                                            'total': line_total
+                                        }
+                                    new_obj = InvoiceItem.objects.create(**create_kwargs)
+                                    created_objs.append(new_obj)
+                                    try:
+                                        total_amount_decimal += line_total
                                     except Exception:
                                         pass
 
-                                # DELETE any existing items not seen in this payload
-                                try:
-                                    for ex_id, ex_obj in list(existing_map.items()):
-                                        if ex_id not in seen:
-                                            try:
-                                                if apply_inventory_changes_for_invoice:
-                                                    try:
-                                                        apply_inventory_changes_for_invoice([{'description': ex_obj.description or '', 'qty': float(ex_obj.quantity or 0)}], decrement=False)
-                                                    except Exception:
-                                                        pass
-                                            except Exception:
-                                                pass
-                                            try:
-                                                ex_obj.delete()
-                                            except Exception:
-                                                pass
-                                except Exception:
-                                    pass
+                                # apply stock decrement for the newly created items
+                                if apply_inventory_changes_for_invoice:
+                                    for new_obj in created_objs:
+                                        try:
+                                            apply_inventory_changes_for_invoice([{'description': new_obj.description or '', 'qty': float(new_obj.quantity or 0)}], decrement=True)
+                                        except Exception:
+                                            pass
+
+                            # set invoice amount and mark updated
+                            try:
+                                invoice.amount = float(total_amount_decimal)
+                                updated = True
+                            except Exception:
+                                pass
                         except Exception:
                             # if anything unexpected happens, abort and surface a generic message
                             from django.contrib import messages
                             messages.error(request, 'فشل في حفظ عناصر الفاتورة. حاول لاحقاً.')
-                            return redirect('edit_invoice', invoice_id=invoice.id)
+                            return redirect('invoices:edit_invoice', invoice_id=invoice.id)
                     except Exception:
                         pass
                 invoice.amount = float(computed_total)
@@ -1770,8 +1913,8 @@ def edit_invoice(request, invoice_id):
         action = request.POST.get('action', '').strip().lower()
         if action == 'recalculate':
             # go back to the same edit page so user can review persisted totals
-            return redirect('edit_invoice', invoice_id=invoice.id)
-        return redirect('invoices_list')
+            return redirect('invoices:edit_invoice', invoice_id=invoice.id)
+        return redirect('invoices:invoices_list')
     # GET: render simplified edit page
     # Provide clients and parts data to support the advanced invoice editor frontend
     try:
@@ -1814,6 +1957,7 @@ def edit_invoice(request, invoice_id):
             for it in items_qs:
                 invoice_items.append({
                     'id': it.id,
+                    'service_id': (it.service.id if getattr(it, 'service', None) else None),
                     'description': it.description or (it.service.name if it.service else ''),
                     'qty': float(it.quantity),
                     'rate': float(it.rate),
@@ -1860,6 +2004,54 @@ def edit_invoice(request, invoice_id):
     except Exception:
         items_total = 0
 
+    # Compute services/parts subtotals for initial editor state
+    try:
+        from decimal import Decimal
+        services_total = Decimal('0')
+        parts_total = Decimal('0')
+        from .models import InvoiceItem
+        from services.models import Service
+        service_names = set([s.name.strip().lower() for s in Service.objects.all() if s.name])
+        items_qs = InvoiceItem.objects.filter(invoice=invoice)
+        if items_qs.exists():
+            for it in items_qs:
+                desc = (it.description or '').strip().lower()
+                is_service = False
+                if getattr(it, 'item_type', None) == 'service':
+                    is_service = True
+                if getattr(it, 'service', None) is not None:
+                    is_service = True
+                if not is_service and desc:
+                    for svc in service_names:
+                        try:
+                            if svc and (svc in desc or desc in svc):
+                                is_service = True
+                                break
+                        except Exception:
+                            continue
+                try:
+                    line_total = it.total or Decimal('0')
+                except Exception:
+                    line_total = Decimal(str(getattr(it, 'total', 0) or 0))
+                if is_service:
+                    services_total += line_total
+                else:
+                    parts_total += line_total
+        else:
+            # fallback: use invoice.services as services_total
+            for s in invoice.services.all():
+                try:
+                    services_total += Decimal(str(getattr(s, 'default_price', 0) or 0))
+                except Exception:
+                    pass
+    except Exception:
+        try:
+            services_total = 0
+            parts_total = 0
+        except Exception:
+            services_total = 0
+            parts_total = 0
+
     return render(request, 'edit_invoice.html', {
         'invoice': invoice,
         'clients': clients,
@@ -1872,12 +2064,15 @@ def edit_invoice(request, invoice_id):
         'invoice_items': invoice_items,
         'items_total': items_total,
         'debug_warnings': warnings,
+        'services_total': services_total,
+        'parts_total': parts_total,
     })
 @login_required
 def invoices_list(request):
     from .models import Invoice
     from django.db.models import Sum
     from django.utils.dateparse import parse_date
+    # Show all invoices (sales, maintenance, expenses, etc.)
     invoices = Invoice.objects.select_related('client', 'car').order_by('-created_at')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
@@ -2350,11 +2545,57 @@ def pay_invoice_by_id(request, invoice_id):
             except Exception:
                 pass
             remaining_balance = float(invoice.amount) - float(paid_amount)
+            # compute services/parts subtotals for payment success display
+            try:
+                from decimal import Decimal
+                services_total = Decimal('0')
+                parts_total = Decimal('0')
+                from .models import InvoiceItem
+                from services.models import Service
+                service_names = set([s.name.strip().lower() for s in Service.objects.all() if s.name])
+                items_qs = InvoiceItem.objects.filter(invoice=invoice)
+                if items_qs.exists():
+                    for it in items_qs:
+                        desc = (it.description or '').strip().lower()
+                        is_service = False
+                        if getattr(it, 'item_type', None) == 'service':
+                            is_service = True
+                        if getattr(it, 'service', None) is not None:
+                            is_service = True
+                        if not is_service and desc:
+                            for svc in service_names:
+                                try:
+                                    if svc and (svc in desc or desc in svc):
+                                        is_service = True
+                                        break
+                                except Exception:
+                                    continue
+                        try:
+                            line_total = it.total or Decimal('0')
+                        except Exception:
+                            line_total = Decimal(str(getattr(it, 'total', 0) or 0))
+                        if is_service:
+                            services_total += line_total
+                        else:
+                            parts_total += line_total
+                else:
+                    # fallback: sum invoice.services
+                    for s in invoice.services.all():
+                        try:
+                            services_total += Decimal(str(getattr(s, 'default_price', 0) or 0))
+                        except Exception:
+                            pass
+            except Exception:
+                services_total = 0
+                parts_total = 0
+
             return render(request, 'payment_success.html', {
                 'car': car,
                 'invoice': invoice,
                 'paid_amount': paid_amount,
                 'remaining_balance': remaining_balance,
+                'services_total': services_total,
+                'parts_total': parts_total,
             })
     else:
         initial = {}
@@ -2618,7 +2859,7 @@ def edit_payment(request, payment_id):
         if new_date:
             payment.payment_date = new_date
             payment.save()
-            return redirect('payments_list')
+            return redirect('invoices:payments_list')
     return render(request, 'edit_payment.html', {'payment': payment})
 
 
@@ -2641,5 +2882,5 @@ def delete_payment(request, payment_id):
             pass
         from django.contrib import messages
         messages.success(request, 'Payment deleted.')
-        return redirect('payments_list')
+        return redirect('invoices:payments_list')
     return render(request, 'confirm_delete_payment.html', {'payment': payment, 'invoice': invoice})
