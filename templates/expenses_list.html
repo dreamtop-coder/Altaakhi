@@ -28,10 +28,10 @@
           <div style="margin-top:6px;white-space:nowrap;text-align:right;">
             {% if r.expense.status == 'draft' %}
               <span style="background:#fff3cd;color:#856404;padding:4px 8px;border-radius:12px;font-weight:700;margin-right:8px;">Draft</span>
-              <a href="{% url 'complete_expense' r.expense.id %}" style="background:#ff9800;color:#fff;padding:6px 8px;border-radius:6px;text-decoration:none;margin-right:8px;">Complete</a>
+              <a href="{% url 'invoices:complete_expense' r.expense.id %}" style="background:#ff9800;color:#fff;padding:6px 8px;border-radius:6px;text-decoration:none;margin-right:8px;">Complete</a>
             {% endif %}
-            <a href="{% url 'edit_expense' r.expense.id %}" style="color:#1976d2;text-decoration:none;margin-right:8px;">Edit</a>
-            <a href="{% url 'delete_expense' r.expense.id %}" style="color:#c62828;text-decoration:none;">Delete</a>
+            <a href="{% url 'invoices:edit_expense' r.expense.id %}" style="color:#1976d2;text-decoration:none;margin-right:8px;">Edit</a>
+            <a href="{% url 'invoices:delete_expense' r.expense.id %}" style="color:#c62828;text-decoration:none;">Delete</a>
           </div>
         </td>
       </tr>
