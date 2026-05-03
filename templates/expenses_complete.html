@@ -9,7 +9,7 @@
     <div style="margin-bottom:8px;">{{ form.payee.label_tag }}<br>{{ form.payee }}</div>
     <div style="margin-bottom:8px;">{{ form.note.label_tag }}<br>{{ form.note }}</div>
     <div style="margin-top:12px;"><button type="submit" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;border:none;">Post</button>
-    <a href="{% url 'expenses_list' %}" style="margin-left:8px;">Cancel</a></div>
+    <a href="{% url 'invoices:expenses_list' %}" style="margin-left:8px;">Cancel</a></div>
   </form>
 </div>
 {% endblock %}

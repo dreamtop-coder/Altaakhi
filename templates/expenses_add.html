@@ -12,7 +12,7 @@
         {{ form.as_table }}
       </tbody>
     </table>
-    <div style="margin-top:12px;"><button type="submit" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;border:none;">Save</button> <a href="{% url 'expenses_list' %}" style="margin-left:8px;">Cancel</a></div>
+    <div style="margin-top:12px;"><button type="submit" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;border:none;">Save</button> <a href="{% url 'invoices:expenses_list' %}" style="margin-left:8px;">Cancel</a></div>
   </form>
   <!-- Modal for adding category (no description) -->
   {{ payee_users|json_script:"payee-users" }}
