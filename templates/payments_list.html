@@ -119,10 +119,10 @@
             <tbody>
                 {% for payment in payments %}
                 <tr>
-                    <td style="width:36px;text-align:center;"><input type="checkbox" class="select-payment" value="{{ payment.id }}" /></td>
+                    <td style="width:36px;text-align:center;"><input type="checkbox" class="select-payment" value="{{ payment.ids|join:"," }}" data-ids="{{ payment.ids|join:"," }}" /></td>
                     <td class="col-name" style="text-align:right;">{{ payment.client_name }}</td>
                     <td>{{ payment.payment_date|date:'Y-m-d' }}</td>
-                    <td>{{ payment.reference|default:'-' }}</td>
+                    <td>{{ payment.reference|default:'-' }}{% if payment.invoices_count and payment.invoices_count > 1 %} &nbsp; <small style="color:#666;">({{ payment.invoices_count }} invoices)</small>{% endif %}</td>
                     <td>{{ payment.method }}</td>
                     <td>{{ payment.status }}</td>
                     <td style="text-align:right;">{{ payment.amount|floatformat:3 }}</td>
@@ -228,12 +228,16 @@ document.addEventListener('DOMContentLoaded', function(){
             actionInput.name = 'bulk_action';
             actionInput.value = 'delete';
             form.appendChild(actionInput);
-            selected.forEach(id => {
-                const inp = document.createElement('input');
-                inp.type = 'hidden';
-                inp.name = 'payment_ids[]';
-                inp.value = id;
-                form.appendChild(inp);
+            // selected values may be comma-separated lists of underlying payment ids
+            selected.forEach(val => {
+                const parts = String(val).split(',').map(s=>s.trim()).filter(Boolean);
+                parts.forEach(id => {
+                    const inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = 'payment_ids[]';
+                    inp.value = id;
+                    form.appendChild(inp);
+                });
             });
             const csrfInput = document.createElement('input');
             csrfInput.type = 'hidden';

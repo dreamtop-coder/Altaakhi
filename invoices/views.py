@@ -2784,9 +2784,42 @@ def payments_list(request):
         'other': 'Other',
     }
     from django.db.models import Sum
+
+    # Group payments by `reference` (payment header). Payments without a reference
+    # are treated as individual groups. For each group we sum amounts and count
+    # how many invoice allocations it covers.
+    groups = {}
     for p in payments_qs:
+        key = None
         try:
-            # sum of other paid payments on the same invoice (before/aside from this payment)
+            ref = (p.reference or '').strip()
+            if ref:
+                key = f'ref:{ref}'
+            else:
+                key = f'id:{p.id}'
+        except Exception:
+            key = f'id:{p.id}'
+
+        if key not in groups:
+            client_name = ''
+            try:
+                client_name = (p.client.first_name or '') + ((' ' + p.client.last_name) if getattr(p.client, 'last_name', None) else '')
+            except Exception:
+                client_name = ''
+            groups[key] = {
+                'ids': [],
+                'client_name': client_name,
+                'payment_date': p.payment_date,
+                'reference': (p.reference or '').strip() or None,
+                'method': METHOD_LABELS_EN.get(p.method, p.get_method_display() if hasattr(p, 'get_method_display') else p.method),
+                'status': STATUS_LABELS_EN.get(p.status, p.get_status_display() if hasattr(p, 'get_status_display') else p.status),
+                'amount': 0.0,
+                'unused': 0.0,
+                'invoices_count': 0,
+            }
+
+        # compute unused per payment as before and accumulate
+        try:
             paid_others = p.invoice.payments.filter(status='paid').exclude(id=p.id).aggregate(total=Sum('amount'))['total'] or 0
         except Exception:
             paid_others = 0
@@ -2805,16 +2838,40 @@ def payments_list(request):
             payment_amount = 0.0
         amount_applied = min(payment_amount, remaining_before)
         unused_amount = round(max(0.0, payment_amount - amount_applied), 3)
+
+        grp = groups[key]
+        grp['ids'].append(str(p.id))
+        grp['amount'] = float(grp.get('amount', 0)) + payment_amount
+        grp['unused'] = float(grp.get('unused', 0)) + unused_amount
+        grp['invoices_count'] = grp.get('invoices_count', 0) + 1
+        # keep the latest payment_date for display
+        try:
+            if p.payment_date and (not grp['payment_date'] or p.payment_date > grp['payment_date']):
+                grp['payment_date'] = p.payment_date
+        except Exception:
+            pass
+
+    # convert groups dict to list preserving most-recent payment_date ordering
+    payments = []
+    for g in groups.values():
         payments.append({
-            'id': p.id,
-            'client_name': (p.client.first_name or '') + ((' ' + p.client.last_name) if getattr(p.client, 'last_name', None) else ''),
-            'payment_date': p.payment_date,
-            'reference': p.reference,
-            'method': METHOD_LABELS_EN.get(p.method, p.get_method_display() if hasattr(p, 'get_method_display') else p.method),
-            'status': STATUS_LABELS_EN.get(p.status, p.get_status_display() if hasattr(p, 'get_status_display') else p.status),
-            'amount': payment_amount,
-            'unused': unused_amount,
+            'id': g['ids'][0] if g['ids'] else None,
+            'ids': g['ids'],
+            'client_name': g['client_name'],
+            'payment_date': g['payment_date'],
+            'reference': g['reference'],
+            'method': g['method'],
+            'status': g['status'],
+            'amount': round(float(g['amount'] or 0), 3),
+            'unused': round(float(g['unused'] or 0), 3),
+            'invoices_count': g.get('invoices_count', 0),
         })
+
+    # sort by payment_date desc
+    try:
+        payments.sort(key=lambda x: x.get('payment_date') or '', reverse=True)
+    except Exception:
+        pass
 
     # Calculate total amount
     total_amount = sum([x.get('amount', 0) for x in payments])
