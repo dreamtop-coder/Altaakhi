@@ -74,6 +74,11 @@
                     <div style="font-weight:bold;">Name: <span style="font-weight:normal;">{{ client.first_name }} {% if client.last_name %}{{ client.last_name }}{% endif %}</span></div>
                     <div style="font-weight:bold;">Phone: <span style="font-weight:normal;">{{ client.phone_number }}</span></div>
                     <div style="font-weight:bold;">Client No: <span style="font-weight:normal;">{{ client.customer_id }}</span></div>
+                    {% if car_info %}
+                        <div style="font-weight:bold;">Plate Number: <span style="font-weight:normal;">{{ car_info.plate_number }}</span></div>
+                        <div style="font-weight:bold;">Model: <span style="font-weight:normal;">{{ car_info.model }}</span></div>
+                        <div style="font-weight:bold;">Year: <span style="font-weight:normal;">{{ car_info.year }}</span></div>
+                    {% endif %}
                     <div style="font-weight:bold;">Address: <span style="font-weight:normal;">{{ client.address|default:'-' }}</span></div>
                     {% endif %}
                 </div>
@@ -81,7 +86,7 @@
         </div>
     </div>
 
-    <h3 style="color:#1976d2;margin-bottom:8px;text-align:left;">Account Statement</h3>
+    <h3 style="color:#1976d2;margin-bottom:8px;text-align:left;">Account Statement{% if selected_type %} - {{ selected_type|capfirst }}{% endif %}</h3>
 
 
     {% if invoices %}
@@ -104,9 +109,9 @@
                 <td>{{ invoice.invoice_number }}</td>
                 <td>{{ invoice.created_at|date:'d-m-Y' }}</td>
                 <td>{{ invoice.car.plate_number }}</td>
-                <td>{{ invoice.car.model|default:'-'|cut:invoice.car.brand.name|cut:' - ' }}</td>
-                <td>{{ invoice.car.brand|default:'-' }}</td>
-                <td>{{ invoice.car.year|default:'-' }}</td>
+                <td>{% if invoice.car and invoice.car.model %}{{ invoice.car.model.name }}{% else %}-{% endif %}</td>
+                <td>{% if invoice.car and invoice.car.brand %}{{ invoice.car.brand.name }}{% else %}-{% endif %}</td>
+                <td>{% if invoice.car and invoice.car.year %}{{ invoice.car.year }}{% else %}-{% endif %}</td>
                 <td>{{ invoice.amount }}</td>
                 <td>{% if invoice.paid %}Paid{% else %}Unpaid{% endif %}</td>
             </tr>

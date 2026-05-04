@@ -1377,23 +1377,24 @@ document.addEventListener('DOMContentLoaded', function() {
             recomputeTotals();
         }
     });
-    // helper: create and append a new item row, return the new row element
+    // helper: create and append a new item row, delegate to central implementation if available
     function createItemRow(focus){
-        var tbody = document.getElementById('items-body');
-        var tr = document.createElement('tr'); tr.className='item-row';
-        tr.innerHTML = `\
-            <td style="padding:6px;"><input type="text" class="item-desc" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-            <td style="padding:6px;"><input type="number" class="item-qty" step="0.1" value="1.0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-            <td style="padding:6px;"><input type="number" class="item-rate" step="0.01" value="0.00" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-            <td style="padding:6px;"><input type="number" class="item-discount" step="0.01" value="0.0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-            <td style="padding:6px;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
-            <td style="padding:6px;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;
-        tbody.appendChild(tr);
-        try{
-            var newInput = tr.querySelector('.item-desc');
-            if(newInput){ attachInventoryAutocomplete(newInput); if(focus!==false) newInput.focus(); }
-        }catch(e){}
-        return tr;
+        if(window.createItemRow && window.createItemRow !== createItemRow){
+            try{ return window.createItemRow(focus); }catch(e){}
+        }
+        if(document.getElementById('__items_table_loader')){
+            var loader = document.getElementById('__items_table_loader');
+            loader.addEventListener('load', function(){ try{ if(window.createItemRow && window.createItemRow !== createItemRow) window.createItemRow(true); }catch(e){} });
+            return null;
+        }
+        var urls = [
+            '{% static "js/line-items.api.js" %}?v=4',
+            '{% static "js/line-items.core.js" %}?v=4',
+            '{% static "js/line-items.ui.js" %}?v=4'
+        ];
+        function appendSeq(i){ if(i>=urls.length) return; var s = document.createElement('script'); s.id = '__items_table_loader' + (i===0? '':'_'+i); s.src = urls[i]; s.onload = function(){ if(i===urls.length-1){ try{ if(window.createItemRow && window.createItemRow !== createItemRow) window.createItemRow(true); }catch(e){} } appendSeq(i+1); }; document.head.appendChild(s); }
+        appendSeq(0);
+        return null;
     }
 
     document.getElementById('add-row').addEventListener('click', function(){ createItemRow(true); });
@@ -1412,22 +1413,33 @@ document.addEventListener('DOMContentLoaded', function() {
         box.className = 'inventory-suggestions';
         list.forEach(function(it){
             var row = document.createElement('div'); row.className = 'item-row-suggest';
-            var title = document.createElement('div'); title.style.fontWeight='600'; title.textContent = it.name || (it.title||'');
+            row.style.padding = '8px';
+            row.style.borderBottom = '1px solid #f1f5f9';
+            var title = document.createElement('div'); title.style.fontWeight='600'; title.style.marginBottom='4px';
+            var nameText = it.name || (it.title||'');
+            try{
+                if(it.track_stock === true && (it.quantity===0 || it.quantity==='0')){
+                    title.innerHTML = (nameText || '') + ' <span style="color:#b91c1c;font-weight:600;margin-left:6px;font-size:12px;">(Out of stock ⚠️)</span>';
+                } else {
+                    title.textContent = nameText;
+                }
+            }catch(e){ title.textContent = nameText; }
             var meta = document.createElement('div'); meta.style.fontSize='13px'; meta.style.color='#6b7280';
+            var _dispPrice = (it.price!==undefined) ? it.price : (it.sale_price!==undefined ? it.sale_price : undefined);
+            var qty = (it.quantity!==undefined && it.quantity!==null) ? String(it.quantity) : null;
             var parts = [];
-            if(it.code) parts.push('Code: ' + it.code);
-            if(it.sku) parts.push('SKU: ' + it.sku);
-            if(it.price!==undefined) parts.push('Price: ' + parseFloat(it.price).toFixed(3));
-            meta.textContent = parts.join(' • ');
+            if(_dispPrice!==undefined && _dispPrice!==null) parts.push('Price: <strong>' + parseFloat(_dispPrice).toFixed(3) + '</strong>');
+            if(qty !== null) parts.push('Available: <strong>' + qty + '</strong>');
+            meta.innerHTML = parts.join(' &nbsp;•&nbsp; ');
             row.appendChild(title); row.appendChild(meta);
             row.addEventListener('click', function(e){
-                try{ input.value = it.name; var rowEl = input.closest('.item-row'); if(rowEl){ rowEl.dataset.inventoryId = it.id; var rateEl = rowEl.querySelector('.item-rate'); if(rateEl && it.price!==undefined) rateEl.value = parseFloat(it.price).toFixed(2); updateRowAmount(rowEl); recomputeTotals(); } }catch(err){console.error(err);} 
+                try{ input.value = it.name; var rowEl = input.closest('.item-row'); if(rowEl){ rowEl.dataset.inventoryId = it.id; var rateEl = rowEl.querySelector('.item-rate'); var _rv = (it.price!==undefined) ? it.price : (it.sale_price!==undefined ? it.sale_price : undefined); if(rateEl && _rv!==undefined) rateEl.value = parseFloat(_rv).toFixed(2); updateRowAmount(rowEl); recomputeTotals(); } }catch(err){console.error(err);} 
                 closeInventorySuggestionsFor(input);
                 // ensure there's always an empty row available: add one if none
                 try{
                     var hasEmpty = false;
                     document.querySelectorAll('#items-body .item-desc').forEach(function(d){ if((d.value||'').trim()==='') hasEmpty = true; });
-                    if(!hasEmpty){ createItemRow(false); }
+                    if(!hasEmpty){ try{ window.__lastCreatedFromRow = input.closest('.item-row') || null; }catch(e){} try{ createItemRow(false); }catch(e){} }
                 }catch(ex){ /* ignore */ }
             });
             box.appendChild(row);

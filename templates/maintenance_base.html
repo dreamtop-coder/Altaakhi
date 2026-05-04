@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="maintenance-page maintenance-card">
+  <h2>إضافة سجل صيانة</h2>
+
+  <!-- Customer & Vehicle header -->
+  <section id="maintenance-header">
+    <div class="row">
+      <div class="col">
+        <label>العميل</label>
+        <input id="customer-search" name="customer_search" placeholder="ابحث عن عميل" autocomplete="off" />
+        <button id="customer-search-btn" type="button">🔍</button>
+        <button id="customer-suggest-toggle" type="button">∨</button>
+      </div>
+      <div class="col">
+        <label>المركبة</label>
+        <select id="id_selected_client_car" name="selected_client_car"></select>
+        <span id="selected-plate"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Services table -->
+  <section class="services-section">
+    <h3>الخدمات</h3>
+    <table id="services-table">
+      <thead>
+        <tr><th>الخدمة</th><th>كمية</th><th>سعر</th><th>المبلغ</th><th></th></tr>
+      </thead>
+      <tbody id="services-body"></tbody>
+    </table>
+    <button id="add-service-row" type="button">إضافة خدمة</button>
+  </section>
+
+  <!-- Parts table (items) -->
+  <section class="parts-section">
+    <h3>قطع الغيار</h3>
+    <table id="items-table">
+      <thead>
+        <tr><th>الوصف</th><th>كمية</th><th>سعر</th><th>خصم</th><th>المبلغ</th><th></th></tr>
+      </thead>
+      <tbody id="items-body"></tbody>
+    </table>
+    <button id="add-row" type="button">إضافة قطعة</button>
+  </section>
+
+  <!-- Totals -->
+  <section class="totals">
+    <div>Services: <span id="services-sub-total">0.000</span></div>
+    <div>Sub total: <span id="sub-total">0.000</span></div>
+    <div>Discount: <span id="total-discount">0.000</span></div>
+    <div>Grand: <span id="grand-total">0.000</span></div>
+  </section>
+
+  <!-- Hidden form fields -->
+  <form id="maintenance-form" method="post">
+    {% csrf_token %}
+    <input type="hidden" id="items_json" name="items_json" />
+    <input type="hidden" id="selected_client_id" name="selected_client_id" />
+    <button type="submit">حفظ</button>
+  </form>
+</div>
+
+<!-- Scripts: load core then maintenance-specific -->
+<script>window.PAGE_MODE = 'maintenance';</script>
+<script src="{% static 'js/core-inventory.js' %}"></script>
+<script src="{% static 'js/maintenance.js' %}"></script>
+
+{% endblock %}

@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
+from django.db.models import Sum
 
 def clients_list(request):
 	search = request.GET.get('search', '').strip()
@@ -158,9 +159,27 @@ def client_detail(request, client_id):
 			'maintenance_records': records_with_payments,
 			'has_unpaid_invoice': has_unpaid_invoice,
 		})
+	# --- Invoice history for client ---
+	invoices_qs = Invoice.objects.filter(client=client).order_by('-created_at')
+	invoices_data = []
+	for inv in invoices_qs:
+		paid_sum = inv.payments.aggregate(total=Sum('amount'))['total'] or 0
+		balance = (inv.amount or 0) - paid_sum
+		invoices_data.append({
+			'id': inv.id,
+			'date': inv.created_at,
+			'invoice_number': inv.invoice_number,
+			'type': inv.get_type_display() if hasattr(inv, 'get_type_display') else inv.type,
+			'client_name': f"{client.first_name} {client.last_name or ''}".strip(),
+			'status': 'Paid' if inv.paid else 'Unpaid',
+			'amount': inv.amount,
+			'balance_due': balance,
+			'plate_number': inv.car.plate_number if inv.car else ''
+		})
 	return render(request, 'client_detail.html', {
 		'client': client,
 		'cars_data': cars_data,
+		'invoices_data': invoices_data,
 	})
 
 def edit_client(request, client_id):

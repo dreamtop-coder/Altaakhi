@@ -49,7 +49,7 @@
 .table-head-wrap { direction:ltr; }
 .table-body-scroll { direction:ltr; }
 
-.cars-table { direction: rtl; }
+    .cars-table { direction: ltr; }
 
 .cars-table th { background:#f7f7f7; padding:8px; border:1px solid #eee; text-align:left; position:relative; box-sizing:border-box; }
 
@@ -81,6 +81,47 @@
         </form>
     </div>
     <div class="table-wrapper" style="width:100%;">
+        {% if maintenance_invoices %}
+        <div style="margin-bottom:12px;padding:12px;border:1px solid #efeef0;border-radius:8px;background:#fff;">
+            <div style="font-weight:bold;margin-bottom:8px;">Workshop-related Invoices</div>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:0;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;padding:6px">Invoice</th>
+                        <th style="text-align:left;padding:6px">Car</th>
+                        <th style="text-align:left;padding:6px">Client</th>
+                        <th style="text-align:right;padding:6px">Amount</th>
+                        <th style="text-align:left;padding:6px">Status</th>
+                        <th style="text-align:left;padding:6px">Workshop</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in maintenance_invoices %}
+                    <tr>
+                        <td><a href="{% url 'invoices:edit_invoice' inv.id %}">{{ inv.invoice_number }}</a></td>
+                        <td>{% if inv.car %}{{ inv.car.plate_number }}{% else %}-{% endif %}</td>
+                        <td>{% if inv.client %}{{ inv.client.first_name }}{% if inv.client.last_name %} {{ inv.client.last_name }}{% endif %}{% else %}-{% endif %}</td>
+                        <td style="text-align:right">{{ inv.amount|floatformat:3 }}</td>
+                        <td>{% if inv.paid %}<span style="color:green;font-weight:bold;">Paid</span>{% else %}<span style="color:#e53935;font-weight:bold;">Unpaid</span>{% endif %}</td>
+                        <td>
+                            {% if inv.car %}
+                                {% if inv.car.status == 'in_progress' or inv.car.status == 'waiting' %}
+                                    <span style="color:#1976d2;font-weight:bold;">In Workshop</span>
+                                {% elif inv.car.status == 'pending_payment' or inv.car.status == 'paid_waiting_collection' or inv.car.status == 'ready' or inv.car.status == 'done' %}
+                                    <span style="color:green;font-weight:bold;">Delivered</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
         <div id="maintenance-bulk-toolbar" style="display:none; position:relative; margin-bottom:8px; background:#fff; padding:8px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06); justify-content:space-between; align-items:center; gap:12px; width:100%; direction:ltr;">
             <div style="display:flex;align-items:center;gap:12px;"><span id="maintenance-selected-count">0 Selected</span>
                 <button id="maintenance-reset-columns" style="background:#f1f1f1;border:1px solid #e0e0e0;padding:6px 10px;border-radius:4px;cursor:pointer;color:#333;">Reset columns</button>
@@ -95,7 +136,7 @@
                     /* Keep page RTL; but force scrollbars on the right by setting scroll wrappers to LTR,
                        while keeping the inner tables RTL so cell content remains right-to-left */
                     .table-head-wrap, .table-body-scroll { direction: ltr; }
-                    .cars-table { direction: rtl; }
+                    .cars-table { direction: ltr; }
                     .table-body-scroll { overflow-y: auto; overflow-x: auto; }
                     /* visible resize handle */
                     .resize-handle { position: absolute; right: 0; top: 0; width: 10px; height: 100%; cursor: col-resize; z-index: 5; }

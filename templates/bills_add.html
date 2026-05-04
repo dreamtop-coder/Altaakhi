@@ -227,7 +227,7 @@
                         <th style="padding:8px 6px;width:12%">Quantity</th>
                         <th style="padding:8px 6px;width:12%">Rate</th>
                         <th style="padding:8px 6px;width:12%">Discount %</th>
-                        <th style="padding:8px 6px;width:12%">Type</th>
+                        <!-- Type column removed: system is inventory-only -->
                         <th style="padding:8px 6px;width:12%">Amount</th>
                         <th style="padding:8px 6px;width:7%"></th>
                     </tr>
@@ -235,18 +235,16 @@
                 <tbody id="items-body">
                     {% if bill and bill.items %}
                         {% for it in bill.items %}
-                        <tr class="item-row" data-inventory-id="{{ it.id|default:'' }}">
-                            <td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="{{ it.description|default:'' }}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
+                        <tr class="item-row" data-inventory-id="{{ it.id|default:'' }}" data-type="inventory">
+                            <td style="padding:6px;width:50%;"><input type="text" class="item-desc maintenance-input" value="{{ it.description|default:'' }}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
                             <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="{{ it.qty|default:'1' }}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
                             <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="{{ it.rate|default:'0.000' }}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
                             <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="{{ it.discount|default:'0.000' }}" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>
                             <td style="padding:6px;width:12%;">
-                                <select class="item-account-type maintenance-input" style="width:100%;">
-                                    <option value="inventory" {% if it.account_type|default:'inventory' == 'inventory' %}selected{% endif %}>Inventory</option>
-                                    <option value="expense" {% if it.account_type == 'expense' %}selected{% endif %}>Expense</option>
-                                </select>
+                                <!-- Inventory-only: keep hidden marker for serialization -->
+                                <input type="hidden" class="item-type-hidden" name="item_type[]" value="inventory" />
                             </td>
-                            <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="{{ it.amount|default:'0.000' }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>
+                            <td style="padding:6px 12px 6px 6px;width:12%;"><input type="text" class="item-amount" value="{{ it.amount|default:'0.000' }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>
                             <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
                         </tr>
                         {% endfor %}
@@ -287,7 +285,7 @@
     </form>
 </div>
 
-<script src="{% static 'js/inventory-autocomplete.js' %}"></script>
+<script src="{% static 'js/line-items.api.js' %}?v=4"></script>
 <script>
 // Minimal JS to add one empty row and compute totals like maintenance template
 document.addEventListener('DOMContentLoaded', function(){
@@ -298,19 +296,20 @@ document.addEventListener('DOMContentLoaded', function(){
                         <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
                         <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
                         <td style="padding:6px;width:12%;">\
-                            <select class="item-account-type maintenance-input" style="width:100%;">\
-                                <option value="inventory" selected>Inventory</option>\
-                                <option value="expense">Expense</option>\
-                            </select>\
+                            <input type="hidden" class="item-type-hidden" name="item_type[]" value="inventory" />\
                         </td>\
                         <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
-                        <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;tbody.appendChild(tr);try{var newInput=tr.querySelector('.item-desc');if(newInput){try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); newInput.focus();}catch(e){}}}catch(e){}return tr}
-    function updateRowAmount(row){var q=parseFloatSafe(row.querySelector('.item-qty').value);var r=parseFloatSafe(row.querySelector('.item-rate').value);var d=parseFloatSafe(row.querySelector('.item-discount').value);var amt=q*r*(1-d/100);row.querySelector('.item-amount').value=amt.toFixed(3);return amt}
-    function recomputeTotals(){var subtotal=0;var discount=0;document.querySelectorAll('#items-body .item-row').forEach(function(row){var q=parseFloatSafe(row.querySelector('.item-qty').value);var r=parseFloatSafe(row.querySelector('.item-rate').value);var d=parseFloatSafe(row.querySelector('.item-discount').value);var line=q*r;var amt=updateRowAmount(row);subtotal+=line;discount+=(line-amt)});document.getElementById('sub-total').textContent=subtotal.toFixed(3);document.getElementById('total-discount').textContent=discount.toFixed(3);var grand=(subtotal-discount).toFixed(3);document.getElementById('grand-total').textContent=grand;try{var bottom=document.getElementById('bottom-total'); if(bottom) bottom.textContent = 'BHD ' + (parseFloat(grand)||0).toFixed(3);}catch(e){}
+                        <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;tbody.appendChild(tr);try{ tr.dataset.__createdAt = Date.now(); }catch(e){}try{var newInput=tr.querySelector('.item-desc');if(newInput){try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); newInput.focus();}catch(e){}}}catch(e){}return tr}
+                            <td style="padding:6px 12px 6px 6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
+                            <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;tbody.appendChild(tr);try{ tr.dataset.__createdAt = Date.now(); }catch(e){}try{var newInput=tr.querySelector('.item-desc');if(newInput){try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); newInput.focus();}catch(e){}}}catch(e){}return tr}
     }
-    document.getElementById('items-body').addEventListener('click',function(e){if(e.target.classList.contains('remove-row')){e.target.closest('.item-row').remove();recomputeTotals()}})
-    document.getElementById('items-body').addEventListener('input',function(e){if(e.target.classList.contains('item-qty')||e.target.classList.contains('item-rate')||e.target.classList.contains('item-discount')){updateRowAmount(e.target.closest('.item-row'));recomputeTotals()}})
-    document.getElementById('add-row').addEventListener('click',function(){createItemRow();recomputeTotals();})
+    var __itemsBodyEl = document.getElementById('items-body');
+    if(__itemsBodyEl){
+        __itemsBodyEl.addEventListener('click',function(e){ if(e.target && e.target.classList && e.target.classList.contains('remove-row')){ var r = e.target.closest && e.target.closest('.item-row'); if(r && r.parentNode) r.parentNode.removeChild(r); try{ recomputeTotals(); }catch(e){} } });
+        __itemsBodyEl.addEventListener('input',function(e){ if(e.target && (e.target.classList.contains('item-qty')||e.target.classList.contains('item-rate')||e.target.classList.contains('item-discount'))){ try{ updateRowAmount(e.target.closest('.item-row')); recomputeTotals(); }catch(err){} } });
+    }
+    var __addRowBtn = document.getElementById('add-row');
+    if(__addRowBtn){ __addRowBtn.addEventListener('click',function(){ createItemRow(); try{ recomputeTotals(); }catch(e){} }); }
     if(document.querySelectorAll('#items-body .item-row').length===0) {
         createItemRow();
         recomputeTotals();
@@ -325,8 +324,8 @@ document.addEventListener('DOMContentLoaded', function(){
         recomputeTotals();
         var items=[];
         document.querySelectorAll('#items-body .item-row').forEach(function(row){
+            // Inventory-only system: always mark inventory
             var acct = 'inventory';
-            try{ var sel = row.querySelector('.item-account-type'); if(sel) acct = sel.value || acct; }catch(e){}
             items.push({
                 description:row.querySelector('.item-desc').value,
                 qty:parseFloatSafe(row.querySelector('.item-qty').value),
@@ -343,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function(){
     })
 
     // expose serializer used by bottom action buttons
-        window.serializeBillItems = function(){ try{ recomputeTotals(); var items=[]; document.querySelectorAll('#items-body .item-row').forEach(function(row){ var acct='inventory'; try{ var s=row.querySelector('.item-account-type'); if(s) acct = s.value || acct; }catch(e){} items.push({description:row.querySelector('.item-desc').value,qty:parseFloatSafe(row.querySelector('.item-qty').value),rate:parseFloatSafe(row.querySelector('.item-rate').value),discount:parseFloatSafe(row.querySelector('.item-discount').value),account_type:acct,amount:parseFloatSafe(row.querySelector('.item-amount').value)}); }); document.getElementById('items_json').value = JSON.stringify(items); // set account as well
+        window.serializeBillItems = function(){ try{ recomputeTotals(); var items=[]; document.querySelectorAll('#items-body .item-row').forEach(function(row){ var acct='inventory'; items.push({description:row.querySelector('.item-desc').value,qty:parseFloatSafe(row.querySelector('.item-qty').value),rate:parseFloatSafe(row.querySelector('.item-rate').value),discount:parseFloatSafe(row.querySelector('.item-discount').value),account_type:acct,amount:parseFloatSafe(row.querySelector('.item-amount').value)}); }); document.getElementById('items_json').value = JSON.stringify(items); // set account as well
             try{ var grandHidden = document.getElementById('client_grand_total'); if(grandHidden){ grandHidden.value = parseFloat(document.getElementById('grand-total').textContent) || 0; } }catch(e){}
             try{ var acc = document.getElementById('id_account'); var sid = document.getElementById('selected_supplier_id'); if(acc && sid){ acc.value = sid.value || acc.value || ''; } }catch(er){}
             document.getElementById('bottom-total').textContent = 'BHD ' + (parseFloat(document.getElementById('grand-total').textContent)||0).toFixed(3); }catch(e){} }
@@ -360,18 +359,26 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 <script>
-// set default Bill Date to today (editable)
-document.addEventListener('DOMContentLoaded', function(){
-    try{
-        var d = document.getElementById('id_bill_date') || document.querySelector('input[name="bill_date"]');
-        if(d && !d.value){
-            var today = new Date();
-            var mm = String(today.getMonth()+1).padStart(2,'0');
-            var dd = String(today.getDate()).padStart(2,'0');
-            d.value = today.getFullYear() + '-' + mm + '-' + dd;
+// Ensure canonical items-table is loaded and initialized for this page.
+(function(){
+    function ensureItemsTable(){
+        if(window.initItemsTable && window.createItemRow && window.serializeMaintenanceItems){
+            try{ document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(inp); }catch(e){} }); }catch(e){}
+            try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){}
+            return;
         }
-    }catch(e){}
-});
+        if(document.getElementById('__items_table_loader')) return;
+        var loaderId = '__items_table_loader';
+        var urls = [
+            '{% static "js/line-items.api.js" %}?v=3',
+            '{% static "js/line-items.core.js" %}?v=3',
+            '{% static "js/line-items.ui.js" %}?v=3'
+        ];
+        function appendSequential(i){ if(i>=urls.length){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} return; } var s = document.createElement('script'); s.id = (i===0?loaderId: loaderId + '_' + i); s.src = urls[i]; s.onload = function(){ appendSequential(i+1); }; document.head.appendChild(s); }
+        appendSequential(0);
+    }
+    document.addEventListener('DOMContentLoaded', ensureItemsTable);
+})();
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
@@ -502,6 +509,8 @@ document.addEventListener('DOMContentLoaded', function(){
 {% endblock %}
 
     <script>
+    document.addEventListener('DOMContentLoaded', function(){ try{ document.body.dataset.page = 'bills'; }catch(e){} });
+    
     // If a supplier id is prefilled, fetch it and populate the locations select and input
     document.addEventListener('DOMContentLoaded', function(){
         try{
@@ -558,28 +567,22 @@ document.addEventListener('DOMContentLoaded', function(){
             var tbody = document.getElementById('items-body'); if(!tbody) return; tbody.innerHTML = '';
             billData.items.forEach(function(it){
                 var tr = document.createElement('tr'); tr.className = 'item-row';
-                tr.innerHTML = '' +
-                    '<td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
-                    '<td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
-                    '<td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
-                    '<td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
-                    '<td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>' +
-                    '<td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
-                tbody.appendChild(tr);
-                try{
-                    var desc = tr.querySelector('.item-desc'); var qty = tr.querySelector('.item-qty'); var rate = tr.querySelector('.item-rate'); var disc = tr.querySelector('.item-discount'); var amt = tr.querySelector('.item-amount');
-                    if(desc) desc.value = it.description || '';
-                    if(qty) qty.value = (it.qty!==undefined?String(it.qty):'1');
-                    if(rate) rate.value = (it.rate!==undefined?String(it.rate):'0');
+                        tr.innerHTML = `\
+                        <td style="padding:6px;width:50%;"><input type="text" class="item-desc maintenance-input" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+                        <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+                        <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+                        <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
+                        <td style="padding:6px;width:12%;">\
+                            <input type="hidden" class="item-type-hidden" name="item_type[]" value="inventory" />\
+                        </td>\
+                        <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
+                        <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;tbody.appendChild(tr);try{var newInput=tr.querySelector('.item-desc');if(newInput){try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); newInput.focus();}catch(e){}}}catch(e){}return tr}
                     if(disc) disc.value = (it.discount!==undefined?String(it.discount):'0');
                     if(amt) amt.value = (it.amount!==undefined?parseFloat(it.amount).toFixed(3):'0.000');
                     try{ if(it.id) tr.dataset.inventoryId = it.id; }catch(e){}
                     try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(desc); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(desc); }catch(e){}
                     // ensure calculations update
-                    try{ if(window.serializeBillItems){ /* will be called after loop */ } else { [qty, rate, disc].forEach(function(el){ if(el) el.dispatchEvent(new Event('input',{bubbles:true})); }); }
-                    }catch(e){}
-                }
-                catch(e){}
+                    try{ if(window.serializeBillItems){ /* will be called after loop */ } else { [qty, rate, disc].forEach(function(el){ if(el) el.dispatchEvent(new Event('input',{bubbles:true})); }); } }catch(e){}
             });
 
             // ensure totals and hidden items_json set (use serializer if available)

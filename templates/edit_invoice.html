@@ -11,6 +11,43 @@
     #items-table tbody td { padding:8px; border-bottom:1px solid #f1f5f9; }
     #items-table input { border:1px solid #e6e9ee; padding:6px; border-radius:6px; }
     #items-table .item-amount[readonly] { background:#f8fafc; border-color:#eceff4; }
+    /* Quick fix: unified cell padding for live-added rows; allow maintenance table to auto-size like add page */
+    #maintenance-items-table, #items-table { width:100%; border-collapse: collapse; }
+    /* let maintenance table auto layout so Item Details column can expand naturally */
+    #maintenance-items-table { table-layout: auto; }
+    #maintenance-items-table th, #maintenance-items-table td, #items-table th, #items-table td { padding:8px 12px; text-align:left; vertical-align:middle; }
+    /* Ensure dynamically created rows use the same padding as server-rendered rows */
+    #maintenance-items-table .item-row td, #items-table .item-row td { padding:8px 12px !important; }
+    /* Constrain type select width to match server layout */
+    #maintenance-items-table .item-type, #items-table .item-type { width:88px; }
+    /* Make `.item-desc` inputs match `.service-label` height and padding */
+    #maintenance-items-table .item-desc {
+        width:100%;
+        padding:6px;
+        border:1px solid #eee;
+        border-radius:6px;
+        box-sizing:border-box;
+        min-height:36px;
+        height:36px;
+        line-height:20px;
+        background:#fff;
+    }
+    /* Ensure service label uses the same sizing and padding so rows align */
+    #maintenance-items-table .service-label {
+        width:100%;
+        padding:6px;
+        border:1px solid #eee;
+        border-radius:6px;
+        box-sizing:border-box;
+        min-height:36px;
+        height:36px;
+        line-height:20px;
+        background:#fff;
+        font-size:14px;
+        color:#374151;
+        font-weight:400;
+        display:block;
+    }
     .invoice-summary-card { background:transparent;border-radius:0;border:0;padding:8px; }
     #bottom-action-bar { box-shadow:0 -4px 18px rgba(15,23,42,0.03); }
 </style>
@@ -58,8 +95,7 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                 <div style="font-weight:700;font-size:15px;">Item Table</div>
                 <div>
-                    <button type="button" id="add-service" style="background:#1976d2;color:#fff;padding:6px 12px;border-radius:6px;border:none;font-weight:600;margin-right:8px;">+ Add Service</button>
-                    <button type="button" id="add-row" style="background:#1976d2;color:#fff;padding:6px 12px;border-radius:6px;border:none;font-weight:600;">Add New Row</button>
+                    <button type="button" id="add-line-item" style="background:#1976d2;color:#fff;padding:6px 12px;border-radius:6px;border:none;font-weight:600;">➕ Add Line Item</button>
                 </div>
             </div>
 
@@ -67,7 +103,7 @@
                 <table id="maintenance-items-table" style="width:100%;border-collapse:collapse;">
                     <thead style="background:transparent;border-bottom:1px solid #eee;font-weight:700;color:#333;">
                         <tr>
-                            <th style="padding:10px 12px;text-align:left;min-width:300px;">Item Details</th>
+                            <th style="padding:10px 12px;text-align:left;width:45%;">Item Details</th>
                             <th style="padding:10px 12px;text-align:center;width:110px;">Quantity</th>
                             <th style="padding:10px 12px;text-align:center;width:120px;">Rate</th>
                             <th style="padding:10px 12px;text-align:center;width:120px;">Discount</th>
@@ -78,7 +114,7 @@
                     <tbody id="services-body">
                         {% for item in invoice_items %}
                             {% if item.service_id %}
-                                <tr class="service-row" data-service-id="{{ item.service_id }}" {% if item.id %}data-invoice-item-id="{{ item.id }}"{% endif %}>
+                                <tr class="item-row" data-type="service" data-service-id="{{ item.service_id }}" {% if item.id %}data-invoice-item-id="{{ item.id }}"{% endif %}>
                                     <td style="padding:8px 12px;vertical-align:middle;">
                                         <div class="service-label" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:14px;color:#374151;font-weight:400;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;display:block;background:#fff">{{ item.description }}</div>
                                         <input type="hidden" class="service-desc" value="{{ item.description }}" />
@@ -87,7 +123,7 @@
                                     <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-rate" step="0.001" value="{{ item.rate|floatformat:3 }}" style="width:110px;padding:6px;border:1px solid #ddd;border-radius:6px;" /></td>
                                     <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-discount" step="0.01" value="{{ item.disc|floatformat:3 }}" style="width:60px;padding:6px;border:1px solid #ddd;border-radius:6px;" /></td>
                                     <td style="padding:8px 12px;text-align:center;"><input type="text" class="service-amount" value="{{ item.amount|floatformat:3 }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-service-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
+                                    <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-service-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
                                 </tr>
                             {% endif %}
                         {% endfor %}
@@ -95,24 +131,15 @@
                     <tbody id="items-body">
                         {% for item in invoice_items %}
                             {% if not item.service_id %}
-                                <tr class="item-row" {% if item.id %}data-invoice-item-id="{{ item.id }}"{% endif %}>
+                                <tr class="item-row" data-type="inventory" {% if item.id %}data-invoice-item-id="{{ item.id }}"{% endif %}>
                                     <td style="padding:8px 12px;"><input type="text" class="item-desc" value="{{ item.description }}" style="width:100%;padding:8px;border:1px solid #eee;border-radius:6px;" /></td>
                                     <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="{{ item.qty|floatformat:0 }}" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
                                     <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="{{ item.rate|floatformat:3 }}" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><div style="display:flex;align-items:center;justify-content:center;gap:8px;"><input type="number" class="item-disc" value="{{ item.disc|floatformat:3 }}" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /><span style="min-width:14px;text-align:left;">%</span></div></td>
-                                    <td style="padding:8px 12px;text-align:right;"><input type="text" class="item-amount" value="{{ item.amount|floatformat:3 }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-row" style="background:transparent;border:none;color:#e53935;font-weight:700;">×</button></td>
+                                    <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-discount" value="{{ item.disc|floatformat:3 }}" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                                    <td style="padding:8px 12px 8px 8px;text-align:right;"><input type="text" class="item-amount" value="{{ item.amount|floatformat:3 }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;" /></td>
+                                    <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-item-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
                                 </tr>
                             {% endif %}
-                        {% empty %}
-                            <tr class="item-row">
-                                <td style="padding:8px 12px;"><input type="text" class="item-desc" placeholder="Type or click to select an item." style="width:100%;padding:8px;border:1px solid #eee;border-radius:6px;" /></td>
-                                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="1" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
-                                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="0.000" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
-                                <td style="padding:8px 12px;text-align:center;"><div style="display:flex;align-items:center;justify-content:center;gap:8px;"><input type="number" class="item-disc" value="0.000" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /><span style="min-width:14px;text-align:left;">%</span></div></td>
-                                <td style="padding:8px 12px;text-align:right;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;" /></td>
-                                <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-row" style="background:transparent;border:none;color:#e53935;font-weight:700;">×</button></td>
-                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -120,8 +147,8 @@
 
             <div style="display:flex;justify-content:flex-end;margin-top:12px;gap:12px;align-items:flex-end;">
                 <div style="width:320px;border:1px solid #f3f3f3;border-radius:8px;padding:12px;background:transparent;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Services</div><div id="services-sub-total">0.000</div></div>
-                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><div>Sub Total</div><div id="sub-total">0.000</div></div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Services</div><div id="services-sub-total">{{ services_total|default:0|floatformat:3 }}</div></div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><div>Parts</div><div id="sub-total">{{ parts_total|default:0|floatformat:3 }}</div></div>
                     <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><div>Discount</div><div id="total-discount">0.000</div></div>
                     <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.06em;"><div>Total ( BHD )</div><div id="grand-total">0.000</div></div>
                 </div>
@@ -132,7 +159,7 @@
         <div style="margin-top:12px;border-top:1px dashed #eee;padding-top:12px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">
             <div style="min-width:280px;background:transparent;border:1px solid #f3f3f3;border-radius:8px;padding:12px;">
                 <div style="font-weight:700;margin-bottom:8px;color:green;">Invoice Status: <span id="invoice-status">{% if invoice.paid %}Paid{% else %}Partially Paid{% endif %}</span></div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Sub Total</div><div id="payment-subtotal">{{ invoice.amount|floatformat:3 }}</div></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Parts</div><div id="payment-subtotal">{{ invoice.amount|floatformat:3 }}</div></div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Amount Received</div><div>{{ paid_amount|floatformat:3 }}</div></div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Amount used for Payments</div><div>{{ amount_used_for_payments|floatformat:3 }}</div></div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Amount Refunded</div><div id="amount-refunded">{{ amount_refunded|floatformat:3 }}</div></div>
@@ -141,7 +168,7 @@
             </div>
             <div style="align-self:flex-start;display:flex;flex-direction:column;gap:8px;">
                 {% if remaining_balance and remaining_balance > 0 %}
-                <a id="pay-remaining-btn" href="{% url 'pay_invoice_by_id' invoice.id %}?amount={{ remaining_balance }}" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:700;">Pay Remaining ({{ remaining_balance|floatformat:3 }})</a>
+                <a id="pay-remaining-btn" href="{% url 'invoices:pay_invoice_by_id' invoice.id %}?amount={{ remaining_balance }}" style="background:#1976d2;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:700;">Pay Remaining ({{ remaining_balance|floatformat:3 }})</a>
                 {% endif %}
             </div>
         </div>
@@ -153,11 +180,15 @@
         <input type="hidden" name="action" id="form-action" value="" />
         <input type="hidden" name="discount" id="form-discount" value="0.000" />
         <input type="hidden" name="items_json" id="items_json" value="" />
+        <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}" />
+        <!-- Server-provided initial totals so client can honor printed breakdown on first paint -->
+        <input type="hidden" id="server-services-total" value="{{ services_total|default:0|floatformat:3 }}" />
+        <input type="hidden" id="server-parts-total" value="{{ parts_total|default:0|floatformat:3 }}" />
 
         <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
             <button type="submit" style="background:#1976d2;color:#fff;padding:10px 18px;border:none;border-radius:8px;font-weight:700;">Save Invoice</button>
-            <a href="{% url 'invoices_list' %}" style="background:#fff;color:#1976d2;border:1px solid #1976d2;padding:10px 14px;border-radius:8px;font-weight:700;text-decoration:none;">Cancel</a>
-            <a href="{% url 'print_invoice' invoice.id %}" target="_blank" style="background:#fff;color:#1976d2;border:1px solid #e6f0fb;padding:8px 12px;border-radius:6px;font-weight:700;text-decoration:none;margin-left:6px;">Print Invoice</a>
+            <a href="{% if request.GET.next %}{{ request.GET.next }}{% else %}{% url 'invoices:invoices_list' %}{% endif %}" style="background:#fff;color:#1976d2;border:1px solid #1976d2;padding:10px 14px;border-radius:8px;font-weight:700;text-decoration:none;">Cancel</a>
+            <a href="{% url 'invoices:print_invoice' invoice.id %}" target="_blank" style="background:#fff;color:#1976d2;border:1px solid #e6f0fb;padding:8px 12px;border-radius:6px;font-weight:700;text-decoration:none;margin-left:6px;">Print Invoice</a>
         </div>
     </form>
 
@@ -167,8 +198,8 @@
                 <div style="display:flex;gap:8px;align-items:center;">
                 <button type="button" class="maintenance-cancel" onclick="(function(f){ if(f.requestSubmit) { f.requestSubmit(); } else { f.submit(); } })(document.getElementById('invoice-form'))" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;">Save Draft</button>
                 <button type="button" class="maintenance-btn" onclick="(function(f){ if(f.requestSubmit) { f.requestSubmit(); } else { f.submit(); } })(document.getElementById('invoice-form'))" style="padding:8px 14px;background:#1976d2;color:#fff;border-radius:6px;border:none;">Save Invoice</button>
-                <a href="{% url 'invoices_list' %}" class="maintenance-cancel" style="background:#fff;color:#1976d2;border:1px solid #1976d2;padding:8px 12px;border-radius:6px;font-weight:700;text-decoration:none;">Cancel</a>
-                <a href="{% url 'print_invoice' invoice.id %}" target="_blank" style="background:#fff;color:#1976d2;border:1px solid #e6f0fb;padding:8px 12px;border-radius:6px;font-weight:700;text-decoration:none;">Print Invoice</a>
+                <a href="{% if request.GET.next %}{{ request.GET.next }}{% else %}{% url 'invoices:invoices_list' %}{% endif %}" class="maintenance-cancel" style="background:#fff;color:#1976d2;border:1px solid #1976d2;padding:8px 12px;border-radius:6px;font-weight:700;text-decoration:none;">Cancel</a>
+                <a href="{% url 'invoices:print_invoice' invoice.id %}" target="_blank" style="background:#fff;color:#1976d2;border:1px solid #e6f0fb;padding:8px 12px;border-radius:6px;font-weight:700;text-decoration:none;">Print Invoice</a>
             </div>
             <div style="display:flex;align-items:center;gap:12px;">
                 <div style="color:#6b7280;font-size:13px;">&nbsp;</div>
@@ -178,11 +209,20 @@
     </div>
 </div>
  
-<script src="{% static 'js/services-table.js' %}?v=2"></script>
-<script src="{% static 'js/inventory-autocomplete.js' %}?v=2"></script>
-<script src="{% static 'js/items-table.v2.js' %}?v=1"></script>
+<script>window.__isMaintenancePage = true;</script>
+<script src="{% static 'js/line-items.api.js' %}?v=4"></script>
+<script src="{% static 'js/line-items.core.js' %}?v=4"></script>
+<script src="{% static 'js/line-items.ui.js' %}?v=4"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
+    try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){}
+    try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){}
+    try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
+});
+</script>
+<script>
+// Ensure init runs after all scripts/resources are loaded (extra guard)
+window.addEventListener('load', function(){
     try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){}
     try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){}
     try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}

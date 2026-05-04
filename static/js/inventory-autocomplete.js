@@ -13,25 +13,9 @@
 
     window.fetchInventory = function (q) {
         q = (q || '').trim();
-        // Always perform merged fetch even for empty query so clicking empty inputs shows defaults
+        // Inventory-only fetch: do not include services for purchase/bill pages
         const invUrl = '/inventory/json/?q=' + encodeURIComponent(q);
-        const svcUrl = '/services/autocomplete/?q=' + encodeURIComponent(q);
-        // If on the sales-invoice page, return only inventory (no services)
-        try{ var pageFlag = (document && document.body && document.body.dataset && document.body.dataset.page) ? document.body.dataset.page : null; }catch(e){ var pageFlag = null; }
-        if(pageFlag === 'sales-invoice'){
-            return fetcher(invUrl).then(r => (r.results || [])).catch(() => ([]));
-        }
-        // default: merged inventory + services suggestions
-        return Promise.all([fetcher(invUrl).catch(() => ({ results: [] })), fetcher(svcUrl).catch(() => ({ results: [] }))])
-            .then(([inv, svc]) => {
-                const invList = inv.results || [];
-                const svcList = svc.results || [];
-                const mappedSvc = svcList.map(s => ({ ...s, type: 'service', track_stock: false }));
-                const names = new Set(invList.map(i => (i.name || '').toLowerCase()));
-                const merged = invList.slice();
-                mappedSvc.forEach(s => { if (!names.has((s.name || '').toLowerCase())) merged.push(s); });
-                return merged;
-            });
+        return fetcher(invUrl).then(r => (r.results || [])).catch(() => ([]));
     };
 
     window.fetchInventoryParts = function (q) {
@@ -43,7 +27,7 @@
     window.fetchByType = function (q, type) {
         q = (q || '').trim();
         if (!q) return Promise.resolve([]);
-        if (type === 'service') return fetcher('/services/autocomplete/?q=' + encodeURIComponent(q)).then(r => r.results || []);
+        // Inventory-only system for bills: always return parts
         return fetcher('/inventory/json/?q=' + encodeURIComponent(q)).then(r => r.results || []);
     };
 
@@ -148,27 +132,22 @@
                         try{ window.__svcSelecting = true; setTimeout(function(){ try{ window.__svcSelecting = false; }catch(e){} }, 250); }catch(e){}
                         // set value first
                         try{ input.value = it.name || (it.title||''); }catch(e){}
+                        // ensure input appears as a normal (white) field after selection
+                        try{ if(input && input.style) input.style.background = '#fff'; }catch(e){}
                         // update row dataset, hidden inputs and UI
                         const tr = input.closest && input.closest('.item-row');
                         if(tr){
-                            // infer type when not explicitly present
-                            var inferred = (it && it.type) ? it.type : ((it && it.track_stock) ? 'inventory' : 'service');
-                            try{ tr.dataset.type = inferred || 'inventory'; }catch(e){}
-                            try{ tr.dataset.inventoryQty = (it.quantity!==undefined ? String(it.quantity) : '1'); }catch(e){}
-                            try{ tr.dataset.inventoryTrackStock = (it.track_stock!==undefined ? String(Boolean(it.track_stock)) : 'false'); }catch(e){}
-                            // update id fields depending on inferred type
-                            try{
-                                if(inferred === 'service'){
-                                    try{ tr.dataset.serviceId = it.id; }catch(e){}
-                                    try{ delete tr.dataset.inventoryId; delete tr.dataset.partId; }catch(e){}
-                                } else {
-                                    try{ tr.dataset.inventoryId = it.id; }catch(e){}
-                                    try{ tr.dataset.partId = it.id; }catch(e){}
-                                    try{ delete tr.dataset.serviceId; }catch(e){}
-                                }
-                            }catch(e){}
-                            // set hidden input for server serialization
-                            try{ var hh = tr.querySelector && tr.querySelector('.item-type-hidden'); if(hh) hh.value = (inferred === 'service' ? 'service' : 'inventory'); }catch(e){}
+                            // treat all selections as inventory (purchase bills only)
+                                var inferred = 'inventory';
+                                try{ tr.dataset.type = 'inventory'; }catch(e){}
+                                try{ tr.dataset.inventoryQty = (it.quantity!==undefined ? String(it.quantity) : '1'); }catch(e){}
+                                try{ tr.dataset.inventoryTrackStock = (it.track_stock!==undefined ? String(Boolean(it.track_stock)) : 'false'); }catch(e){}
+                                // update id fields as inventory
+                                try{ tr.dataset.inventoryId = it.id; }catch(e){}
+                                try{ tr.dataset.partId = it.id; }catch(e){}
+                                try{ delete tr.dataset.serviceId; }catch(e){}
+                                // set hidden input for server serialization
+                                try{ var hh = tr.querySelector && tr.querySelector('.item-type-hidden'); if(hh) hh.value = 'inventory'; }catch(e){}
                             try{
                                 var rateEl = tr.querySelector && tr.querySelector('.item-rate');
                                 var priceVal = null;
@@ -201,7 +180,19 @@
             }catch(e){}
         }
 
-        function fetchAndRender(q) { try{ if(window.__debugInventory) console.debug('[inv-autocomplete] fetchAndRender q=', q, 'for', input); }catch(e){} return window.fetchInventory(q).then(render).catch(() => render([])); }
+        function fetchAndRender(q) {
+            try{ if(window.__debugInventory) console.debug('[inv-autocomplete] fetchAndRender q=', q, 'for', input); }catch(e){}
+            // If the input or its row explicitly requests inventory-only, use parts-only fetch
+            try{
+                var tr = input && input.closest ? input.closest('.item-row') : null;
+                var inputFlag = input && input.dataset && input.dataset.autocomplete === 'inventory';
+                var rowFlag = tr && (tr.dataset && (tr.dataset.type === 'inventory' || tr.dataset.type === 'part'));
+                if(inputFlag || rowFlag){
+                    return window.fetchInventoryParts(q).then(render).catch(() => render([]));
+                }
+            }catch(e){ /* ignore and fall back */ }
+            return window.fetchInventory(q).then(render).catch(() => render([]));
+        }
 
         input.addEventListener('input', function(){ try{ clearTimeout(timer); }catch(e){} const q = (input.value||'').trim(); if(!q){ try{ fetchAndRender(''); }catch(e){}; return; } timer = setTimeout(function(){ fetchAndRender(q); }, 150); });
         // always open suggestions on focus/click and show full list; typing will filter
@@ -216,5 +207,29 @@
             }catch(e){}
         });
     };
+
+    // Auto-initialize inventory-only inputs for server-rendered rows on page load
+    try{
+        document.addEventListener('DOMContentLoaded', function(){
+            try{
+                var rows = document.querySelectorAll && document.querySelectorAll('.item-row');
+                if(!rows || !rows.length) return;
+                rows.forEach(function(tr){
+                    try{
+                        // determine if this row is inventory-only via dataset or hidden input
+                        var rowType = tr.dataset && (tr.dataset.type || tr.dataset.autocomplete || null);
+                        var hh = tr.querySelector && tr.querySelector('.item-type-hidden');
+                        if(hh && hh.value && hh.value.trim() === 'inventory') rowType = 'inventory';
+                        if(rowType === 'inventory' || rowType === 'part'){
+                            var inp = tr.querySelector && tr.querySelector('.item-desc');
+                            if(inp && window.initInventoryAutocomplete && !inp._invBound){
+                                try{ window.initInventoryAutocomplete(inp); }catch(e){}
+                            }
+                        }
+                    }catch(e){}
+                });
+            }catch(e){}
+        });
+    }catch(e){}
 
 })();

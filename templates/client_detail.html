@@ -74,7 +74,7 @@
         <tbody>
             {% for item in car_data.maintenance_records %}
             <tr>
-                <td>{% if item.record.invoice %}<a href="{% url 'edit_invoice' item.record.invoice.id %}" style="color:#1976d2;text-decoration:underline;">{{ item.record.invoice.invoice_number }}</a>{% else %}-{% endif %}</td>
+                <td>{% if item.record.invoice %}<a href="{% url 'invoices:edit_invoice' item.record.invoice.id %}" style="color:#1976d2;text-decoration:underline;">{{ item.record.invoice.invoice_number }}</a>{% else %}-{% endif %}</td>
                 <td>{{ car_data.car.plate_number }}</td>
                 <td>{{ client.first_name }}{% if client.last_name %} {{ client.last_name }}{% endif %}</td>
                 <td>{{ item.record.service }}</td>
@@ -104,5 +104,35 @@
 {% endfor %}
 
 </div>
+
+<h3>Invoice History</h3>
+<table style="width:100%;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid #c2c7d0;margin-bottom:30px;">
+    <thead>
+        <tr style="background:#f8f9fa;color:#444;font-weight:bold;">
+            <th>Date</th>
+            <th>Invoice Number</th>
+            <th>Type</th>
+            <th>Client Name</th>
+            <th>Status</th>
+            <th style="text-align:right;">Amount</th>
+            <th style="text-align:right;">Balance Due</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for inv in invoices_data %}
+        <tr>
+            <td>{% if inv.date %}{{ inv.date|date:'Y-m-d' }}{% else %}-{% endif %}</td>
+            <td><a href="{% url 'invoices:edit_invoice' inv.id %}?next={{ request.path|urlencode }}">{{ inv.invoice_number }}</a></td>
+            <td>{{ inv.type }}</td>
+            <td>{{ inv.client_name }}</td>
+            <td>{{ inv.status }}</td>
+            <td style="text-align:right;">{{ inv.amount|floatformat:3 }}</td>
+            <td style="text-align:right;">{{ inv.balance_due|floatformat:3 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;">No invoices for this client.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
 
 {% endblock %}

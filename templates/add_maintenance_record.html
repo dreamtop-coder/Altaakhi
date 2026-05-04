@@ -153,6 +153,7 @@
     <div class="maintenance-title">New Invoice</div>
     <form method="post" id="maintenance-form">
         {% csrf_token %}
+        <input type="hidden" id="items_json" name="items_json" value="" />
         {% if form.errors %}
         <div style="background:#ffeaea;color:#c00;padding:12px 18px;border-radius:8px;margin-bottom:18px;font-size:15px;">
             <strong>يرجى تصحيح الأخطاء التالية:</strong>
@@ -248,15 +249,14 @@
                     <table id="maintenance-items-table" style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:14px;">
                         <thead>
                             <tr style="text-align:left;color:#444;border-bottom:1px solid #eee;">
-                                <th style="padding:8px 6px;width:45%">Service</th>
+                                <th style="padding:8px 6px;width:45%">{% if invoice_type == 'sales' %}Item{% else %}Service{% endif %}</th>
                                 <th style="padding:8px 6px;width:12%">Quantity</th>
                                 <th style="padding:8px 6px;width:12%">Rate</th>
                                 <th style="padding:8px 6px;width:12%">Discount %</th>
                                 <th style="padding:8px 6px;width:12%">Amount</th>
                                 <th style="padding:8px 6px;width:7%"> 
                                     <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
-                                        <button type="button" id="add-service" class="table-add-btn primary">+ Add Service</button>
-                                        <button type="button" id="add-row" class="table-add-btn primary">Add Item</button>
+                                        <button type="button" id="add-line-item" class="table-add-btn primary">➕ Add Line Item</button>
                                     </div>
                                 </th>
                             </tr>
@@ -275,7 +275,7 @@
                     <div class="invoice-summary-card" style="margin-top:12px;padding:12px;border-top:1px solid #e6e6e6;">
                         <div style="font-weight:600;margin-bottom:10px;">Invoice Summary</div>
                         <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Services</div><div id="services-sub-total">0.000</div></div>
-                        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Sub Total</div><div id="sub-total">0.000</div></div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Parts</div><div id="sub-total">0.000</div></div>
                         <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div>Discount</div><div id="total-discount">0.000</div></div>
                         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:16px;margin-bottom:12px;"><div>Total ( BHD )</div><div id="grand-total">0.000</div></div>
                     </div>
@@ -306,6 +306,18 @@
         </div>
     </div>
 </div>
+            <script>
+            document.addEventListener('DOMContentLoaded', function(){
+                try{
+                    var itype = '{% if invoice_type %}{{ invoice_type }}{% else %}maintenance{% endif %}';
+                    if(itype === 'sales') {
+                        document.body.dataset.page = 'invoices';
+                    } else {
+                        document.body.dataset.page = 'maintenance';
+                    }
+                }catch(e){}
+            });
+            </script>
 
 <!-- Advanced customer search modal -->
 <div id="customer-modal-backdrop" class="modal-backdrop" role="dialog" aria-hidden="true">
@@ -327,24 +339,29 @@
     </div>
 </div>
 
-<script src="{% static 'js/services-table.js' %}?v=2"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){} });
+    // mark page so items JS can decide initial row behavior.
+    // When rendering invoices/add/ the view passes `invoice_type='sales'`.
+    // - For sales invoices we want the initial row to be inventory-only.
+    // - For maintenance pages we keep the maintenance behavior (merged suggestions).
+    window.__isMaintenancePage = {% if invoice_type == 'maintenance' %}true{% else %}false{% endif %};
+    // If this is a stock invoice page, request the initial created row be inventory
+    // (createItemRow will honor `window.__initialItemType` for the automatic initial row).
+    window.__initialItemType = {% if invoice_type == 'sales' %}'inventory'{% else %}null{% endif %};
 </script>
+<script src="{% static 'js/line-items.api.js' %}?v=4"></script>
+<script src="{% static 'js/line-items.core.js' %}?v=4"></script>
+<script src="{% static 'js/line-items.ui.js' %}?v=4"></script>
+{# services-table.js is loaded dynamically by line-items.api.js to avoid double-loads #}
 <script>
-    // mark page so items JS won't create a default inventory item row
-    window.__isMaintenancePage = true;
-</script>
-<script src="{% static 'js/inventory-autocomplete.js' %}?v=2"></script>
-<script src="{% static 'js/items-table.v2.js' %}?v=1"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initItemsTable) window.initItemsTable(); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} });
+document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initItemsTable) window.initItemsTable(); if(window.recomputeTotals) window.recomputeTotals(); {% if invoice_type == 'maintenance' %} if(window.initServicesTable) window.initServicesTable(); {% endif %} }catch(e){} });
 </script>
 <script>
 // preloaded clients data (optional)
 window.clients_sample = {{ clients_sample|default:'[]'|safe }};
 
 document.addEventListener('DOMContentLoaded', function() {
+    try{ console.log('[LOAD]', 'maintenance-inline'); }catch(e){}
     var serviceSelect = document.getElementById('id_service');
     var priceInput = document.getElementById('id_price');
     if(serviceSelect && priceInput) {
@@ -820,31 +837,35 @@ document.addEventListener('DOMContentLoaded', function() {
         // update bottom total display (visible sticky bar)
         try{ var bottom = document.getElementById('bottom-total'); if(bottom) bottom.textContent = 'BHD ' + parseFloat(grand).toFixed(3); }catch(e){}
     }
-    document.getElementById('items-body').addEventListener('click', function(e){
-        if(e.target.classList.contains('remove-row')){
-            var row = e.target.closest('.item-row');
-            row.parentNode.removeChild(row);
-            recomputeTotals();
-        }
-    });
-    document.getElementById('items-body').addEventListener('input', function(e){
-        var el = e.target;
-        if(el.classList.contains('item-qty') || el.classList.contains('item-rate') || el.classList.contains('item-discount')){
-            var row = el.closest('.item-row');
-            updateRowAmount(row);
-            recomputeTotals();
-            try{
-                if(el.classList.contains('item-qty')){
-                    var avail = row && row.dataset && row.dataset.inventoryQty ? Number(row.dataset.inventoryQty) : undefined;
-                    var trackStock = row && row.dataset && (row.dataset.inventoryTrackStock!==undefined) ? (row.dataset.inventoryTrackStock === 'true') : undefined;
-                    var req = Number(el.value) || 0;
-                    if(trackStock && avail !== undefined && !isNaN(avail) && req > avail){
-                        try{ showAvailabilityModal('Insufficient stock: available ' + avail + ' • requested ' + req); }catch(ex){}
+    var __itemsBodyEl = document.getElementById('items-body');
+    if(__itemsBodyEl){
+        __itemsBodyEl.addEventListener('click', function(e){
+            if(e.target && e.target.classList && e.target.classList.contains('remove-row')){
+                var row = e.target.closest('.item-row');
+                if(row && row.parentNode) row.parentNode.removeChild(row);
+                try{ recomputeTotals(); }catch(e){}
+            }
+        });
+        __itemsBodyEl.addEventListener('input', function(e){
+            var el = e.target;
+            if(!el) return;
+            if(el.classList && (el.classList.contains('item-qty') || el.classList.contains('item-rate') || el.classList.contains('item-discount'))){
+                var row = el.closest && el.closest('.item-row');
+                try{ if(row) updateRowAmount(row); }catch(err){}
+                try{ recomputeTotals(); }catch(err){}
+                try{
+                    if(el.classList.contains('item-qty')){
+                        var avail = row && row.dataset && row.dataset.inventoryQty ? Number(row.dataset.inventoryQty) : undefined;
+                        var trackStock = row && row.dataset && (row.dataset.inventoryTrackStock!==undefined) ? (row.dataset.inventoryTrackStock === 'true') : undefined;
+                        var req = Number(el.value) || 0;
+                        if(trackStock && avail !== undefined && !isNaN(avail) && req > avail){
+                            try{ showAvailabilityModal('Insufficient stock: available ' + avail + ' • requested ' + req); }catch(ex){}
+                        }
                     }
-                }
-            }catch(ex){}
-        }
-    });
+                }catch(ex){}
+            }
+        });
+    }
     // helper: create and append a new item row, return the new row element
     // debounce guard: prevent multiple handlers from inserting duplicate rows
     function createItemRow(focus){
@@ -856,17 +877,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }catch(e){}
         var tbody = document.getElementById('items-body');
         var tr = document.createElement('tr'); tr.className='item-row';
+        try{ tr.dataset.rowId = 'svc_' + Date.now() + '_' + Math.floor(Math.random()*1000); }catch(e){}
         tr.innerHTML = `\
             <td style="padding:6px;"><input type="text" class="item-desc" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/> <div class="stock-display" style="margin-top:6px;color:#16a34a;font-weight:600;font-size:13px;"></div></td>\
             <td style="padding:6px;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
             <td style="padding:6px;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
             <td style="padding:6px;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-            <td style="padding:6px;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
+            <td style="padding:6px 12px 6px 6px;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
             <td style="padding:6px;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;
+        // default new rows: leave untyped so Add Line Item shows merged suggestions
+        try{
+            var inheritType;
+            try{
+                if(window.__lastCreatedFromRow){
+                    try{ var src = window.__lastCreatedFromRow; if(src && src.dataset && src.dataset.type === 'service') inheritType = 'service'; }catch(e){}
+                    try{ window.__lastCreatedFromRow = null; }catch(e){}
+                }
+            }catch(e){}
+            try{ if(inheritType) tr.dataset.type = inheritType; }catch(e){}
+        }catch(e){}
         tbody.appendChild(tr);
+        try{ tr.dataset.__createdAt = Date.now(); }catch(e){}
         try{
             var newInput = tr.querySelector('.item-desc');
-            if(newInput){ try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); }catch(e){} if(focus!==false) newInput.focus(); }
+            if(newInput){
+                try{ if(tr && tr.dataset && tr.dataset.type === 'service') newInput.dataset.autocomplete = 'service'; }catch(e){}
+                try{ if(!newInput.dataset.step) newInput.dataset.step = 'view'; }catch(e){}
+                try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); }catch(e){}
+                if(focus!==false) newInput.focus();
+            }
         }catch(e){}
         try{
             var qtyEl = tr.querySelector('.item-qty');
@@ -890,7 +929,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return tr;
     }
 
-    document.getElementById('add-row').addEventListener('click', function(e){ try{ e.preventDefault(); e.stopPropagation(); }catch(ex){} createItemRow(true); });
+    var __addRowBtn = document.getElementById('add-row');
+    if(__addRowBtn){ __addRowBtn.addEventListener('click', function(e){ try{ e.preventDefault(); e.stopPropagation(); }catch(ex){} try{ createItemRow(true); }catch(err){} }); }
 
     // --- Inventory autocomplete for Item Details ---
     var invTimer = null;
@@ -923,24 +963,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }catch(e){ }
         list.forEach(function(it){
             var row = document.createElement('div'); row.className = 'item-row-suggest';
-            var title = document.createElement('div'); title.style.fontWeight='600'; title.textContent = it.name || (it.title||'');
+            row.style.padding = '8px';
+            row.style.borderBottom = '1px solid #f1f5f9';
+            // Title line with optional out-of-stock badge
+            var title = document.createElement('div'); title.style.fontWeight='600'; title.style.marginBottom='4px';
+            var nameText = it.name || (it.title||'');
+            try{
+                if(it.track_stock === true && (it.quantity===0 || it.quantity==='0')){
+                    title.innerHTML = (nameText || '') + ' <span style="color:#b91c1c;font-weight:600;margin-left:6px;font-size:12px;">(Out of stock ⚠️)</span>';
+                } else {
+                    title.textContent = nameText;
+                }
+            }catch(e){ title.textContent = nameText; }
+            // Meta line: Price and Available
             var meta = document.createElement('div'); meta.style.fontSize='13px'; meta.style.color='#6b7280';
+            var _dispPrice = (it.price!==undefined) ? it.price : (it.sale_price!==undefined ? it.sale_price : undefined);
+            var qty = (it.quantity!==undefined && it.quantity!==null) ? String(it.quantity) : null;
             var parts = [];
-            if(it.code) parts.push('Code: ' + it.code);
-            if(it.sku) parts.push('SKU: ' + it.sku);
-            if(it.price!==undefined) parts.push('Price: ' + parseFloat(it.price).toFixed(3));
-            // show available quantity when provided by server
-            if(it.quantity!==undefined && it.quantity!==null) parts.push('Available: ' + String(it.quantity));
-            meta.textContent = parts.join(' • ');
+            if(_dispPrice!==undefined && _dispPrice!==null) parts.push('Price: <strong>' + parseFloat(_dispPrice).toFixed(3) + '</strong>');
+            if(qty !== null) parts.push('Available: <strong>' + qty + '</strong>');
+            meta.innerHTML = parts.join(' &nbsp;•&nbsp; ');
             row.appendChild(title); row.appendChild(meta);
             row.addEventListener('click', function(e){
                 try{
+                    if(!it || !it.name) return;
                     // Check availability if server provided `quantity`
                     var rowEl = input.closest('.item-row');
                     var requestedQty = 1;
                     try{ requestedQty = Number((rowEl && rowEl.querySelector('.item-qty')) ? rowEl.querySelector('.item-qty').value : 1) || 1; }catch(ex){}
-                    // only enforce availability when the part is stock-tracked
-                    if(it.track_stock && it.quantity !== undefined && it.quantity !== null && Number(it.quantity) < requestedQty){
+                    // only enforce availability when the part explicitly tracks stock
+                    if(it.track_stock === true && it.quantity !== undefined && Number(it.quantity) < requestedQty){
                         // show shortage modal and prevent selection
                         try{ showAvailabilityModal('Insufficient stock: available ' + (it.quantity||0) + ' • requested ' + requestedQty); }catch(ex){ console.error(ex); }
                         return;
@@ -950,7 +1002,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         rowEl.dataset.inventoryId = it.id;
                         if(it.quantity!==undefined && it.quantity!==null) rowEl.dataset.inventoryQty = String(it.quantity);
                         if(it.track_stock!==undefined && it.track_stock!==null) rowEl.dataset.inventoryTrackStock = String(Boolean(it.track_stock));
-                        var rateEl = rowEl.querySelector('.item-rate'); if(rateEl && it.price!==undefined) rateEl.value = parseFloat(it.price).toFixed(3);
+                        var rateEl = rowEl.querySelector('.item-rate'); var _rateVal = (it.price!==undefined) ? it.price : (it.sale_price!==undefined ? it.sale_price : undefined); if(rateEl && _rateVal!==undefined) rateEl.value = parseFloat(_rateVal).toFixed(3);
                         // set stock display inside the row
                         try{
                             var stockEl = rowEl.querySelector('.stock-display');
@@ -985,12 +1037,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         }catch(ex){}
                     }
                 }catch(err){console.error(err);} 
-                closeInventorySuggestionsFor(input);
+                // defer closing to allow selection side-effects to run first
+                try{ setTimeout(function(){ try{ closeInventorySuggestionsFor(input); }catch(e){} }, 0); }catch(e){}
                 // ensure there's always an empty row available: add one if none
                 try{
                     var hasEmpty = false;
                     document.querySelectorAll('#items-body .item-desc').forEach(function(d){ if((d.value||'').trim()==='') hasEmpty = true; });
-                    if(!hasEmpty){ createItemRow(false); }
+                    if(!hasEmpty){ try{ window.__lastCreatedFromRow = input.closest('.item-row') || null; }catch(e){} try{ createItemRow(false); }catch(e){} }
                 }catch(ex){ /* ignore */ }
             });
             box.appendChild(row);
@@ -1018,27 +1071,29 @@ document.addEventListener('DOMContentLoaded', function() {
                         var parts = [];
                         if(it.code) parts.push('Code: '+it.code);
                         if(it.sku) parts.push('SKU: '+it.sku);
-                        if(it.price!==undefined) parts.push('Price: '+parseFloat(it.price).toFixed(3));
+                        var _dispPrice2 = (it.price!==undefined) ? it.price : (it.sale_price!==undefined ? it.sale_price : undefined);
+                        if(_dispPrice2!==undefined) parts.push('Price: '+parseFloat(_dispPrice2).toFixed(3));
                         if(it.quantity!==undefined && it.quantity!==null) parts.push('Available: '+String(it.quantity));
                         meta.textContent = parts.join(' • ');
                         row.appendChild(title); row.appendChild(meta);
                         row.addEventListener('click', function(){
                             try{
+                                if(!it || !it.name) return;
                                 var rowEl = input.closest('.item-row');
                                 var requestedQty = 1;
                                 try{ requestedQty = Number((rowEl && rowEl.querySelector('.item-qty'))?rowEl.querySelector('.item-qty').value:1)||1; }catch(e){}
-                                if(it.track_stock && it.quantity!==undefined && Number(it.quantity) < requestedQty){ showAvailabilityModal('Insufficient stock: available '+(it.quantity||0)+' • requested '+requestedQty); return; }
+                                if(it.track_stock === true && it.quantity!==undefined && Number(it.quantity) < requestedQty){ showAvailabilityModal('Insufficient stock: available '+(it.quantity||0)+' • requested '+requestedQty); return; }
                                 input.value = it.name;
-                                if(rowEl){ rowEl.dataset.inventoryId = it.id; if(it.quantity!==undefined) rowEl.dataset.inventoryQty = String(it.quantity); if(it.track_stock!==undefined) rowEl.dataset.inventoryTrackStock = String(Boolean(it.track_stock)); var rateEl = rowEl.querySelector('.item-rate'); if(rateEl && it.price!==undefined) rateEl.value = parseFloat(it.price).toFixed(3); updateRowAmount(rowEl); recomputeTotals(); }
+                                if(rowEl){ rowEl.dataset.inventoryId = it.id; if(it.quantity!==undefined) rowEl.dataset.inventoryQty = String(it.quantity); if(it.track_stock!==undefined) rowEl.dataset.inventoryTrackStock = String(Boolean(it.track_stock)); var rateEl = rowEl.querySelector('.item-rate'); var _rv = (it.price!==undefined) ? it.price : (it.sale_price!==undefined ? it.sale_price : undefined); if(rateEl && _rv!==undefined) rateEl.value = parseFloat(_rv).toFixed(3); updateRowAmount(rowEl); recomputeTotals(); }
                             }catch(e){ console.error(e); }
-                            close();
-                            try{ var hasEmpty=false; document.querySelectorAll('#items-body .item-desc').forEach(function(d){ if((d.value||'').trim()==='') hasEmpty=true; }); if(!hasEmpty) createItemRow(false); }catch(e){}
+                            try{ setTimeout(function(){ try{ close(); }catch(e){} }, 0); }catch(e){}
+                            try{ var hasEmpty=false; document.querySelectorAll('#items-body .item-desc').forEach(function(d){ if((d.value||'').trim()==='') hasEmpty=true; }); if(!hasEmpty){ try{ window.__lastCreatedFromRow = rowEl || null; }catch(e){} try{ createItemRow(false); }catch(e){} } }catch(e){}
                         });
                         dd.appendChild(row);
                     });
                 }
-                // append to body so it's not clipped by table overflow
-                document.body.appendChild(dd);
+                // append to body (or use dropdown manager) so it's not clipped by table overflow
+                try{ if(window.dropdownManager && typeof window.dropdownManager.open === 'function'){ dd.setAttribute('data-dropdown-owner','inventory'); window.dropdownManager.open(dd,'inventory'); } else { document.body.appendChild(dd); } }catch(e){}
                 positionDropdown();
                 onWindowChange = function(){ positionDropdown(); };
                 window.addEventListener('scroll', onWindowChange, true);
@@ -1055,12 +1110,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // open suggestions on user click/focus or when there's existing content
             var _invPointerActivate = false;
             input.addEventListener('pointerdown', function(){ _invPointerActivate = true; setTimeout(function(){ _invPointerActivate = false; }, 250); });
-            input.addEventListener('focus', function(){ var q = (input.value||'').trim(); if(q || _invPointerActivate) fetchAndRender(q||''); });
+            input.addEventListener('focus', function(){ try{ fetchAndRender((input.value||'').trim() || ''); }catch(e){} });
             // also open suggestions on user click when the field is empty
-            input.addEventListener('click', function(e){ var q = (input.value||'').trim(); if(!q){ fetchAndRender(''); } });
+            input.addEventListener('click', function(e){ try{ fetchAndRender((input.value||'').trim() || ''); }catch(e){} });
             input.addEventListener('blur', function(){ setTimeout(close,150); setTimeout(function(){ lookupPartPrice(input.value).then(function(price){ if(price!==null){ try{ var tr = input.closest('.item-row'); var rateEl = tr && tr.querySelector('.item-rate'); if(rateEl) { rateEl.value = parseFloat(price).toFixed(3); updateRowAmount(tr); recomputeTotals(); } }catch(e){} } }); },180); });
         }
-        window.initInventoryAutocomplete = initInventoryAutocomplete;
+        if(typeof window.initInventoryAutocomplete === 'undefined'){
+            window.initInventoryAutocomplete = initInventoryAutocomplete;
+        }
     })();
 
     // attach to any existing item-desc inputs
@@ -1070,11 +1127,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // ensure totals and bottom total reflect any server-rendered rows
     try{ recomputeTotals(); }catch(e){}
 
-    // close inventory suggestions when clicking elsewhere
+    // close inventory suggestions when clicking elsewhere (do not close merged svc dropdowns)
     document.addEventListener('click', function(ev){
-        if(ev.target && ev.target.closest && ev.target.closest('.inventory-suggestions')) return;
-        // remove all inventory suggestion boxes
-        document.querySelectorAll('.inventory-suggestions').forEach(function(b){ b.parentNode && b.parentNode.removeChild(b); });
+        try{
+            if(ev.target && ev.target.closest && (ev.target.closest('.inventory-suggestions') || ev.target.closest('.svc-dd'))) return;
+            // remove all inventory suggestion boxes
+            document.querySelectorAll('.inventory-suggestions').forEach(function(b){ b.parentNode && b.parentNode.removeChild(b); });
+        }catch(e){}
     });
 
     // When the user changes the vehicle select, update the hidden plate and visible label
@@ -1186,6 +1245,25 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('#items-body .item-row').forEach(function(row){
             try{
                 var partId = row.dataset.partId || row.dataset.inventoryId || null;
+                var rowType = (row.dataset && row.dataset.type) ? row.dataset.type : null;
+                // If this row was marked as a service (some service selections
+                // are created inside the items table), serialize it as a service
+                // entry instead of enforcing a part_id.
+                if(rowType === 'service'){
+                    try{
+                        items.push({
+                            service_id: row.dataset && row.dataset.serviceId ? parseInt(row.dataset.serviceId,10) : null,
+                            description: row.querySelector('.item-desc') ? (row.querySelector('.item-desc').value||'') : '',
+                            qty: parseFloatSafe(row.querySelector('.item-qty') ? row.querySelector('.item-qty').value : 0),
+                            rate: parseFloatSafe(row.querySelector('.item-rate') ? row.querySelector('.item-rate').value : 0),
+                            discount: parseFloatSafe(row.querySelector('.item-discount') ? row.querySelector('.item-discount').value : 0),
+                            amount: parseFloatSafe(row.querySelector('.item-amount') ? row.querySelector('.item-amount').value : 0)
+                        });
+                    }catch(e){}
+                    return;
+                }
+                // For regular part rows, require a linked part id to avoid
+                // ambiguous free-text entries.
                 if(!partId) return; // skip rows without linked part
                 items.push({
                     part_id: partId,
@@ -1199,73 +1277,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         document.getElementById('items_json').value = JSON.stringify(items);
     });
-    // Expose a safe serializer that can be called before submission
-    try{ window.serializeMaintenanceItems = function(){
-        try{ recomputeTotals(); }catch(e){}
-        var items = [];
-        var invalidRows = [];
-        document.querySelectorAll('#items-body .item-row').forEach(function(row, idx){
-            try{
-                // clear previous error markers
-                try{ row.classList.remove('error-row'); var old = row.querySelector('.item-error'); if(old) old.parentNode.removeChild(old); }catch(e){}
-                var partId = row.dataset.partId || row.dataset.inventoryId || null;
-                var desc = row.querySelector('.item-desc') ? (row.querySelector('.item-desc').value||'').trim() : '';
-                var qty = parseFloatSafe(row.querySelector('.item-qty') ? row.querySelector('.item-qty').value : 0);
-                var rate = parseFloatSafe(row.querySelector('.item-rate') ? row.querySelector('.item-rate').value : 0);
-                var discount = parseFloatSafe(row.querySelector('.item-discount') ? row.querySelector('.item-discount').value : 0);
-                var amount = parseFloatSafe(row.querySelector('.item-amount') ? row.querySelector('.item-amount').value : 0);
-
-                // if no part selected but the row is empty, skip silently
-                if(!partId && !desc && (!qty || qty === 0) && (!rate || rate === 0)){
-                    return;
-                }
-
-                if(!partId){
-                    invalidRows.push(idx+1);
-                    try{ row.classList.add('error-row'); var msg = document.createElement('div'); msg.className = 'item-error'; msg.textContent = 'يجب اختيار القطعة من القائمة (اختر من الاقتراحات)'; row.appendChild(msg); }catch(e){}
-                    return;
-                }
-
-                items.push({
-                    part_id: partId,
-                    description: desc,
-                    qty: qty,
-                    rate: rate,
-                    discount: discount,
-                    amount: amount
-                });
-            }catch(e){ }
-        });
-
-        // show banner with invalid rows if any
-        try{
-            var banner = document.getElementById('form-items-error-banner');
-            if(invalidRows.length){
-                if(!banner){
-                    banner = document.createElement('div'); banner.id = 'form-items-error-banner'; banner.style.background = '#fff5f5'; banner.style.color = '#991b1b'; banner.style.padding = '10px'; banner.style.borderRadius = '6px'; banner.style.marginBottom = '12px';
-                    var form = document.querySelector('.maintenance-card form'); if(form) form.insertBefore(banner, form.firstChild);
-                }
-                banner.textContent = 'يرجى اختيار القطع من القائمة في الصفوف: ' + invalidRows.join(', ');
-                try{ var first = document.querySelector('#items-body .error-row'); if(first) first.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
-                return false;
-            } else {
-                if(banner && banner.parentNode) banner.parentNode.removeChild(banner);
-            }
-        }catch(e){}
-
-        var el = document.getElementById('items_json'); if(el) el.value = JSON.stringify(items);
-        try{ if(window.DEBUG) console.log('serializeMaintenanceItems set items_json =', document.getElementById('items_json').value); }catch(e){}
-        return true;
-    }; }catch(e){}
+    // Serializer is provided by `static/js/line-items.core.js` (canonical implementation);
+    // inline duplicate removed to ensure single source of truth.
 
     // Expose helpers globally so fallback handlers can call them if needed
     try{
-        window.createItemRow = createItemRow;
+        if(typeof window.createItemRow === 'undefined'){
+            window.createItemRow = createItemRow;
+        }
         // ensure both old and new global names point to the same initializer
         try{ window.initInventoryAutocomplete = window.initInventoryAutocomplete || initInventoryAutocomplete; }catch(e){}
-        try{ window.attachInventoryAutocomplete = window.attachInventoryAutocomplete || initInventoryAutocomplete; }catch(e){}
         // showInlineSuggestions and openCustomerModal are also exposed earlier
     }catch(e){ console.error('expose helpers failed', e); }
+
+    // Ensure serialization runs just before any form submit as a safety net
+    try{
+        var _form = document.getElementById('maintenance-form');
+        if(_form){
+            _form.addEventListener('submit', function(evt){
+                try{ if(window.serializeMaintenanceItems) window.serializeMaintenanceItems(); }catch(err){}
+            }, false);
+        }
+    }catch(e){}
 
     // Delegated click fallback: handle clicks on controls even if their
     // original listeners failed to attach (safety net for broken/aborted scripts)
@@ -1332,41 +1365,5 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }catch(e){}
 });
-</script>
-<script>
-// Global fallback: ensure basic interactive controls respond even if
-// other scripts didn't initialize (runs immediately).
-    try{
-    if(window.DEBUG) console.log('Invoice page: global fallback script loaded');
-    document.addEventListener('click', function(e){
-        try{
-            var t = e.target;
-            if(!t) return;
-            // Add New Row
-            if(t.id === 'add-row' || (t.closest && t.closest('#add-row'))){
-                e.preventDefault();
-                try{ if(window.createItemRow) window.createItemRow(true); else console.warn('createItemRow not available'); }catch(err){ console.error('createItemRow failed', err); }
-                return;
-            }
-            // Magnifier: open advanced customer modal
-            if(t.id === 'customer-search-btn' || (t.closest && t.closest('#customer-search-btn'))){
-                e.preventDefault();
-                try{ if(window.openCustomerModal) window.openCustomerModal((document.getElementById('customer-search')||{}).value||''); else console.warn('openCustomerModal not available'); }catch(err){ console.error('openCustomerModal failed', err); }
-                return;
-            }
-            // Caret toggle: show inline suggestions
-            if(t.id === 'customer-suggest-toggle' || (t.closest && t.closest('#customer-suggest-toggle'))){
-                e.preventDefault();
-                try{ if(window.toggleCustomerSuggestions) window.toggleCustomerSuggestions(); else if(window.showInlineSuggestions) window.showInlineSuggestions(''); else console.warn('toggle/show suggestions not available'); }catch(err){ console.error('toggleCustomerSuggestions/showInlineSuggestions failed', err); }
-                return;
-            }
-            // Click on the main customer input should show inline suggestions
-            if(t.id === 'customer-search' || (t.closest && t.closest('#customer-search'))){
-                try{ if(window.showInlineSuggestions) window.showInlineSuggestions(''); }catch(err){}
-                return;
-            }
-        }catch(e){ console.error('global delegated click handler error', e); }
-    }, true);
-}catch(e){ console.error('global fallback init failed', e); }
 </script>
 {% endblock %}

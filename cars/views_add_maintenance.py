@@ -47,15 +47,18 @@ def get_services_json(request):
     Format matches inventory JSON: { results: [ {id, name, price, code, track_stock, quantity} ] }
     """
     q = (request.GET.get('q') or '').strip()
-    qs = Service.objects.all()
+    qs = Service.objects.all().order_by('name')
     if q:
         qs = qs.filter(name__icontains=q)
+
+    # limit and return lightweight structures
+    svc_vals = list(qs.values('id', 'name', 'default_price')[:100])
     results = []
-    for s in qs.order_by('name')[:200]:
+    for s in svc_vals:
         results.append({
-            'id': s.id,
-            'name': s.name,
-            'sale_price': float(s.default_price) if s.default_price is not None else None,
+            'id': s.get('id'),
+            'name': s.get('name') or '',
+            'sale_price': float(s.get('default_price')) if s.get('default_price') is not None else None,
             'code': '',
             'track_stock': False,
             'quantity': None,
@@ -113,7 +116,18 @@ def add_maintenance_record(request):
         except Exception:
             pass
 
-        if form.is_valid():
+        # Evaluate form validity once and log results for debugging failing posts
+        try:
+            valid = form.is_valid()
+        except Exception:
+            valid = False
+        try:
+            with open('debug_post_dump.log', 'a', encoding='utf-8') as _f:
+                _f.write(f"FORM-VALID: {valid} client_for_q={getattr(client_for_queryset,'id',None)} sel_cid={request.POST.get('selected_client_id')} resolved_car_by_form={getattr(form.cleaned_data if hasattr(form,'cleaned_data') else {}, 'get', lambda k, d=None: None)('selected_client_car')} form_errors={getattr(form,'errors',None)}\n")
+        except Exception:
+            pass
+
+        if valid:
             car = form.get_car_instance()
             # Fallback: if form did not resolve a car instance, try to find by plate number
             if not car:
@@ -217,7 +231,24 @@ def add_maintenance_record(request):
                 # best-effort: if the check fails, continue and let later logic handle errors
                 pass
             # capture submitted items_json early so we can decide whether to create an invoice
-            items_json = request.POST.get('items_json')
+            # Some browsers/forms may submit multiple `items_json` fields (one empty),
+            # so prefer the first non-empty value from getlist()
+            try:
+                vals = request.POST.getlist('items_json') if hasattr(request.POST, 'getlist') else [request.POST.get('items_json')]
+                items_json = None
+                # Prefer a meaningful items_json value: non-empty and not a literal empty list '[]' or 'null'
+                for v in reversed(vals):
+                    if v and str(v).strip() and str(v).strip() not in ['[]', 'null']:
+                        items_json = v
+                        break
+                # fallback: accept any non-empty value
+                if not items_json:
+                    for v in reversed(vals):
+                        if v and str(v).strip():
+                            items_json = v
+                            break
+            except Exception:
+                items_json = request.POST.get('items_json')
             # Determine invoice number: prefer submitted value if provided, otherwise compute next
             submitted_inv = (request.POST.get('invoice_number') or '').strip()
             def _parse_inv_number(s):
@@ -235,81 +266,48 @@ def add_maintenance_record(request):
                     return None
 
             if not invoice:
-                # compute a candidate invoice number based on last invoice
-                last_invoice = Invoice.objects.order_by('-id').first()
-                next_number = 1
-                if last_invoice:
-                    parsed = _parse_inv_number(last_invoice.invoice_number or '')
-                    if parsed is not None:
-                        next_number = parsed + 1
-                    else:
-                        # fallback: try numeric tail if startswith INV-
-                        if last_invoice.invoice_number and last_invoice.invoice_number.startswith('INV-'):
-                            try:
-                                tail = int(last_invoice.invoice_number.split('INV-')[-1])
-                                next_number = tail + 1
-                            except Exception:
-                                next_number = 1
-                generated_invoice_number = f"INV-{next_number:06d}"
-
-                # If user submitted an invoice number, try to use it (if unique). Otherwise use generated.
-                use_invoice_number = generated_invoice_number
-                if submitted_inv:
-                    # if submitted numeric, normalize to INV- padded if needed
-                    submitted_parsed = _parse_inv_number(submitted_inv)
-                    if submitted_parsed is not None:
-                        candidate = f"INV-{submitted_parsed:06d}"
-                    else:
-                        candidate = submitted_inv
-                    # ensure uniqueness: if candidate already exists, fall back to generated
-                    if not Invoice.objects.filter(invoice_number=candidate).exists():
-                        use_invoice_number = candidate
-                # Only create an actual Invoice record when there is real invoice data to store
-                # (items_json present, or an explicit service/price). Do NOT create an empty
-                # placeholder invoice just because an invoice number was shown or suggested.
-                if items_json or service or price:
-                    # Create invoice with retry on UNIQUE constraint violation
-                    from django.db import IntegrityError, transaction
-                    attempt = 0
-                    invoice = None
-                    while True:
-                        try:
-                            with transaction.atomic():
-                                invoice = Invoice.objects.create(
-                                    invoice_number=use_invoice_number,
-                                    client=client_obj,
-                                    car=car,
-                                    amount=0,
-                                    paid=False,
-                                    created_at=maintenance_date,
-                                    type='maintenance'
-                                )
-                            break
-                        except IntegrityError:
-                            attempt += 1
-                            # bump the numeric part and try again
-                            try:
-                                next_number += 1
-                                use_invoice_number = f"INV-{next_number:06d}"
-                            except Exception:
-                                # fallback to a timestamp-suffixed invoice number
-                                from django.utils import timezone
-                                use_invoice_number = f"INV-{int(timezone.now().timestamp())}-{attempt}"
-                            if attempt > 10:
-                                raise
-                    # ensure invoice has client/car if available
+                # Compute a candidate invoice number but do NOT create the Invoice
+                # record here. Creation will be deferred until we persist items
+                # (inside a single transaction) or when a service-only maintenance
+                # record is being created below. This prevents orphan/empty
+                # invoices when item processing fails later.
+                try:
+                    last_invoice = Invoice.objects.order_by('-id').first()
+                    next_number = 1
+                    if last_invoice:
+                        parsed = _parse_inv_number(last_invoice.invoice_number or '')
+                        if parsed is not None:
+                            next_number = parsed + 1
+                        else:
+                            if last_invoice.invoice_number and last_invoice.invoice_number.startswith('INV-'):
+                                try:
+                                    tail = int(last_invoice.invoice_number.split('INV-')[-1])
+                                    next_number = tail + 1
+                                except Exception:
+                                    next_number = 1
+                    generated_invoice_number = f"INV-{next_number:06d}"
+                    use_invoice_number = generated_invoice_number
+                    if submitted_inv:
+                        submitted_parsed = _parse_inv_number(submitted_inv)
+                        if submitted_parsed is not None:
+                            candidate = f"INV-{submitted_parsed:06d}"
+                        else:
+                            candidate = submitted_inv
+                        if not Invoice.objects.filter(invoice_number=candidate).exists():
+                            use_invoice_number = candidate
+                except Exception as _exc:
                     try:
-                        changed = False
-                        if not invoice.client and client_obj:
-                            invoice.client = client_obj; changed = True
-                        if not invoice.car and car:
-                            invoice.car = car; changed = True
-                        if changed:
-                            invoice.save()
+                        with open('debug_post_dump.log', 'a', encoding='utf-8') as _f:
+                            _f.write(f"INVOICE-CREATE-ERROR: {_exc!r} items_json_present={bool(items_json)} service={bool(service)} price={bool(price)}\n")
                     except Exception:
                         pass
-                else:
-                    invoice = None
+                    use_invoice_number = submitted_inv or 'INV-000001'
+                # Log that we have a candidate invoice number (invoice not created yet)
+                try:
+                    with open('debug_post_dump.log', 'a', encoding='utf-8') as _f:
+                        _f.write(f"INVOICE-CREATED-DEBUG: invoice_id={getattr(invoice,'id',None)} items_json_present={bool(items_json)} use_invoice_number={locals().get('use_invoice_number',None)}\n")
+                except Exception:
+                    pass
             # Debug: dump full POST for inspection
             try:
                 with open('debug_post_dump.log', 'a', encoding='utf-8') as _f:
@@ -317,7 +315,23 @@ def add_maintenance_record(request):
             except Exception:
                 pass
             # If the form contains item rows (items_json), persist them as InvoiceItem
-            items_json = request.POST.get('items_json')
+            # Re-evaluate multi-valued items_json similarly to above to be safe
+            try:
+                vals2 = request.POST.getlist('items_json') if hasattr(request.POST, 'getlist') else [request.POST.get('items_json')]
+                items_json = None
+                # Prefer a meaningful items_json value: non-empty and not a literal empty list '[]' or 'null'
+                for v in reversed(vals2):
+                    if v and str(v).strip() and str(v).strip() not in ['[]', 'null']:
+                        items_json = v
+                        break
+                # fallback: accept any non-empty value
+                if not items_json:
+                    for v in reversed(vals2):
+                        if v and str(v).strip():
+                            items_json = v
+                            break
+            except Exception:
+                items_json = request.POST.get('items_json')
             print('DEBUG: full POST ->', repr(dict(request.POST)))
             print('DEBUG: received items_json ->', items_json)
             # Debug: log raw items_json to file for inspection
@@ -333,26 +347,50 @@ def add_maintenance_record(request):
                     items = json.loads(items_json)
                 except Exception:
                     items = []
-                # remove existing items for this invoice (if any)
+
+                from django.db import transaction
                 try:
                     from inventory.utils import check_items_availability, apply_inventory_changes_for_invoice
-                    from django.db import transaction
-                    invoice.items.all().delete()
-                    # Validate availability first (strict: return HTTP 400 on shortage)
-                    shortages = check_items_availability(items, None)
-                    if shortages:
-                        first = shortages[0]
-                        from django.http import HttpResponseBadRequest
-                        pname = getattr(first[0], 'name', '') if first and first[0] else ''
-                        msg = f'الكمية غير متوفرة: {pname}. المتوفر: {first[1]} المطلوب: {first[2]}'
-                        return HttpResponseBadRequest(msg)
+                except Exception:
+                    check_items_availability = None
+                    apply_inventory_changes_for_invoice = None
 
-                    # Create invoice items and update inventory inside a transaction
-                    total_amount = 0
-                    from invoices.models import InvoiceItem as II
-                    from services.models import Service as ServiceModel
-                    from inventory.models import Part as InventoryPart
+                try:
+                    # Perform invoice + items + inventory update + maintenance record in one transaction
                     with transaction.atomic():
+                        # Ensure an invoice exists for this maintenance POST
+                        if not invoice:
+                            invoice = Invoice.objects.create(
+                                invoice_number=use_invoice_number,
+                                client=client_obj,
+                                car=car,
+                                amount=0,
+                                paid=False,
+                                created_at=maintenance_date,
+                                type='maintenance'
+                            )
+
+                        # Validate availability before creating items
+                        if check_items_availability:
+                            shortages = check_items_availability(items, None)
+                            if shortages:
+                                first = shortages[0]
+                                from django.http import HttpResponseBadRequest
+                                pname = getattr(first[0], 'name', '') if first and first[0] else ''
+                                msg = f'الكمية غير متوفرة: {pname}. المتوفر: {first[1]} المطلوب: {first[2]}'
+                                return HttpResponseBadRequest(msg)
+
+                        # Remove any existing items for this invoice and recreate
+                        try:
+                            invoice.items.all().delete()
+                        except Exception:
+                            pass
+
+                        total_amount = 0
+                        from invoices.models import InvoiceItem as II
+                        from services.models import Service as ServiceModel
+                        from inventory.models import Part as InventoryPart
+
                         for it in items:
                             desc = (it.get('description') or '').strip()
                             try:
@@ -367,11 +405,11 @@ def add_maintenance_record(request):
                                 discount = float(it.get('discount') or 0)
                             except Exception:
                                 discount = 0.0
-                            line_total = qty * rate * (1 - discount/100.0)
+                            line_total = qty * rate * (1 - discount / 100.0)
                             if (not desc) and qty == 0 and rate == 0 and discount == 0:
                                 continue
                             total_amount += line_total
-                            # determine linked service/part if provided by frontend
+
                             service = None
                             part = None
                             try:
@@ -398,35 +436,94 @@ def add_maintenance_record(request):
                                 service=service,
                                 part=part,
                                 item_type=item_type,
-                                description=desc,
+                                description=desc[:255],
                                 quantity=qty,
                                 rate=rate,
                                 discount=discount,
                                 total=round(line_total, 3)
                             )
 
-                        # decrement inventory for all created items
-                        try:
+                        # decrement inventory for all created items (parts only)
+                        if apply_inventory_changes_for_invoice:
                             apply_inventory_changes_for_invoice(items, decrement=True)
+
+                        invoice.amount = round(total_amount, 3)
+                        invoice.save()
+
+                        # Create a MaintenanceRecord linked to this invoice so worklog exists
+                        # Prefer to attach a real Service from the submitted `items_json`
+                        # (first service-type item) rather than creating a placeholder
+                        try:
+                            service_obj = None
+                            try:
+                                # `ServiceModel` was imported above when building items
+                                svc_model = ServiceModel
+                            except Exception:
+                                try:
+                                    from services.models import Service as svc_model
+                                except Exception:
+                                    svc_model = None
+
+                            if svc_model and isinstance(items, list):
+                                for it in items:
+                                    # accept either numeric id keys or string keys
+                                    sid = None
+                                    try:
+                                        sid = it.get('service_id')
+                                    except Exception:
+                                        sid = None
+                                    if sid:
+                                        try:
+                                            service_obj = svc_model.objects.filter(id=sid).first()
+                                        except Exception:
+                                            service_obj = None
+                                    # fallback: match by description/name when no id present
+                                    if not service_obj:
+                                        name = (it.get('description') or '').strip()
+                                        if name:
+                                            try:
+                                                service_obj = svc_model.objects.filter(name__iexact=name).first()
+                                            except Exception:
+                                                service_obj = None
+                                    if service_obj:
+                                        break
+
+                            # Only create a MaintenanceRecord for invoices that represent
+                            # maintenance work. Do not create a workshop record for
+                            # sales-type invoices (parts-only invoices).
+                            try:
+                                inv_type = getattr(invoice, 'type', None)
+                            except Exception:
+                                inv_type = None
+                            if car and inv_type == 'maintenance':
+                                from .maintenance_models import MaintenanceRecord as _MR
+                                mr = _MR.objects.create(
+                                    car=car,
+                                    service=service_obj,
+                                    price=float(invoice.amount or 0),
+                                    notes='Created from invoice items',
+                                    created_at=maintenance_date,
+                                    invoice=invoice,
+                                )
                         except Exception:
-                            raise
-                    invoice.amount = round(total_amount, 3)
-                    invoice.save()
-                    # ensure any maintenance records linked to this invoice have matching price
+                            pass
+
+                except Exception as e:
+                    # if validation/creation fails, show a generic error and log
                     try:
-                        invoice.maintenance_records.filter(price__lte=0).update(price=float(invoice.amount or 0))
+                        from django.contrib import messages
+                        messages.error(request, 'فشل في حفظ عناصر الفاتورة. حاول لاحقاً.')
                     except Exception:
                         pass
-                except Exception:
-                    # if validation/creation fails, show a generic error
-                    from django.contrib import messages
-                    messages.error(request, 'فشل في حفظ عناصر الفاتورة. حاول لاحقاً.')
+                    try:
+                        with open('debug_post_dump.log', 'a', encoding='utf-8') as _f:
+                            _f.write(f"ITEMS-PROCESS-ERROR: {e!r} items_json={items_json}\n")
+                    except Exception:
+                        pass
                     params = f'?car_id={car.id}' if car and getattr(car, 'id', None) else ''
-                    # Build a proper URL instead of concatenating a view name with querystring
                     try:
                         return redirect(request.path + params)
                     except Exception:
-                        # Fallback: use hard-coded add path
                         return redirect('/maintenance/add/' + params)
                 # Previously the code created a placeholder Service and MaintenanceRecord
                 # when `items_json` was present but no explicit `service` field was
@@ -446,6 +543,23 @@ def add_maintenance_record(request):
                         # Prefer using the invoice creation date as the maintenance
                         # record date when an invoice exists (keeps dates consistent).
                         created_at_value = (getattr(invoice, 'created_at', None) if invoice else None) or maintenance_date
+                        # Ensure an Invoice exists for service-only submissions.
+                        # If invoice was deferred above, create it here inside the
+                        # transaction so invoice + maintenance record are atomic.
+                        if not invoice:
+                            try:
+                                invoice = Invoice.objects.create(
+                                    invoice_number=use_invoice_number,
+                                    client=client_obj,
+                                    car=car,
+                                    amount=0,
+                                    paid=False,
+                                    created_at=created_at_value,
+                                    type='maintenance'
+                                )
+                            except Exception:
+                                # fallback: continue without invoice (best-effort)
+                                invoice = None
                         mr = MaintenanceRecord.objects.create(
                             car=car,
                             service=service,
@@ -466,7 +580,8 @@ def add_maintenance_record(request):
                                     quantity=1,
                                     rate=mr.price or 0,
                                     discount=0,
-                                    total=mr.price or 0
+                                    total=mr.price or 0,
+                                    item_type=('service' if service else 'part')
                                 )
                                 # Ensure total is computed from rate * quantity (and discount if present)
                                 try:
@@ -527,17 +642,17 @@ def add_maintenance_record(request):
                                     dept = Department.objects.create(name='General')
                         except Exception:
                             dept = None
-                        # create or reuse a placeholder service
+                        # create a per-invoice placeholder service to avoid
+                        # reusing a global "Invoice items (created)" service
                         try:
-                            svc_name = 'Invoice items (created)'
-                            svc_defaults = {'default_price': float(invoice.amount or 0), 'department': dept, 'car': car}
+                            svc_suffix = (getattr(invoice, 'invoice_number', None) or locals().get('use_invoice_number') or f"inv-{getattr(invoice,'id', 'unknown')}")
+                            svc_name = f'Invoice items (created) - {svc_suffix}'
+                            # do NOT attach the placeholder service to the car
+                            svc_defaults = {'default_price': float(invoice.amount or 0), 'department': dept}
                             svc, created = Service.objects.get_or_create(name=svc_name, defaults=svc_defaults)
                             if not created:
-                                # ensure price/car are sensible
                                 try:
                                     svc.default_price = float(invoice.amount or svc.default_price)
-                                    if not svc.car and car:
-                                        svc.car = car
                                     svc.save()
                                 except Exception:
                                     pass
@@ -572,12 +687,19 @@ def add_maintenance_record(request):
             # After creating invoice/items or maintenance records, transition car status
             try:
                 if car:
+                    # Only transition car status to 'in_progress' for maintenance-type
+                    # invoices. Sales invoices (parts-only) should not mark the car
+                    # as being worked on in the workshop.
+                    try:
+                        inv_type = getattr(invoice, 'type', None)
+                    except Exception:
+                        inv_type = None
                     # if there are invoice items or a maintenance record just created,
-                    # move from 'waiting' -> 'in_progress'
+                    # move from 'waiting' -> 'in_progress' when this is a maintenance invoice
                     has_items = bool(items_json)
                     has_service = bool(service or price)
                     current = (getattr(car, 'status', '') or '').lower()
-                    if (has_items or has_service) and current in ['waiting', 'active', '']:
+                    if inv_type == 'maintenance' and (has_items or has_service) and current in ['waiting', 'active', '']:
                         car.status = 'in_progress'
                         car.save()
                         try:
@@ -593,6 +715,29 @@ def add_maintenance_record(request):
             # maintenance records are represented as invoice items. If invoice is
             # None (no items/service submitted), skip these steps to avoid errors.
             if invoice:
+                # Safety: ensure invoice.car is set when possible. Some POSTs
+                # may have resolved a `car` earlier into the local `car` var
+                # or provide a `plate_number` in the form — attach that to
+                # the invoice so maintenance records are correctly linked.
+                try:
+                    if not invoice.car:
+                        if car:
+                            invoice.car = car
+                            invoice.save()
+                        else:
+                            plate_try = (request.POST.get('plate_number') or '').strip()
+                            if plate_try:
+                                try:
+                                    from .models import Car as CarModel
+                                    found = CarModel.objects.filter(plate_number__iexact=plate_try).first()
+                                    if found:
+                                        invoice.car = found
+                                        invoice.save()
+                                        car = found
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
                 # Recompute invoice.amount deterministically from InvoiceItem totals when possible.
                 try:
                     from django.db.models import Sum
@@ -612,9 +757,16 @@ def add_maintenance_record(request):
                         # MaintenanceRecord so the workflow (filters/derive logic)
                         # has a persistent record to reference.
                         if invoice and car:
+                            # Only create maintenance records representing invoice items
+                            # when the invoice is a maintenance-type invoice. Sales
+                            # invoices (parts-only) should not create workshop records.
+                            try:
+                                inv_type = getattr(invoice, 'type', None)
+                            except Exception:
+                                inv_type = None
                             # If items_json was provided, prefer creating a single
                             # maintenance record representing the invoice items.
-                            if items_json:
+                            if items_json and inv_type == 'maintenance':
                                 # only create when no existing maintenance records
                                 if not invoice.maintenance_records.exists():
                                     try:
@@ -631,14 +783,13 @@ def add_maintenance_record(request):
                                         dept = None
                                     # create or reuse a placeholder service
                                     try:
-                                        svc_name = 'Invoice items (created)'
-                                        svc_defaults = {'default_price': float(invoice.amount or 0), 'department': dept, 'car': car}
+                                        svc_suffix = (getattr(invoice, 'invoice_number', None) or locals().get('use_invoice_number') or f"inv-{getattr(invoice,'id', 'unknown')}")
+                                        svc_name = f'Invoice items (created) - {svc_suffix}'
+                                        svc_defaults = {'default_price': float(invoice.amount or 0), 'department': dept}
                                         svc, created = Service.objects.get_or_create(name=svc_name, defaults=svc_defaults)
                                         if not created:
                                             try:
                                                 svc.default_price = float(invoice.amount or svc.default_price)
-                                                if not svc.car and car:
-                                                    svc.car = car
                                                 svc.save()
                                             except Exception:
                                                 pass
@@ -673,14 +824,13 @@ def add_maintenance_record(request):
                                 except Exception:
                                     dept = None
                                 try:
-                                    svc_name = 'Invoice items (created)'
-                                    svc_defaults = {'default_price': float(invoice.amount or 0), 'department': dept, 'car': car}
+                                    svc_suffix = (getattr(invoice, 'invoice_number', None) or locals().get('use_invoice_number') or f"inv-{getattr(invoice,'id', 'unknown')}")
+                                    svc_name = f'Invoice items (created) - {svc_suffix}'
+                                    svc_defaults = {'default_price': float(invoice.amount or 0), 'department': dept}
                                     svc, created = Service.objects.get_or_create(name=svc_name, defaults=svc_defaults)
                                     if not created:
                                         try:
                                             svc.default_price = float(invoice.amount or svc.default_price)
-                                            if not svc.car and car:
-                                                svc.car = car
                                             svc.save()
                                         except Exception:
                                             pass
@@ -723,7 +873,10 @@ def add_maintenance_record(request):
                         return redirect(f'/invoices/print/{invoice.id}/')
                 except Exception:
                     pass
-                return redirect('/dashboard/')
+                # Redirect back to maintenance list filtered by plate (avoid /dashboard/)
+                if car and getattr(car, 'plate_number', None):
+                    return redirect(f'/maintenance/?plate_number={car.plate_number}')
+                return redirect('/maintenance/')
             if car:
                 return redirect(f'/maintenance/?plate_number={car.plate_number}')
             return redirect('/maintenance/')

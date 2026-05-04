@@ -6,6 +6,11 @@
         <input type="text" name="q" placeholder="Search by name, phone or client ID" value="{{ query }}" style="padding:7px 14px;border-radius:6px;border:1px solid #ccc;min-width:180px;">
         <input type="date" name="from_date" value="{{ from_date|default:'' }}" style="padding:7px 10px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
         <input type="date" name="to_date" value="{{ to_date|default:'' }}" style="padding:7px 10px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
+        <select name="type" style="padding:7px 10px;border-radius:6px;border:1px solid #ccc;min-width:140px;">
+            <option value="" {% if not selected_type %}selected{% endif %}>All</option>
+            <option value="sales" {% if selected_type == 'sales' %}selected{% endif %}>Sales</option>
+            <option value="maintenance" {% if selected_type == 'maintenance' %}selected{% endif %}>Maintenance</option>
+        </select>
         <button type="submit" style="background:#1976d2;color:#fff;padding:8px 22px;border-radius:6px;font-weight:bold;border:none;">Search</button>
     </form>
     {% if client and from_date and to_date %}
@@ -13,6 +18,11 @@
         <b>Client:</b> {{ client.first_name }} {% if client.last_name %}{{ client.last_name }}{% endif %} <br>
         <b>Phone:</b> {{ client.phone_number }}<br>
         <b>Client ID:</b> {{ client.customer_id }}<br>
+        {% if car_info %}
+            <b>Plate Number:</b> {{ car_info.plate_number }}<br>
+            <b>Model:</b> {{ car_info.model }}<br>
+            <b>Year:</b> {{ car_info.year }}<br>
+        {% endif %}
         <b>Address:</b> {{ client.address|default:'-' }}
     </div>
     <h3 style="color:#1976d2;margin-bottom:8px;text-align:left;">Invoices</h3>
@@ -41,7 +51,7 @@
     </table>
     </div>
         <div style="text-align:left;margin-top:24px;">
-            <a id="print-statement-btn" href="{% url 'account_statement_print' %}?q={{ query }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}" target="_blank" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;text-decoration:none;">Print Statement</a>
+            <a id="print-statement-btn" href="{% url 'invoices:account_statement_print' %}?q={{ query }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}" target="_blank" style="background:#1976d2;color:#fff;padding:10px 32px;border-radius:7px;font-size:17px;font-weight:bold;border:none;text-decoration:none;">Print Statement</a>
         </div>
         <script>
         document.addEventListener('DOMContentLoaded', function() {

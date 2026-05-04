@@ -1,11 +1,14 @@
 
 # Create your models here.
 
+
 from django.db import models
 from clients.models import Client
 from cars.models import Car
 from services.models import Service
 from decimal import Decimal
+import logging, traceback
+
 
 class Invoice(models.Model):
 	invoice_number = models.CharField(max_length=20, unique=True)
@@ -14,10 +17,10 @@ class Invoice(models.Model):
 	client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='invoices')
 	car = models.ForeignKey(Car, on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices')
 	TYPE_CHOICES = [
-		('stock', 'Stock Sale'),
+		('sales', 'Sales'),
 		('maintenance', 'Maintenance'),
 	]
-	type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='stock')
+	type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='sales')
 	services = models.ManyToManyField(Service, related_name='invoices')
 	amount = models.DecimalField(max_digits=10, decimal_places=3)
 	paid = models.BooleanField(default=False)
@@ -33,9 +36,6 @@ class Invoice(models.Model):
 		# store as Decimal with 3 decimal places to match item precision
 		self.amount = total.quantize(Decimal('0.001')) if isinstance(total, Decimal) else Decimal(str(total)).quantize(Decimal('0.001'))
 		self.save()
-
-from services.models import Service
-
 class Payment(models.Model):
 	STATUS_CHOICES = [
 		('paid', 'مدفوع'),
@@ -151,6 +151,51 @@ class InvoiceItem(models.Model):
 		desc = self.description or (self.service.name if self.service else (self.part.name if self.part else ''))
 		return f"{desc} - {self.quantity} x {self.rate} = {self.total}"
 
+
+# Ensure invoice amounts are recomputed whenever items change so saved invoices
+# always reflect the latest item totals immediately after create/update/delete.
+from django.db.models.signals import post_save, post_delete
+
+def _recalc_invoice_amount(sender, instance, **kwargs):
+	try:
+		inv = getattr(instance, 'invoice', None)
+		if inv:
+			inv.recalc_amount()
+	except Exception:
+		pass
+
+post_save.connect(_recalc_invoice_amount, sender=InvoiceItem)
+post_delete.connect(_recalc_invoice_amount, sender=InvoiceItem)
+
+def _log_empty_invoice_creation(sender, instance, created, **kwargs):
+	if not created:
+		return
+	try:
+		# Run the check after the current transaction commits so that
+		# invoices that are created and then populated in the same
+		# atomic block are not falsely reported as empty.
+		from django.db import transaction as _transaction
+
+		def _check():
+			try:
+				inv = Invoice.objects.filter(pk=instance.pk).first()
+				if inv and (inv.amount == 0 or inv.amount is None) and not inv.items.exists():
+					logger = logging.getLogger('invoices.empty_invoice')
+					logger.warning('EMPTY-INVOICE-CREATED id=%s invoice_number=%s', inv.id, inv.invoice_number)
+					stack = ''.join(traceback.format_stack())
+					logger.warning('STACK for EMPTY-INVOICE id=%s:\n%s', inv.id, stack)
+			except Exception:
+				pass
+
+		try:
+			_transaction.on_commit(_check)
+		except Exception:
+			# If transactions are not available (e.g., scripts), run check immediately
+			_check()
+	except Exception:
+		pass
+
+post_save.connect(_log_empty_invoice_creation, sender=Invoice)
 
 # Expense models
 class ExpenseCategory(models.Model):

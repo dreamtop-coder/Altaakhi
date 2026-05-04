@@ -75,71 +75,19 @@
             }catch(e){}
             try{
                 var desc = tr.querySelector('.item-desc');
-                try{
-                    if(itemType === 'inventory'){
-                        try{ desc.dataset.autocomplete = 'inventory'; }catch(e){}
-                        try{ if(typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(desc); }catch(e){}
-                    } else if(itemType === 'service'){
-                        try{ desc.dataset.autocomplete = 'service'; }catch(e){}
-                        try{ if(typeof window.initServiceAutocomplete === 'function') window.initServiceAutocomplete(desc); }catch(e){}
-                    } else {
-                        // No explicit type: initialize inventory autocomplete which
-                        // contains merged-fetch logic; this shows services+parts
-                        // on first click/focus for newly-added rows.
-                        try{ if(typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(desc); }catch(e){}
-                    }
+                        try{
+                            // Default all new rows to inventory-only
+                            try{ desc.dataset.autocomplete = 'inventory'; }catch(e){}
+                            try{ if(typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(desc); }catch(e){}
+                        }catch(e){}
                     // listen for explicit service selection events and forward to service handler
                     try{ desc.addEventListener && desc.addEventListener('service-selected', function(ev){ try{ if(!window._servicesTableInit && window.onServiceSelected) window.onServiceSelected(tr, ev.detail); }catch(e){} }); }catch(e){}
-                    // watch for dataset attribute changes (some autocompletes write data-* attrs instead of dispatching events)
-                    try{
-                        if(typeof MutationObserver !== 'undefined'){
-                            var _mo = new MutationObserver(function(muts){
-                                muts.forEach(function(m){
-                                    try{
-                                        if(m.type === 'attributes'){
-                                            var a = m.attributeName || '';
-                                            if(a.indexOf('data-type') !== -1 || a.indexOf('data-service') !== -1 || a.indexOf('data-service-id') !== -1){
-                                                try{
-                                                    var dt = tr.dataset && tr.dataset.type ? tr.dataset.type : null;
-                                                    if(dt === 'service'){
-                                                        var sid = tr.dataset && tr.dataset.serviceId ? parseInt(tr.dataset.serviceId,10) : (tr.dataset && tr.dataset.service_id ? parseInt(tr.dataset.service_id,10) : null);
-                                                        var svc = { id: sid, name: (desc && desc.value) ? desc.value : '' };
-                                                        try{ if(!window._servicesTableInit && window.onServiceSelected) window.onServiceSelected(tr, svc); }catch(e){}
-                                                        try{ _mo.disconnect(); }catch(e){}
-                                                    }
-                                                }catch(e){}
-                                            }
-                                        }
-                                    }catch(e){}
-                                });
-                            });
-                            try{ _mo.observe(tr, { attributes: true, attributeFilter: ['data-type','data-service-id','data-serviceid','data-service'] }); }catch(e){}
-                        }
-                    }catch(e){}
+                    // No mutation observer needed in inventory-only mode
                 }catch(e){}
-                // bind type selector to update hidden input, dataset and autocomplete
+                // Type selector removed in inventory-only mode; ensure hidden input present and set
                 try{
-                    var sel = tr.querySelector('.item-type'); var hh = tr.querySelector('.item-type-hidden');
-                    if(sel){
-                        sel.addEventListener('change', function(){
-                            try{
-                                var v = (sel.value||'').toLowerCase();
-                                var mapped = (v === 'part' || v === 'inventory') ? 'inventory' : 'service';
-                                try{ if(hh) hh.value = (mapped === 'inventory' ? 'inventory' : 'service'); }catch(e){}
-                                try{ tr.dataset.type = mapped; }catch(e){}
-                                if(mapped === 'inventory'){
-                                    try{ if(desc) desc.dataset.autocomplete = 'inventory'; }catch(e){}
-                                    try{
-                                        if(typeof window.initInventoryAutocomplete === 'function' && desc) window.initInventoryAutocomplete(desc);
-                                    }catch(e){}
-                                } else {
-                                    try{ if(desc) desc.dataset.autocomplete = 'service'; }catch(e){}
-                                    try{ if(typeof window.initServiceAutocomplete === 'function' && desc) window.initServiceAutocomplete(desc); }catch(e){}
-                                }
-                                try{ delete tr.dataset.partId; delete tr.dataset.inventoryId; delete tr.dataset.serviceId; }catch(e){}
-                            }catch(e){}
-                        });
-                    }
+                    var hh = tr.querySelector('.item-type-hidden'); if(hh) hh.value = 'inventory';
+                    try{ tr.dataset.type = 'inventory'; }catch(e){}
                 }catch(e){}
                 var qty = tr.querySelector('.item-qty'); var rate = tr.querySelector('.item-rate'); var disc = tr.querySelector('.item-discount');
                 qty.addEventListener('input', function(){ try{ if(window.updateRowAmount) window.updateRowAmount(tr); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} });
@@ -203,18 +151,11 @@
     // attach delegated remove handler (robust to text-node targets)
     document.addEventListener('click', function(e){ try{ var btn = e.target && e.target.closest ? e.target.closest('.remove-row') : null; if(btn){ var r = (btn.closest && (btn.closest('.item-row') || btn.closest('.service-row') || btn.closest('tr'))) || null; if(r){ try{ if(r.parentNode) r.parentNode.removeChild(r); else if(typeof r.remove === 'function') r.remove(); }catch(err){} try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} } } }catch(err){} });
 
-    // Ensure any call to `onServiceSelected(row, item)` marks the row as service
+    // Keep `onServiceSelected` as a no-op wrapper to avoid flipping rows to 'service'
     try{
         (function(){
             var _orig = window.onServiceSelected || function(row,item){};
             window.onServiceSelected = function(row,item){
-                try{
-                    if(row){
-                        try{ var hh = row.querySelector && row.querySelector('.item-type-hidden'); if(hh) hh.value = 'service'; }catch(e){}
-                        try{ row.dataset.type = 'service'; }catch(e){}
-                        try{ if(item && item.id) row.dataset.serviceId = item.id; }catch(e){}
-                    }
-                }catch(e){}
                 try{ _orig(row,item); }catch(e){}
             };
         })();
@@ -305,7 +246,7 @@
                             var body = document.getElementById('items-body') || document.getElementById('items-body-view') || document.querySelector('tbody#items-body, tbody#items-body-view, tbody');
                             if(body){
                                 var tr = document.createElement('tr'); tr.className = 'item-row';
-                                tr.innerHTML = '\n                <td style="padding:8px 12px;vertical-align:middle;">\n                    <input type="text" class="item-desc" value="" style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;" />\n                    <input type="hidden" class="item-type-hidden" name="item_type[]" value="" />\n                </td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="1" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="0.000" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-discount" value="0.00" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:right;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;text-align:right;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-item-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
+                                tr.innerHTML = '\n                <td style="padding:8px 12px;vertical-align:middle;">\n                    <input type="text" class="item-desc" value="" style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;" />\n                    <input type="hidden" class="item-type-hidden" name="item_type[]" value="" />\n                </td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="1" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="0.000" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-discount" value="0.00" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 18px 8px 12px;text-align:right;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;text-align:right;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-item-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
                                 try{ body.appendChild(tr); }catch(e){ document.body.appendChild(tr); }
                                 try{ tr.dataset.__createdAt = Date.now(); }catch(e){}
                                 try{ var desc = tr.querySelector && tr.querySelector('.item-desc'); if(desc && typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(desc); }catch(e){}
@@ -462,6 +403,7 @@
                                                         try{ tr.dataset.type = 'inventory'; }catch(e){}
                                                         try{ var hh2 = tr.querySelector && tr.querySelector('.item-type-hidden'); if(hh2) hh2.value = 'inventory'; }catch(e){}
                                                         try{ if(window.updateRowAmount) window.updateRowAmount(tr); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
+                                                        try{ var descEl = tr.querySelector && tr.querySelector('.item-desc'); if(descEl && descEl.style) descEl.style.background = '#fff'; }catch(e){}
                                                     }
                                                 }catch(e){}
                                             }).catch(function(){});
@@ -553,25 +495,19 @@
                                             var match = list.find(function(it){ return (it.name||'').toLowerCase() === val.toLowerCase(); }) || list[0];
                                             if(!match) return;
                                             var inferred = match.type || ((match.track_stock) ? 'inventory' : 'service');
-                                            if(inferred === 'service'){
-                                                try{ var hh = r.querySelector && r.querySelector('.item-type-hidden'); if(hh) hh.value = 'service'; }catch(e){}
-                                                try{ r.dataset.type = 'service'; }catch(e){}
-                                                try{ if(match.id) r.dataset.serviceId = match.id; }catch(e){}
-                                                try{ if(!window._servicesTableInit && window.onServiceSelected) window.onServiceSelected(r, match); }catch(e){}
-                                                try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
-                                            } else if(inferred === 'inventory'){
-                                                try{ var hh2 = r.querySelector && r.querySelector('.item-type-hidden'); if(hh2) hh2.value = 'inventory'; }catch(e){}
-                                                try{ r.dataset.type = 'inventory'; }catch(e){}
-                                                try{ if(match.id) { r.dataset.partId = match.id; r.dataset.inventoryId = match.id; } }catch(e){}
-                                                try{ if(match.track_stock!==undefined) r.dataset.inventoryTrackStock = String(Boolean(match.track_stock)); }catch(e){}
-                                                try{
-                                                    var rateEl = r.querySelector && r.querySelector('.item-rate');
-                                                    var p = (match.sale_price!==undefined?match.sale_price:(match.price!==undefined?match.price:null));
-                                                    if(rateEl && p!==null && p!==undefined) rateEl.value = parseFloat(p).toFixed(3);
-                                                }catch(e){}
-                                                try{ if(window.updateRowAmount) window.updateRowAmount(r); }catch(e){}
-                                                try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
-                                            }
+                                                                    // Treat matched item as inventory (purchase bills are inventory-only)
+                                                                    try{ var hh2 = r.querySelector && r.querySelector('.item-type-hidden'); if(hh2) hh2.value = 'inventory'; }catch(e){}
+                                                                    try{ r.dataset.type = 'inventory'; }catch(e){}
+                                                                    try{ if(match.id) { r.dataset.partId = match.id; r.dataset.inventoryId = match.id; } }catch(e){}
+                                                                    try{ if(match.track_stock!==undefined) r.dataset.inventoryTrackStock = String(Boolean(match.track_stock)); }catch(e){}
+                                                                    try{
+                                                                        var rateEl = r.querySelector && r.querySelector('.item-rate');
+                                                                        var p = (match.sale_price!==undefined?match.sale_price:(match.price!==undefined?match.price:null));
+                                                                        if(rateEl && p!==null && p!==undefined) rateEl.value = parseFloat(p).toFixed(3);
+                                                                    }catch(e){}
+                                                                    try{ var descEl = r.querySelector && r.querySelector('.item-desc'); if(descEl && descEl.style) descEl.style.background = '#fff'; }catch(e){}
+                                                                    try{ if(window.updateRowAmount) window.updateRowAmount(r); }catch(e){}
+                                                                    try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
                                         }catch(e){}
                                     }).catch(function(){});
                                 }

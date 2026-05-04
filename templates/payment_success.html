@@ -154,10 +154,11 @@ body {
         </table>
         <div style="width:320px;float:left;margin-top:10px;">
             <table style="width:100%;border:1px solid #e0e0e0;background:transparent;">
-                <tr><td>SUBTOTAL</td><td style="text-align:right;">{{ invoice.amount|floatformat:3 }}</td></tr>
+                <tr><td>Services</td><td style="text-align:right;">{{ services_total|default:0|floatformat:3 }}</td></tr>
+                <tr><td>Parts</td><td style="text-align:right;">{{ parts_total|default:0|floatformat:3 }}</td></tr>
                 <tr><td>TAX 10%</td><td style="text-align:right;">0.000</td></tr>
                 <tr><td>DISCOUNT</td><td style="text-align:right;">0.000</td></tr>
-                <tr><td style="font-weight:bold;background:#eee;">TOTAL</td><td style="font-weight:bold;text-align:right;background:#eee;">{% if paid_amount %}{{ paid_amount|floatformat:3 }}{% else %}0.000{% endif %}</td></tr>
+                <tr><td style="font-weight:bold;background:#eee;">TOTAL</td><td style="font-weight:bold;text-align:right;background:#eee;">{{ invoice.amount|floatformat:3 }}</td></tr>
             </table>
         </div>
         <div style="clear:both;"></div>

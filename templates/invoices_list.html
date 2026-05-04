@@ -57,7 +57,21 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/components.css' %}">
 <div style="margin:12px 0;"><h2>Invoices</h2></div>
-    
+    <div style="margin:8px 0 18px 0;display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:6px;align-items:center;">
+            <button id="filter-all" class="filter-btn" style="padding:6px 10px;border-radius:6px;border:1px solid #dcdcdc;background:#fff;">All</button>
+            <button id="filter-sales" class="filter-btn" style="padding:6px 10px;border-radius:6px;border:1px solid #dcdcdc;background:#e8f5e9;">Sales</button>
+            <button id="filter-maint" class="filter-btn" style="padding:6px 10px;border-radius:6px;border:1px solid #dcdcdc;background:#e8f0fb;">Maintenance</button>
+        </div>
+        <div style="margin-left:auto;color:#666;font-size:0.95em;">Quick filter</div>
+    </div>
+
+    <style>
+    /* Lightweight active state for filter buttons */
+    .filter-btn { cursor: pointer; }
+    .filter-btn.active { border-color: #1976d2 !important; background: #e3f2fd !important; }
+    .filter-btn[aria-pressed="true"] { box-shadow: 0 0 0 3px rgba(25,118,210,0.08); }
+    </style>
 
     <div id="selection-toolbar" style="display:none;position:sticky;top:70px;z-index:1001;background:#fff;border:1px solid #e0e0e0;padding:10px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.05);">
         <div id="selection-count" style="font-weight:bold;">0 Selected</div>
@@ -77,6 +91,7 @@
                         </th>
                         <th style="padding:12px 0;border-left:1.5px solid #c2c7d0;">Date<div class="resize-handle" data-col="date"></div></th>
                         <th class="invoices-number-col" style="padding:12px 0;">Invoice Number<div class="resize-handle" data-col="number"></div></th>
+                        <th style="padding:12px 0;">Type<div class="resize-handle" data-col="type"></div></th>
                         <th class="invoices-name-col col-name" style="padding:12px 0;">Client Name<div class="resize-handle" data-col="name"></div></th>
                         <th style="padding:12px 0;">Status<div class="resize-handle" data-col="status"></div></th>
                         <th class="invoices-amount-col" style="padding:12px 0;">Amount<div class="resize-handle" data-col="amount"></div></th>
@@ -90,11 +105,20 @@
             <table id="invoices-table-body" class="responsive-table clients-table" aria-hidden="false" style="width:100%;">
                 <tbody>
                     {% for invoice in invoices %}
-                    <tr data-url="{% url 'edit_invoice' invoice.id %}" data-amount="{{ invoice.amount|default:0 }}" data-paid="{{ invoice.paid_amount|default:0 }}">
+                    <tr data-url="{% url 'invoices:edit_invoice' invoice.id %}" data-amount="{{ invoice.amount|default:0 }}" data-paid="{{ invoice.paid_amount|default:0 }}" data-type="{{ invoice.type|default:'' }}">
                         <td style="padding:10px 0;text-align:center;border-left:1.5px solid #c2c7d0;"><input type="checkbox" class="row-select-checkbox" data-id="{{ invoice.id }}"></td>
                         <td style="padding:10px 0;text-align:center;border-left:1.5px solid #c2c7d0;">{{ invoice.created_at|date:'Y-m-d' }}</td>
                         <td class="invoices-number-col" style="padding:10px 0;text-align:right;">{{ invoice.invoice_number }}</td>
                         <td class="invoices-name-col col-name" style="padding:10px 0;">{{ invoice.client.first_name }}{% if invoice.client.last_name %} {{ invoice.client.last_name }}{% endif %}</td>
+                        <td style="padding:10px 0;text-align:center;">
+                            {% if invoice.type == 'sales' %}
+                                <span style="display:inline-block;padding:4px 8px;background:#4caf50;color:#fff;border-radius:12px;font-weight:bold;">Sales</span>
+                            {% elif invoice.type == 'maintenance' %}
+                                <span style="display:inline-block;padding:4px 8px;background:#1976d2;color:#fff;border-radius:12px;font-weight:bold;">Maintenance</span>
+                            {% else %}
+                                <span style="display:inline-block;padding:4px 8px;background:#9e9e9e;color:#fff;border-radius:12px;font-weight:bold;">{{ invoice.type|default:'Other' }}</span>
+                            {% endif %}
+                        </td>
                         <td style="padding:10px 0;text-align:center;">{% if invoice.paid %}<span style="color:green;font-weight:bold;">Paid</span>{% else %}<span style="color:#e53935;font-weight:bold;">Unpaid</span>{% endif %}</td>
                         <td class="invoices-amount-col" style="padding:10px 0;text-align:right;">{{ invoice.amount|floatformat:3 }}</td>
                         <td class="balance-due" style="padding:10px 0;text-align:right;">
@@ -102,7 +126,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" style="text-align:center;">No invoices.</td></tr>
+                    <tr><td colspan="8" style="text-align:center;">No invoices.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -206,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // ---- Bulk selection and bulk-delete handling ----
     try {
-        const BULK_DELETE_URL = "{% url 'bulk_delete_invoices' %}";
+        const BULK_DELETE_URL = "{% url 'invoices:bulk_delete_invoices' %}";
         function getCookie(name) {
             const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
             return v ? v.pop() : '';
@@ -271,6 +295,32 @@ document.addEventListener('DOMContentLoaded', function(){
             });
         }
     } catch (e) { /* selection features are best-effort */ }
+    // Quick filter buttons
+    try {
+        const rows = Array.from(document.querySelectorAll('#invoices-table-body tbody tr'));
+        function applyFilter(type) {
+            rows.forEach(r=>{
+                const t = (r.dataset.type || '').toLowerCase();
+                if(type === 'all') { r.style.display = ''; return; }
+                if(type === 'sales' && (t === 'sales' || t === 'sale')) r.style.display = ''; else if(type === 'maintenance' && t === 'maintenance') r.style.display = ''; else r.style.display = 'none';
+            });
+        }
+        const btnAll = document.getElementById('filter-all');
+        const btnSales = document.getElementById('filter-sales');
+        const btnMaint = document.getElementById('filter-maint');
+        function setActiveButton(btn) {
+            [btnAll, btnSales, btnMaint].forEach(b=>{
+                if(!b) return;
+                b.classList.toggle('active', b === btn);
+                b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+            });
+        }
+        if (btnAll) btnAll.addEventListener('click', ()=>{ applyFilter('all'); setActiveButton(btnAll); });
+        if (btnSales) btnSales.addEventListener('click', ()=>{ applyFilter('sales'); setActiveButton(btnSales); });
+        if (btnMaint) btnMaint.addEventListener('click', ()=>{ applyFilter('maintenance'); setActiveButton(btnMaint); });
+        // initialize default active state
+        try { setActiveButton(btnAll); applyFilter('all'); } catch(e) {}
+    } catch(e) {}
 });
 </script>
 {% endblock %}

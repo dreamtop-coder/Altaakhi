@@ -67,7 +67,7 @@
                                 <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="0.1" name="item_qty" value="{{ it.qty }}" {% if mode == 'view' %}readonly{% endif %} /></td>
                                 <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.01" name="item_rate" value="{{ it.rate }}" {% if mode == 'view' %}readonly{% endif %} /></td>
                                 <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.01" name="item_discount" value="{{ it.discount }}" {% if mode == 'view' %}readonly{% endif %} /></td>
-                                <td style="padding:6px;width:12%;"><input type="text" class="item-amount" name="item_amount" value="{{ it.line_amount }}" readonly /></td>
+                                <td style="padding:6px 12px 6px 6px;width:12%;"><input type="text" class="item-amount" name="item_amount" value="{{ it.line_amount }}" readonly /></td>
                                 <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="display:{% if mode == 'view' %}none{% else %}inline-block{% endif %};">×</button></td>
                             </tr>
                         {% endfor %}
@@ -77,7 +77,7 @@
                             <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="0.1" name="item_qty" value="1.0" {% if mode == 'view' %}readonly{% endif %} /></td>
                             <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.01" name="item_rate" value="0.00" {% if mode == 'view' %}readonly{% endif %} /></td>
                             <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.01" name="item_discount" value="0.0" {% if mode == 'view' %}readonly{% endif %} /></td>
-                            <td style="padding:6px;width:12%;"><input type="text" class="item-amount" name="item_amount" value="0.000" readonly /></td>
+                            <td style="padding:6px 12px 6px 6px;width:12%;"><input type="text" class="item-amount" name="item_amount" value="0.000" readonly /></td>
                             <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="display:{% if mode == 'view' %}none{% else %}inline-block{% endif %};">×</button></td>
                         </tr>
                     {% endif %}
@@ -126,18 +126,31 @@
     </div>
 
 <!-- scripts: keep in-page for now; later can move to static/js/bills.js -->
-<script src="{% static 'js/inventory-autocomplete.js' %}"></script>
+<script src="{% static 'js/line-items.api.js' %}?v=4"></script>
 <script>
 // organize initialization into functions to avoid multiple DOMContentLoaded handlers
 function initBillForm(){
     function parseFloatSafe(v){var n=parseFloat(v);return isNaN(n)?0:n}
-    function createItemRow(){var tbody=document.getElementById('items-body');var tr=document.createElement('tr');tr.className='item-row';tr.innerHTML = `\
-                <td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="0.1" value="1.0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.01" value="0.00" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.01" value="0.0" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
-                <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;tbody.appendChild(tr); try{ var newInput = tr.querySelector('.item-desc'); if(newInput){ try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); }catch(e){} } }catch(e){} return tr}
+    function createItemRow(){
+        // Delegate to canonical implementation if available
+        if(window.createItemRow && window.createItemRow !== createItemRow){
+            try{ return window.createItemRow(false); }catch(e){}
+        }
+        // If canonical script is being loaded, queue a call on load
+        if(document.getElementById('__items_table_loader')){
+            var loader = document.getElementById('__items_table_loader');
+            loader.addEventListener('load', function(){ try{ if(window.createItemRow && window.createItemRow !== createItemRow) window.createItemRow(true); }catch(e){} });
+            return null;
+        }
+        var urls = [
+            '{% static "js/line-items.api.js" %}?v=3',
+            '{% static "js/line-items.core.js" %}?v=3',
+            '{% static "js/line-items.ui.js" %}?v=3'
+        ];
+        function appendSeq(i){ if(i>=urls.length) return; var s = document.createElement('script'); s.id = '__items_table_loader' + (i===0? '':'_'+i); s.src = urls[i]; s.onload = function(){ if(i===urls.length-1){ try{ if(window.createItemRow && window.createItemRow !== createItemRow) window.createItemRow(true); }catch(e){} } appendSeq(i+1); }; document.head.appendChild(s); }
+        appendSeq(0);
+        return null;
+    }
     function updateRowAmount(row){var q=parseFloatSafe(row.querySelector('.item-qty').value);var r=parseFloatSafe(row.querySelector('.item-rate').value);var d=parseFloatSafe(row.querySelector('.item-discount').value);var amt=q*r*(1-d/100);row.querySelector('.item-amount').value=amt.toFixed(3);return amt}
     function recomputeTotals(){var subtotal=0;var discount=0;document.querySelectorAll('#items-body .item-row').forEach(function(row){var q=parseFloatSafe(row.querySelector('.item-qty').value);var r=parseFloatSafe(row.querySelector('.item-rate').value);var d=parseFloatSafe(row.querySelector('.item-discount').value);var line=q*r;var amt=updateRowAmount(row);subtotal+=line;discount+=(line-amt)});var subEl=document.getElementById('sub-total'); if(subEl) subEl.textContent=subtotal.toFixed(3); var discEl=document.getElementById('total-discount'); if(discEl) discEl.textContent=discount.toFixed(3); var grand=(subtotal-discount).toFixed(3); var grandEl=document.getElementById('grand-total'); if(grandEl) grandEl.textContent=grand; try{var bottom=document.getElementById('bottom-total'); if(bottom) bottom.textContent = 'BHD ' + (parseFloat(grand)||0).toFixed(3);}catch(e){}
     }

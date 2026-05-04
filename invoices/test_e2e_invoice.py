@@ -81,7 +81,5 @@ class InvoiceE2ETests(TestCase):
             {'service_id': self.service.id, 'qty': 1, 'rate': float(self.service.default_price), 'description': self.service.name}
         ]
         resp = self.post_invoice(items)
-        self.assertEqual(resp.status_code, 302)
-        # no invoice items should be created for services in stock invoice
-        latest_items = InvoiceItem.objects.filter(service=self.service).count()
-        self.assertEqual(latest_items, 0)
+        # Service-only rows are rejected for stock invoices
+        self.assertEqual(resp.status_code, 400)

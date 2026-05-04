@@ -487,8 +487,24 @@ def maintenance_list(request):
 		# show all
 		records = list(qs)
 
+	# Also include invoices that are related to maintenance records or to cars
+	# that have maintenance records. This makes the maintenance page surface
+	# both service records and any invoices (including parts sales) tied to
+	# workshop activity.
+	try:
+		from invoices.models import Invoice
+		# invoice ids directly referenced by maintenance records
+		rec_invoice_ids = list(MaintenanceRecord.objects.filter(invoice__isnull=False).values_list('invoice_id', flat=True))
+		# invoices for cars that have maintenance records
+		car_ids = list(MaintenanceRecord.objects.values_list('car_id', flat=True))
+		maintenance_invoices_qs = Invoice.objects.select_related('client', 'car').filter(models.Q(id__in=rec_invoice_ids) | models.Q(car_id__in=car_ids)).distinct().order_by('-created_at')
+		maintenance_invoices = list(maintenance_invoices_qs)
+	except Exception:
+		maintenance_invoices = []
+
 	context = {
 		'records': records,
+		'maintenance_invoices': maintenance_invoices,
 		'plate_number': plate_number,
 		'per_page': (0 if str(per_page)== '0' or per_page==0 else per_page),
 		'per_page_options': per_page_options,

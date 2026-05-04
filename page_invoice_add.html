@@ -1,11 +1,11 @@
-{% load i18n static %}
+
 <!DOCTYPE html>
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>{% trans "Workshop Dashboard" %}</title>
+    <title>Workshop Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="{% static 'css/components.css' %}">
+    <link rel="stylesheet" href="/static/css/components.css">
     <style>
         body { font-family: Tahoma, Arial, sans-serif; background: #f4f6fa; margin: 0; padding: 0; }
         .dashboard-container { display: flex; min-height: 100vh; direction: ltr; }
@@ -368,225 +368,14 @@
                 100% { background: transparent; }
             }
         </style>
-    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
+    <link rel="stylesheet" href="/static/fontawesome/css/all.min.css" />
     <!-- Favicon: explicit static path + inline SVG fallback to avoid /favicon.ico 404 -->
-    <link rel="icon" href="{% static 'images/favicon.ico' %}" />
+    <link rel="icon" href="/static/images/favicon.ico" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='100%25' height='100%25' fill='%23f6c23e'/%3E%3Ctext x='50%25' y='50%25' font-size='10' dominant-baseline='middle' text-anchor='middle' fill='%23222e3c'%3EA%3C/text%3E%3C/svg%3E" />
     
 </head>
-</head>
-<body data-invoice-type="{% if invoice_type %}{{ invoice_type }}{% else %}{% endif %}"{% if invoice_type == 'sales' %} data-page="sales-invoice"{% endif %}>
-    <!-- Persistent container for floating dropdowns to avoid removal by subtree re-renders -->
-    <div id="dropdown-root" style="position:relative;z-index:1400;"></div>
-    {% if not request.path == '/users/login/' %}
-    <div class="dashboard-container">
-        <div class="sidebar mobile-hidden" id="sidebarMenu">
-            <h2>Al-Takhi Auto Repair</h2>
-            <ul style="position:relative;">
-                <li onclick="location.href='{% url 'dashboard' %}'"><i class="fa fa-tachometer"></i>Dashboard</li>
-                <li onclick="location.href='{% url 'users_list' %}'"><i class="fa fa-users"></i>User Management</li>
-                <li><i class="fa fa-cogs"></i>General Settings</li>
-                <li><a href="/inventory/" style="color:inherit;text-decoration:none;"><i class="fa fa-archive"></i> Items</a></li>
-                <li id="services-section" style="position:relative;cursor:pointer;">
-                    <i class="fa fa-wrench"></i>Services
-                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
-                    <ul id="brands-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/brands/" class="cars-submenu-link">Car Manufacturers</a></li>
-                    </ul>
-                </li>
-                <li id="clients-section" style="position:relative;cursor:pointer;">
-                    <i class="fa fa-user"></i>Customers
-                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
-                    <ul id="clients-submenu" style="display:none;list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/clients/" class="clients-submenu-link">Customers</a></li>
-                    </ul>
-                </li>
-
-                <li id="purchases-section" style="position:relative;cursor:pointer;">
-                    <i class="fa fa-truck"></i>Purchases
-                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
-                    <ul id="purchases-submenu" style="display:{% if request.path|slice:':11' == '/suppliers/' or request.path|slice:':7' == '/bills/' or request.path|slice:':17' == '/vendors/payments/' %}block{% else %}none{% endif %};list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/suppliers/" class="purchases-submenu-link {% if request.path|slice:':11' == '/suppliers/' %}active{% endif %}">Vendors</a></li>
-                        <li style="position:relative;">
-                            <a href="/bills/" class="purchases-submenu-link {% if request.path|slice:':7' == '/bills/' %}active{% endif %}">Bills</a>
-                            <a class="submenu-add-btn" href="/bills/add/" title="Add Bill" aria-label="Add Bill">+</a>
-                        </li>
-                        <li style="position:relative;">
-                            <a href="/vendors/payments/" class="purchases-submenu-link {% if request.path|slice:':17' == '/vendors/payments/' %}active{% endif %}">Payments Made</a>
-                            <a class="submenu-add-btn" href="/vendors/payments/add/" title="Add Payment" aria-label="Add Payment">+</a>
-                        </li>
-                    </ul>
-                </li>
-                <style>
-                /* show add button on hover for submenu items */
-                    #cars-submenu li, #purchases-submenu li { position: relative; padding-right: 40px; }
-                    /* hide add-circle by default; show on hover for discoverability */
-                    #cars-submenu li .submenu-add-btn, #purchases-submenu li .submenu-add-btn { display: none; align-items: center; justify-content: center; position: absolute; right: -6px; top: 50%; transform: translateY(-50%); background: #1976d2; color: #fff; width: 30px; height: 30px; border-radius: 50%; text-decoration: none; font-weight: 800; font-size: 1.05em; line-height: 1; }
-                    /* show when hovering the submenu item */
-                    #cars-submenu li:hover .submenu-add-btn, #purchases-submenu li:hover .submenu-add-btn { display: inline-flex; }
-                    /* if the submenu link is active, keep the circle visible */
-                    #cars-submenu li .cars-submenu-link.active + .submenu-add-btn, #purchases-submenu li .purchases-submenu-link.active + .submenu-add-btn { display: inline-flex; }
-                    /* Active purchases submenu link blue style */
-                    #purchases-submenu li .purchases-submenu-link.active { background: #4b86ff; color: #fff; font-weight: 600; }
-                /* submenu link styles: hover = gray, active = blue, pointer cursor */
-                /* default submenu text is light for contrast (was yellow) */
-                /* default submenu text: white for best contrast */
-                #cars-submenu li .cars-submenu-link { color: #ffffff; text-decoration: none; display: block; padding: 8px 12px 8px 36px; font-size:0.95em; cursor: pointer; border-radius:8px; }
-                /* Purchases submenu links should match Maintenance submenu visuals */
-                #purchases-submenu li .purchases-submenu-link { color: #ffffff; text-decoration: none; display: block; padding: 8px 12px 8px 36px; font-size:0.95em; cursor: pointer; border-radius:8px; }
-                /* Hover: light rounded background + gray text and small indicator dot */
-                /* indicator moved to the left gutter so it doesn't cover text */
-                    #cars-submenu li .cars-submenu-link { }
-                /* Hover: only show circular indicator in gutter; do not change text color or add background */
-                #cars-submenu li .cars-submenu-link:hover { background: transparent; color: #ffffff; }
-                #purchases-submenu li .purchases-submenu-link:hover { background: transparent; color: #ffffff; }
-                    /* invoices submenu add-button styles (reuse purchases/cars behavior) */
-                    #invoices-submenu li, #clients-submenu li { position: relative; padding-right: 40px; }
-                    #invoices-submenu li .submenu-add-btn, #clients-submenu li .submenu-add-btn { display: none; align-items: center; justify-content: center; position: absolute; right: -6px; top: 50%; transform: translateY(-50%); background: #1976d2; color: #fff; width: 30px; height: 30px; border-radius: 50%; text-decoration: none; font-weight: 800; font-size: 1.05em; line-height: 1; }
-                    #invoices-submenu li:hover .submenu-add-btn, #clients-submenu li:hover .submenu-add-btn { display: inline-flex; }
-                    #invoices-submenu li .invoices-submenu-link.active + .submenu-add-btn, #clients-submenu li .clients-submenu-link.active + .submenu-add-btn { display: inline-flex; }
-
-                    /* Top-level Invoices add button */
-                    /* Top-level invoices add button removed to avoid duplicate + icon; submenu add remains */
-                    #invoices-section { position: relative; }
-                /* indicator dot in gutter for cars submenu */
-                #cars-submenu li:hover::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
-                /* indicator dot in gutter for purchases submenu (gray) */
-                #purchases-submenu li:hover::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; background: #9e9e9e; border-radius: 50%; pointer-events: none; }
-                /* Active/selected: blue rounded background with white text */
-                #cars-submenu li .cars-submenu-link.active { background: #4b86ff; color: #fff; font-weight: 600; }
-                #purchases-submenu li .purchases-submenu-link.active { background: #4b86ff; color: #fff; font-weight: 600; }
-                /* Make Sales/invoices submenu match Cars submenu visuals */
-                #invoices-submenu li .invoices-submenu-link, #clients-submenu li .clients-submenu-link, #brands-submenu li .cars-submenu-link { color: #ffffff; text-decoration: none; display: block; padding: 8px 12px 8px 36px; font-size:0.95em; cursor: pointer; border-radius:8px; }
-                #invoices-submenu li .invoices-submenu-link:hover, #clients-submenu li .clients-submenu-link:hover, #brands-submenu li .cars-submenu-link:hover { background: transparent; color: #ffffff; }
-                #invoices-submenu li .invoices-submenu-link.active, #clients-submenu li .clients-submenu-link.active, #brands-submenu li .cars-submenu-link.active { background: #4b86ff; color: #fff; font-weight: 600; }
-                /* Ensure link/visited/focus/active states remain white (override browser defaults) */
-                #sidebarMenu a.cars-submenu-link, #sidebarMenu a.invoices-submenu-link, #sidebarMenu a.clients-submenu-link, #sidebarMenu a.purchases-submenu-link { color: #ffffff; }
-                #sidebarMenu a.cars-submenu-link:visited, #sidebarMenu a.invoices-submenu-link:visited, #sidebarMenu a.clients-submenu-link:visited, #sidebarMenu a.purchases-submenu-link:visited { color: #ffffff; }
-                #sidebarMenu a.cars-submenu-link:focus, #sidebarMenu a.invoices-submenu-link:focus, #sidebarMenu a.clients-submenu-link:focus, #sidebarMenu a.purchases-submenu-link:focus { color: #ffffff; outline: none; }
-                #sidebarMenu a.cars-submenu-link:hover, #sidebarMenu a.invoices-submenu-link:hover, #sidebarMenu a.clients-submenu-link:hover, #sidebarMenu a.purchases-submenu-link:hover { color: #ffffff; background: transparent; }
-                /* indicator dot in gutter for invoices submenu (same as cars) */
-                #invoices-submenu li:hover::before { content: ''; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; background: rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
-                </style>
-
-                <li id="cars-section" style="position:relative;cursor:pointer;">
-                    <i class="fa fa-car"></i>Cars
-                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
-                    <ul id="cars-submenu" style="display:{% if request.path|slice:':6' == '/cars/' or request.path|slice:':13' == '/maintenance/' or request.path|slice:':10' == '/bookings/' or request.path|slice:':10' == '/inventory/' %}block{% else %}none{% endif %};list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li><a href="/cars/" class="cars-submenu-link {% if request.path|slice:':6' == '/cars/' %}active{% endif %}">Cars</a></li>
-                        <li style="position:relative;">
-                            <a href="/maintenance/" class="cars-submenu-link {% if request.path|slice:':13' == '/maintenance/' %}active{% endif %}">Maintenance</a>
-                            <a class="submenu-add-btn" href="/maintenance/add/">+</a>
-                        </li>
-                        <li><a href="/invoices/payments/" class="cars-submenu-link {% if request.path|slice:':18' == '/invoices/payments' %}active{% endif %}">Payments</a></li>
-                        <li><a href="/bookings/" class="cars-submenu-link {% if request.path|slice:':10' == '/bookings/' %}active{% endif %}">Bookings</a></li>
-                        <li><a href="/inventory/" class="cars-submenu-link {% if request.path|slice:':10' == '/inventory/' %}active{% endif %}">Services</a></li>
-                    </ul>
-                </li>
-                <li id="invoices-section" style="position:relative;cursor:pointer;">
-                    <i class="fa fa-dollar-sign"></i>Sales
-                    
-                    <i class="fa fa-chevron-down" style="font-size:0.9em;margin-left:7px;"></i>
-                    <ul id="invoices-submenu" style="display:{% if request.path|slice:':9' == '/invoices' and 'financial' not in request.path and 'reports' not in request.path %}block{% else %}none{% endif %};list-style:none;padding-left:18px;margin:0;background:transparent;border-radius:0;position:static;min-width:0;z-index:10;">
-                        <li style="position:relative;">
-                            <a href="/clients/" class="clients-submenu-link">Customers</a>
-                        </li>
-                        <li style="position:relative;">
-                            <a href="/invoices/" class="invoices-submenu-link">Invoices</a>
-                            <a class="submenu-add-btn" href="/invoices/add/" title="Add Invoice" aria-label="Add Invoice">+</a>
-                        </li>
-                        <li style="position:relative;">
-                            <a href="/invoices/payments/" class="invoices-submenu-link">Payments</a>
-                            <a class="submenu-add-btn" href="/invoices/payments/add/" title="Add Payment" aria-label="Add Payment">+</a>
-                        </li>
-                        <li style="position:relative;">
-                            <a href="/invoices/print/" class="invoices-submenu-link">Print Invoice</a>
-                        </li>
-                        <li style="position:relative;">
-                            <a href="/invoices/account-statement/" class="invoices-submenu-link">Account Statement</a>
-                        </li>
-                        <li style="position:relative;">
-                            <a href="/invoices/expenses/" class="invoices-submenu-link">Expenses</a>
-                            <a class="submenu-add-btn" href="/invoices/expenses/add/" title="Add Expense" aria-label="Add Expense">+</a>
-                        </li>
-                        <li style="position:relative;">
-                            <a href="/invoices/recurring/" class="invoices-submenu-link">Recurring Expenses</a>
-                        </li>
-                    </ul>
-                </li>
-                <li style="position:relative;">
-                    <a href="/invoices/financial/" class="invoices-submenu-link">
-                        <i class="fa fa-chart-bar"></i>Financial Management
-                    </a>
-                </li>
-                <li><a href="/invoices/reports/" style="color:inherit;text-decoration:none;display:block;padding:8px 0 8px 10px;font-size:0.95em;"><i class="fa fa-file-alt"></i>Reports</a></li>
-            </ul>
-        </div>
-        <div class="main-content">
-            <div class="topbar">
-                <button class="mobile-sidebar-toggle" id="sidebarToggle" aria-label="{% trans "Sidebar" %}"><i id="sidebarToggleIcon" class="fa fa-bars"></i></button>
-                <div class="workshop-logo">
-                    <img src="{% static 'altaakhi_logo.png' %}" alt="{% trans "Al-Takhi Auto Repair logo" %}" style="height:38px;width:38px;"/>
-                    <span class="main-logo-title">Al-Takhi Auto Repair</span>
-                </div>
-                <!-- Global Topbar Search (compact, opens dropdown on magnifier) -->
-                <div id="topbar-search" style="margin-left:18px;position:relative;flex:1;max-width:520px;">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <button id="global-search-toggle" title="Search" style="background:transparent;border:1px solid #ddd;padding:8px;border-radius:8px;display:flex;align-items:center;gap:6px;cursor:pointer;color:#666;">
-                            <i class="fa fa-search"></i>
-                        </button>
-                        <input id="global-search-input" type="text" placeholder="Search customers / items / quotes / invoices / vendors" aria-label="Global search" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid #e6e6e6;display:none;min-width:180px;" />
-                    </div>
-                    <div id="global-search-results" style="display:none;position:absolute;left:0;top:44px;right:0;z-index:50;background:#fff;border:1px solid #e6e6e6;border-radius:8px;max-height:360px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.08);padding:8px;">
-                        <div id="global-search-loading" style="display:none;padding:18px;text-align:center;color:#666;">Searching...</div>
-                        <div id="global-search-empty" style="display:none;padding:12px;text-align:center;color:#666;">No results</div>
-                        <div id="global-search-defaults" style="display:none;padding:6px 4px;">
-                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                                <div class="search-default-wrap" data-type="customers" style="position:relative;">
-                                    <a href="#" class="search-default" data-type="customers" data-url="/clients/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Customers</a>
-                                    <a href="{% url 'add_client' %}" class="search-default-plus" title="New customer" style="display:none;position:absolute;right:-6px;top:-6px;background:#007bff;color:#fff;border-radius:50%;width:26px;height:26px;align-items:center;justify-content:center;display:flex;text-decoration:none;">+</a>
-                                </div>
-                                <div class="search-default-wrap" data-type="items" style="position:relative;">
-                                    <a href="#" class="search-default" data-type="items" data-url="/inventory/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Items</a>
-                                </div>
-                                <div class="search-default-wrap" data-type="quotes" style="position:relative;">
-                                    <a href="#" class="search-default" data-type="quotes" data-url="/quotes/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Quotes</a>
-                                </div>
-                                <div class="search-default-wrap" data-type="invoices" style="position:relative;">
-                                    <a href="#" class="search-default" data-type="invoices" data-url="/invoices/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Invoices</a>
-                                </div>
-                                <div class="search-default-wrap" data-type="vendors" style="position:relative;">
-                                    <a href="#" class="search-default" data-type="vendors" data-url="/suppliers/" style="padding:8px 12px;border-radius:8px;background:#f6f7fb;color:#333;text-decoration:none;display:inline-block;">Vendors</a>
-                                </div>
-                            </div>
-                            <div style="margin-top:8px;color:#777;font-size:0.95em;">Press <strong>Enter</strong> to search, or click a category.</div>
-                        </div>
-                        <div id="global-search-groups" style="display:none;">
-                            <!-- Example group structure; populated by JS -->
-                        </div>
-                    </div>
-                </div>
-                <div class="user-info">
-                    <button class="icon-btn" title="{% trans "Settings" %}"><i class="fa fa-cog"></i></button>
-                    <button class="icon-btn" title="{% trans "Notifications" %}"><i class="fa fa-bell"></i></button>
-                    {% if request.user.is_authenticated %}
-                        <span class="admin-name">
-                            {% if request.user.first_name %}
-                                {{ request.user.first_name }}
-                            {% else %}
-                                {{ request.user.username }}
-                            {% endif %}
-                        </span>
-                        <a href="{% url 'logout' %}" class="icon-btn" title="{% trans "Log out" %}" style="margin-right:8px;">
-                            <i class="fa fa-sign-out-alt"></i>
-                        </a>
-                    {% else %}
-                        <span class="admin-name">{% trans "Guest" %}</span>
-                    {% endif %}
-                </div>
-            </div>
-            {# تم نقل القائمة المنسدلة إلى الشريط الجانبي الرئيسي #}
-    {% endif %}
+<body>
+    
             <script>
             document.addEventListener('DOMContentLoaded', function() {
                 var sidebar = document.getElementById('sidebarMenu');
@@ -798,7 +587,7 @@
                                 const openLink = document.createElement('a'); openLink.href = a.getAttribute('data-url') || '#'; openLink.textContent = 'Open ' + (cat.charAt(0).toUpperCase() + cat.slice(1)); openLink.style.padding='8px 10px'; openLink.style.borderRadius='6px'; openLink.style.background='#fff'; openLink.style.border='1px solid #eee'; openLink.style.color='#007bff'; openLink.style.textDecoration='none';
                                 div.appendChild(openLink);
                                 // create link (if known)
-                                const createMap = { customers: '{% url "add_client" %}', items: '/inventory/add/', quotes: '/quotes/add/', invoices: '/invoices/add/', vendors: '/suppliers/add/' };
+                                const createMap = { customers: '/clients/add/', items: '/inventory/add/', quotes: '/quotes/add/', invoices: '/invoices/add/', vendors: '/suppliers/add/' };
                                 if(createMap[cat]){
                                     const createLink = document.createElement('a'); createLink.href = createMap[cat]; createLink.textContent = 'Create new'; createLink.style.padding='8px 10px'; createLink.style.borderRadius='6px'; createLink.style.background='#007bff'; createLink.style.color='#fff'; createLink.style.textDecoration='none'; createLink.style.display='inline-block';
                                     div.appendChild(createLink);
@@ -954,15 +743,168 @@
                     // Render Django messages as toasts
                     try{
                         var dj_msgs = [
-                            {% for message in messages %}
-                                {text: '{{ message|escapejs }}', level: '{{ message.tags }}' },
-                            {% endfor %}
+                            
                         ];
                         dj_msgs.forEach(function(m){ createToast(m.text, m.level || 'info'); });
                     }catch(e){ /* no messages or template not loaded */ }
                 })();
             </script>
-            {% block content %}{% endblock %}
+            
+<style>
+    .login-center-wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f6f8fa;
+    }
+    .login-form-box {
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 2px 16px #0002;
+        padding: 32px 24px 24px 24px;
+        max-width: 340px;
+        width: 100%;
+        text-align: center;
+        margin: 0 auto;
+    }
+    .login-form-box h2 {
+        margin-bottom: 18px;
+        font-size: 1.6em;
+        color: #32405a;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+    }
+    .login-form-box h2::after {
+        content: "";
+        display: block;
+        margin: 18px auto 0 auto;
+        width: 90%;
+        height: 2px;
+        background: #f2f3f7;
+        border-radius: 2px;
+    }
+    .login-form-box form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        margin-top: 10px;
+    }
+    .login-form-box input[type="text"],
+    .login-form-box input[type="password"] {
+        padding: 13px 12px;
+        border-radius: 8px;
+        border: 1.2px solid #d1d5db;
+        font-size: 1.08em;
+        width: 100%;
+        text-align: right;
+        background: #f8fafc;
+        transition: border 0.2s;
+        margin-bottom: 2px;
+        display: block;
+        box-sizing: border-box;
+        overflow: hidden;
+        direction: rtl;
+    }
+    .login-form-box input[type="text"]:focus,
+    .login-form-box input[type="password"]:focus {
+        border: 1.2px solid #007bff;
+        outline: none;
+        background: #fff;
+    }
+    .login-form-box button[type="submit"] {
+        background: linear-gradient(90deg, #2386f8 0%, #1877ee 100%);
+        color: #fff;
+        padding: 14px 0;
+        border-radius: 9px;
+        font-weight: bold;
+        border: none;
+        font-size: 1.18em;
+        margin-top: 12px;
+        width: 100%;
+        box-shadow: 0 2px 8px #2386f81a;
+        transition: background 0.2s, box-shadow 0.2s;
+        letter-spacing: 0.5px;
+    }
+    .login-form-box button[type="submit"]:hover {
+        background: linear-gradient(90deg, #1877ee 0%, #2386f8 100%);
+        box-shadow: 0 4px 16px #2386f82a;
+    }
+    @media (max-width: 700px) {
+        .login-center-wrapper {
+            min-height: 100vh;
+            padding: 0 0.5rem;
+        }
+        .login-form-box {
+            padding: 10px 2px 10px 2px;
+            max-width: 99vw;
+        }
+        .login-form-box h2 {
+            font-size: 1.08em;
+            margin-bottom: 10px;
+        }
+        .login-form-box h2::after {
+            margin: 10px auto 0 auto;
+            height: 1.5px;
+        }
+        .login-form-box input[type="text"],
+        .login-form-box input[type="password"] {
+            padding: 9px 6px;
+            font-size: 0.98em;
+        }
+        .login-form-box button[type="submit"] {
+            padding: 10px 0;
+            font-size: 1em;
+        }
+    }
+</style>
+<div class="login-center-wrapper">
+    <div class="login-form-box">
+        <h2>تسجيل الدخول</h2>
+        <form method="post">
+            <input type="hidden" name="csrfmiddlewaretoken" value="ah1BM7DRiTfE6nK750MnqNn5Ak6OkB9HRF25iUN8Zf1fFz5ELItTmsqU8EmP00yG">
+            
+                <div class="login-field-wrapper">
+                    <label for="id_username" class="login-label">اسم المستخدم</label>
+                    <input type="text" name="username" maxlength="150" required id="id_username">
+                    
+                </div>
+            
+                <div class="login-field-wrapper">
+                    <label for="id_password" class="login-label">كلمة المرور</label>
+                    <input type="password" name="password" required id="id_password">
+                    
+                </div>
+            
+            <button type="submit">دخول</button>
+        </form>
+    </style>
+    <style>
+        .login-field-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            margin-bottom: 13px;
+            text-align: right;
+        }
+        .login-label {
+            font-size: 1em;
+            color: #32405a;
+            margin-bottom: 6px;
+            font-weight: 500;
+            text-align: right;
+            letter-spacing: 0.2px;
+        }
+        .login-error {
+            color: #e74a3b;
+            font-size: 0.95em;
+            margin-top: 2px;
+            margin-bottom: 2px;
+            text-align: right;
+        }
+    </div>
+</div>
+
         </div>
     </div>
 <script>
@@ -1040,48 +982,6 @@ window.fetchJson = function(url, opts){
         });
     });
 };
-</script>
-<script>
-// Page Policies scaffold (Phase 1+2): define Policies and fetchItems
-// WARNING: scaffold only — no behavioral changes are made here.
-(function(){
-    try{
-        window.Policies = window.Policies || {
-            bills: {
-                itemType: 'inventory',
-                allowServices: false,
-                stockImpact: 'increase'
-            },
-            invoices: {
-                itemType: 'inventory',
-                allowServices: false,
-                stockImpact: 'decrease'
-            },
-            maintenance: {
-                allowServices: true,
-                allowParts: true
-            }
-        };
-
-        // fetchItems abstraction: initial implementation delegates to existing
-        // inventory fetch to avoid changing runtime behavior. Later we will
-        // route requests per-page according to Policies.
-        window.fetchItems = window.fetchItems || function(q){
-            try{
-                var page = (document.body && document.body.dataset && document.body.dataset.page) || null;
-                var policy = (window.Policies && page && window.Policies[page]) || null;
-                // For now, delegate to the existing inventory fetch which preserves
-                // current behavior across pages.
-                if(typeof window.fetchInventory === 'function') return window.fetchInventory(q);
-                // fallback to generic fetchJson if needed
-                return window.fetchJson('/inventory/json/?q=' + encodeURIComponent(q)).then(function(r){ return r.results || []; }).catch(function(){ return []; });
-            }catch(e){
-                try{ console.error('fetchItems error', e); }catch(err){}
-                return Promise.resolve([]);
-            }
-        };
-    }catch(e){ try{ console.error('Policies init failed', e); }catch(err){} }
-})();
 </script>
 </body>
 </html>

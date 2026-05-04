@@ -63,12 +63,13 @@ def add_bill(request):
                 line_net = (qty * rate * (Decimal('1') - (disc / Decimal('100'))))
                 subtotal += line_total
                 discount_total += (line_total - line_net)
+                # Force account_type to 'inventory' for bills (purchase stock only)
                 lines.append({
                     'description': it.get('description') or it.get('item') or '',
                     'qty': qty,
                     'rate': rate,
                     'discount': disc,
-                    'account_type': (it.get('account_type') or 'inventory'),
+                    'account_type': 'inventory',
                     'amount': line_net
                 })
             except Exception:
@@ -167,13 +168,14 @@ def add_bill(request):
 
                     # create new lines and update parts
                     for ln in lines:
+                        # Ensure account_type is inventory regardless of incoming data
                         BillLine.objects.create(
                             bill=existing,
                             description=ln['description'],
                             quantity=ln['qty'],
                             rate=ln['rate'],
                             discount_percent=ln['discount'],
-                            account_type=ln.get('account_type', 'inventory'),
+                            account_type='inventory',
                             amount=ln['amount']
                         )
                         try:
@@ -284,13 +286,14 @@ def add_bill(request):
                     pass
 
                 for ln in lines:
+                    # Persist lines as inventory-only
                     BillLine.objects.create(
                         bill=bill,
                         description=ln['description'],
                         quantity=ln['qty'],
                         rate=ln['rate'],
                         discount_percent=ln['discount'],
-                        account_type=ln.get('account_type', 'inventory'),
+                        account_type='inventory',
                         amount=ln['amount']
                     )
 

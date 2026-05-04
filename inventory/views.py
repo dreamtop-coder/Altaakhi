@@ -224,23 +224,24 @@ def inventory_search_json(request):
 			return JsonResponse({'results': [result]})
 		except Exception:
 			return JsonResponse({'results': []})
+	# Use a limited, efficient QuerySet and return only required fields
 	parts_qs = Part.objects.all().order_by('code')
 	if q:
 		parts_qs = parts_qs.filter(Q(name__icontains=q) | Q(code__icontains=q))
 
-	# limit results to avoid huge payloads
-	parts = parts_qs[:50]
+	# limit and materialize only needed fields to avoid heavy model instantiation
+	parts_vals = list(parts_qs.values('id', 'name', 'code', 'sale_price', 'purchase_price', 'quantity', 'track_stock')[:50])
 	results = []
-	for p in parts:
+	for p in parts_vals:
 		results.append({
-			'id': p.id,
-			'name': p.name,
-			'code': p.code or '',
-				'sale_price': str(p.sale_price),
-			'purchase_price': str(p.purchase_price),
-				'quantity': p.quantity,
-				'stock': p.quantity,
-			'track_stock': bool(p.track_stock),
+			'id': p.get('id'),
+			'name': p.get('name') or '',
+			'code': p.get('code') or '',
+			'sale_price': str(p.get('sale_price')) if p.get('sale_price') is not None else None,
+			'purchase_price': str(p.get('purchase_price')) if p.get('purchase_price') is not None else None,
+			'quantity': p.get('quantity'),
+			'stock': p.get('quantity'),
+			'track_stock': bool(p.get('track_stock')),
 		})
 	return JsonResponse({'results': results})
 

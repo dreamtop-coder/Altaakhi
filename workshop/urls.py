@@ -54,7 +54,7 @@ urlpatterns = [
     path('brands/bulk-delete/', brands_bulk_delete, name='brands_bulk_delete'),
     # إدارة الموديلات
     path('', include(('cars.urls', 'cars'), namespace='cars')),
-    path('invoices/', include('invoices.urls')),
+    path('invoices/', include(('invoices.urls', 'invoices'), namespace='invoices')),
     path('models/', models_list, name='models_list'),
     path('models/add/', add_model, name='add_model'),
     path('models/<int:model_id>/edit/', edit_model, name='edit_model'),

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="invoice-page invoice-card">
+  <h2>إضافة فاتورة بيع</h2>
+
+  <!-- Customer header -->
+  <section id="invoice-header">
+    <label>العميل</label>
+    <input id="customer-search" name="customer_search" placeholder="ابحث عن عميل" autocomplete="off" />
+    <button id="customer-search-btn" type="button">🔍</button>
+  </section>
+
+  <!-- Parts table only (no services) -->
+  <section class="parts-section">
+    <h3>قطع الغيار</h3>
+    <table id="items-table">
+      <thead>
+        <tr><th>الوصف</th><th>كمية</th><th>سعر</th><th>خصم</th><th>المبلغ</th><th></th></tr>
+      </thead>
+      <tbody id="items-body"></tbody>
+    </table>
+    <button id="add-row" type="button">إضافة قطعة</button>
+  </section>
+
+  <!-- Totals -->
+  <section class="totals">
+    <div>Sub total: <span id="sub-total">0.000</span></div>
+    <div>Discount: <span id="total-discount">0.000</span></div>
+    <div>Grand: <span id="grand-total">0.000</span></div>
+  </section>
+
+  <form id="invoice-form" method="post">
+    {% csrf_token %}
+    <input type="hidden" id="items_json" name="items_json" />
+    <button type="submit">حفظ الفاتورة</button>
+  </form>
+</div>
+
+<!-- Scripts: core + invoice-only logic (no services) -->
+<script>window.PAGE_MODE = 'invoice';</script>
+<script src="{% static 'js/core-inventory.js' %}"></script>
+<script src="{% static 'js/invoice.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){ try{ document.body.dataset.page = 'invoices'; }catch(e){} });
+</script>
+{% endblock %}

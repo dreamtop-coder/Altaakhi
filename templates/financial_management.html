@@ -166,7 +166,7 @@
                             <td style="padding:8px 10px;">{{ inv.car.plate_number }}</td>
                             <td style="padding:8px 10px;text-align:right;">{{ inv.amount|floatformat:3 }}</td>
                             <td style="padding:8px 10px;">{% if inv.paid %}<span style="background:#e6f4ea;color:#28a745;padding:4px 8px;border-radius:12px;font-size:0.85em;font-weight:700;">Paid</span>{% else %}<span style="background:#fdecea;color:#c00;padding:4px 8px;border-radius:12px;font-size:0.85em;font-weight:700;">Unpaid</span>{% endif %}</td>
-                            <td style="padding:8px 10px;"><a href="{% url 'print_invoice' inv.id %}" target="_blank" style="color:#1976d2;text-decoration:none;margin-right:10px;display:inline-block;">Print</a><a href="{% url 'edit_invoice' inv.id %}" style="color:#666;text-decoration:none;margin-right:10px;display:inline-block;">Edit</a>{% if not inv.paid %}<a href="/invoices/payments/add/?invoice={{ inv.id }}" style="color:#28a745;text-decoration:none;display:inline-block;">Add Payment</a>{% endif %}</td>
+                            <td style="padding:8px 10px;"><a href="{% url 'invoices:print_invoice' inv.id %}" target="_blank" style="color:#1976d2;text-decoration:none;margin-right:10px;display:inline-block;">Print</a><a href="{% url 'invoices:edit_invoice' inv.id %}?next={{ request.get_full_path|urlencode }}" style="color:#666;text-decoration:none;margin-right:10px;display:inline-block;">Edit</a>{% if not inv.paid %}<a href="/invoices/payments/add/?invoice={{ inv.id }}" style="color:#28a745;text-decoration:none;display:inline-block;">Add Payment</a>{% endif %}</td>
                         {% else %}
                         <tr style="border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background='#f9fbff'" onmouseout="this.style.background='transparent'">
                             <td style="padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ inv.invoice_number }}</td>
@@ -175,7 +175,7 @@
                             <td style="padding:8px 10px;">{{ inv.car.plate_number }}</td>
                             <td style="padding:8px 10px;text-align:right;">{{ inv.amount|floatformat:3 }}</td>
                             <td style="padding:8px 10px;">{% if inv.paid %}<span style="background:#e6f4ea;color:#28a745;padding:4px 8px;border-radius:12px;font-size:0.85em;font-weight:700;">Paid</span>{% else %}<span style="background:#fdecea;color:#c00;padding:4px 8px;border-radius:12px;font-size:0.85em;font-weight:700;">Unpaid</span>{% endif %}</td>
-                            <td style="padding:8px 10px;"><a href="{% url 'print_invoice' inv.id %}" target="_blank" style="color:#1976d2;text-decoration:none;margin-right:10px;display:inline-block;">Print</a><a href="{% url 'edit_invoice' inv.id %}" style="color:#666;text-decoration:none;margin-right:10px;display:inline-block;">Edit</a>{% if not inv.paid %}<a href="/invoices/payments/add/?invoice={{ inv.id }}" style="color:#28a745;text-decoration:none;display:inline-block;">Add Payment</a>{% endif %}</td>
+                            <td style="padding:8px 10px;"><a href="{% url 'invoices:print_invoice' inv.id %}" target="_blank" style="color:#1976d2;text-decoration:none;margin-right:10px;display:inline-block;">Print</a><a href="{% url 'invoices:edit_invoice' inv.id %}?next={{ request.get_full_path|urlencode }}" style="color:#666;text-decoration:none;margin-right:10px;display:inline-block;">Edit</a>{% if not inv.paid %}<a href="/invoices/payments/add/?invoice={{ inv.id }}" style="color:#28a745;text-decoration:none;display:inline-block;">Add Payment</a>{% endif %}</td>
                         {% endif %}
                         {% empty %}
                         <tr><td colspan="7" style="padding:12px;color:#c00;">No invoices found for this filter.</td></tr>
@@ -239,11 +239,11 @@
                     <div style="color:#666;font-size:0.9em;margin-bottom:6px;font-weight:700;">Invoice items that didn't match Parts (fallback used)</div>
                     <ul style="margin:0;padding:0;list-style:none;max-height:220px;overflow:auto;">
                         {% for it in cogs_unmatched_items|slice:":20" %}
-                        <li style="padding:6px 0;border-bottom:1px dashed #f0f0f0;display:flex;justify-content:space-between;align-items:center;">
-                            <div style="font-size:0.9em;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                                <a href="{% url 'edit_invoice' it.invoice_id %}" target="_blank" rel="noopener noreferrer" style="color:#1976d2;text-decoration:none;font-weight:700;">[{{ it.invoice_number }}]</a>
-                                &nbsp;{{ it.description }}
-                            </div>
+                                <li style="padding:6px 0;border-bottom:1px dashed #f0f0f0;display:flex;justify-content:space-between;align-items:center;">
+                                <div style="font-size:0.9em;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                    <a href="{% url 'invoices:edit_invoice' it.invoice_id %}?next={{ request.get_full_path|urlencode }}" target="_blank" rel="noopener noreferrer" style="color:#1976d2;text-decoration:none;font-weight:700;">[{{ it.invoice_number }}]</a>
+                                    &nbsp;{{ it.description }}
+                                </div>
                             <div style="text-align:right;color:#1976d2;font-weight:700;min-width:160px;">Qty: {{ it.quantity }} &nbsp; {{ it.line_total|default:0|floatformat:3 }}</div>
                         </li>
                         <li style="padding:6px 0;display:flex;justify-content:space-between;align-items:center;background:transparent;border-bottom:1px solid transparent;">

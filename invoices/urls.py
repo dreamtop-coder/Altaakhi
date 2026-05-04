@@ -1,4 +1,5 @@
 from django.urls import path
+app_name = 'invoices'
 from . import views
 from .views import delete_invoice, invoices_print_list
 

@@ -77,6 +77,9 @@ def account_statement_print_view(request):
     client = None
     invoices = []
     query = request.GET.get('q', '').strip()
+    from_date = request.GET.get('from_date', '').strip()
+    to_date = request.GET.get('to_date', '').strip()
+    type_filter = (request.GET.get('type') or '').strip().lower()
     if query:
         clients = Client.objects.filter(
             models.Q(first_name__icontains=query) |
@@ -88,10 +91,35 @@ def account_statement_print_view(request):
         if clients.exists():
             client = clients.first()
             invoices = client.invoices.select_related('car').order_by('-created_at')
+            # apply type filter (all/sales/maintenance)
+            if type_filter == 'sales':
+                invoices = invoices.filter(type='sales')
+            elif type_filter == 'maintenance':
+                invoices = invoices.filter(type='maintenance')
+            else:
+                invoices = invoices.filter(type__in=['sales', 'maintenance'])
+            # primary car details (first car) to show on statement
+            primary_car = client.cars.select_related('brand','model').first()
+            car_info = None
+            if primary_car:
+                model_name = ''
+                try:
+                    model_name = f"{primary_car.brand.name} - {primary_car.model.name}" if primary_car.brand and primary_car.model else (primary_car.model.name if primary_car.model else (primary_car.brand.name if primary_car.brand else ''))
+                except Exception:
+                    model_name = primary_car.model.name if getattr(primary_car, 'model', None) else ''
+                car_info = {
+                    'plate_number': primary_car.plate_number,
+                    'model': model_name,
+                    'year': primary_car.year,
+                }
     return render(request, 'account_statement_print.html', {
         'client': client,
         'invoices': invoices,
         'query': query,
+        'from_date': from_date,
+        'to_date': to_date,
+        'selected_type': type_filter,
+        'car_info': car_info if 'car_info' in locals() else None,
     })
 
 # كشف حساب عميل
@@ -104,6 +132,7 @@ def account_statement_view(request):
     query = request.GET.get('q', '').strip()
     from_date = request.GET.get('from_date', '').strip()
     to_date = request.GET.get('to_date', '').strip()
+    type_filter = (request.GET.get('type') or '').strip().lower()
     if query:
         # البحث بالاسم أو رقم الهاتف أو رقم العميل أو رقم السيارة
         clients = Client.objects.filter(
@@ -116,18 +145,41 @@ def account_statement_view(request):
         if clients.exists():
             client = clients.first()
             invoices = client.invoices.select_related('car').order_by('-created_at')
+            # apply type filter (all/sales/maintenance)
+            if type_filter == 'sales':
+                invoices = invoices.filter(type='sales')
+            elif type_filter == 'maintenance':
+                invoices = invoices.filter(type='maintenance')
+            else:
+                invoices = invoices.filter(type__in=['sales', 'maintenance'])
             # فلترة بالتواريخ
             if from_date:
                 invoices = invoices.filter(created_at__gte=from_date)
             if to_date:
                 invoices = invoices.filter(created_at__lte=to_date)
             payments = client.invoices.prefetch_related('payments')
+            # primary car details (first car) to show on statement
+            primary_car = client.cars.select_related('brand','model').first()
+            car_info = None
+            if primary_car:
+                model_name = ''
+                try:
+                    model_name = f"{primary_car.brand.name} - {primary_car.model.name}" if primary_car.brand and primary_car.model else (primary_car.model.name if primary_car.model else (primary_car.brand.name if primary_car.brand else ''))
+                except Exception:
+                    model_name = primary_car.model.name if getattr(primary_car, 'model', None) else ''
+                car_info = {
+                    'plate_number': primary_car.plate_number,
+                    'model': model_name,
+                    'year': primary_car.year,
+                }
     return render(request, 'account_statement.html', {
         'client': client,
         'invoices': invoices,
+        'car_info': car_info if 'car_info' in locals() else None,
         'query': query,
         'from_date': from_date,
         'to_date': to_date,
+        'selected_type': type_filter,
     })
 
 # طباعة فاتورة واحدة
@@ -1329,8 +1381,19 @@ def add_invoice(request):
             except Exception:
                 continue
         if not stock_items:
+            # Do NOT silently accept or ignore service-only rows here.
+            # Reject requests that contain no stock items. This prevents
+            # "silent acceptance" of invalid domain data which leads to
+            # confusing user experience and accounting/reporting issues.
             from django.http import HttpResponseBadRequest
-            return HttpResponseBadRequest('يرجى إضافة سلعة واحدة على الأقل للفواتير المبيعات')
+            try:
+                # Log context for debugging: include who posted and raw POST
+                logger.warning(
+                    f"Invoice rejected: no stock items posted | user={getattr(request, 'user', None)} | data={request.POST.dict() if hasattr(request.POST, 'dict') else str(request.POST)}"
+                )
+            except Exception:
+                pass
+            return HttpResponseBadRequest('Services are not allowed in stock invoices; please add part items.')
         # Replace items with filtered stock items for the remainder of this flow
         items = stock_items
 
@@ -1925,6 +1988,15 @@ def edit_invoice(request, invoice_id):
         if action == 'recalculate':
             # go back to the same edit page so user can review persisted totals
             return redirect('invoices:edit_invoice', invoice_id=invoice.id)
+        # If caller provided a `next` destination, redirect there (safe check)
+        next_dest = request.POST.get('next') or request.GET.get('next')
+        try:
+            from django.utils.http import url_has_allowed_host_and_scheme
+            # Only allow relative paths or same-host URLs
+            if next_dest and url_has_allowed_host_and_scheme(next_dest, allowed_hosts={request.get_host()}):
+                return redirect(next_dest)
+        except Exception:
+            pass
         return redirect('invoices:invoices_list')
     # GET: render simplified edit page
     # Provide clients and parts data to support the advanced invoice editor frontend
@@ -2112,9 +2184,8 @@ def invoices_list(request):
             else:
                 invoices = invoices.filter(models.Q(car__plate_number__icontains=q) | models.Q(invoice_number__icontains=q)).distinct()
         if car_number:
-            # include invoices where the invoice.car matches OR the client has a car with that plate
-            client_qs2 = Client.objects.filter(cars__plate_number__icontains=car_number).distinct()
-            invoices = invoices.filter(models.Q(car__plate_number__icontains=car_number) | models.Q(client__in=client_qs2)).distinct()
+            # include invoices where the invoice.car matches the plate
+            invoices = invoices.filter(models.Q(car__plate_number__icontains=car_number)).distinct()
         if invoice_number_q:
             invoices = invoices.filter(invoice_number__icontains=invoice_number_q)
     except Exception:
@@ -2850,7 +2921,10 @@ def payments_list(request):
         except Exception:
             inv_num = ''
         try:
-            applied = float(amount_applied)
+            # Use the actual payment amount on the payment record as the
+            # applied amount for the invoice. This reflects how payments
+            # are stored (each Payment is already linked to a specific invoice).
+            applied = float(p.amount or 0)
         except Exception:
             applied = 0.0
         grp.setdefault('invoices', []).append({'invoice_number': inv_num, 'applied': round(applied, 3)})
@@ -2916,6 +2990,14 @@ def payments_list(request):
         # per_page == 0 means show all (no pagination)
         page_obj = None
 
+    # build a map of grouped payment ids -> invoices for reliable client-side lookup
+    try:
+        import json as _json
+        payments_map = {','.join(p.get('ids') or []): p.get('invoices', []) for p in payments}
+        payments_map_json = _json.dumps(payments_map, default=str)
+    except Exception:
+        payments_map_json = '{}'
+
     return render(request, 'payments_list.html', {
         'payments': payments,
         'start_date': start_date,
@@ -2925,6 +3007,7 @@ def payments_list(request):
         'per_page': per_page,
         'per_page_options': per_page_options,
         'search': None,
+        'payments_map_json': payments_map_json,
     })
 
 @login_required

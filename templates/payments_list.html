@@ -172,6 +172,10 @@
 {% include 'partials/per_page_pagination.html' with per_page=per_page per_page_options=per_page_options page_obj=page_obj search=search %}
 <script src="{% static 'js/per_page_dropdown.js' %}"></script>
 <script>
+    // server-provided mapping: grouped checkbox value (comma ids) -> invoices array
+    window.__payments_invoices_map = {{ payments_map_json|default:'{}'|safe }};
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', function(){
     function getCookie(name) {
         let cookieValue = null;
@@ -251,49 +255,50 @@ document.addEventListener('DOMContentLoaded', function(){
 
     if (btnPrint) {
         function buildPrintHtml(data){
-            return `<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><title>Payment Receipt</title>
+            return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>وصل الدفع</title>
             <style>
-            body{font-family: Arial, Helvetica, sans-serif;color:#111;margin:0;padding:20px;background:#f6f7fb}
-            .card{max-width:760px;margin:18px auto;background:#fff;border-radius:10px;padding:22px;box-shadow:0 6px 22px rgba(2,6,23,0.06)}
-            .brand{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-            .brand .title{font-size:20px;font-weight:700;color:#1976d2}
-            .meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-            .meta div{background:#f3f4f6;padding:8px 12px;border-radius:8px;font-weight:600}
+            body{font-family: Tahoma, Arial, Helvetica, sans-serif;color:#111;margin:0;padding:20px;background:#f6f7fb}
+            .card{max-width:760px;margin:18px auto;background:#fff;border-radius:10px;padding:22px;box-shadow:0 6px 22px rgba(2,6,23,0.06);direction:rtl;text-align:right}
+            .brand{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px}
+            .brand .logo{height:48px}
+            .brand .company{font-size:18px;font-weight:800;color:#1976d2}
+            .meta{display:block;margin-bottom:12px}
+            .meta div{margin:4px 0}
             table{width:100%;border-collapse:collapse;margin-top:8px}
-            th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
-            .balance{font-size:20px;font-weight:800;color:#0b74da;margin-top:12px}
-            .small-muted{color:#6b7280;font-size:13px}
+            td{padding:8px;border-bottom:1px solid #f2f2f2}
+            .total{font-weight:800;font-size:16px;text-align:right;padding-top:8px}
+            .muted{color:#6b7280;font-size:13px}
             @media print{ body{background:#fff} .card{box-shadow:none;border-radius:0;padding:8px} .no-print{display:none} }
             </style>
             </head><body>
             <div class="card" id="payment-print">
                 <div class="brand">
-                    <div class="title">Payment Receipt</div>
-                    <div class="small-muted">Print Date: ${new Date().toLocaleString('en-US')}</div>
+                    <div style="display:flex;align-items:center;gap:12px"><img src="/static/img/logo.png" onerror="this.style.display='none'" class="logo" alt="logo"><div class="company">شركة الورشة</div></div>
+                    <div class="small-muted">تاريخ الطباعة: ${new Date().toLocaleString('ar-EG')}</div>
                 </div>
                 <div class="meta">
-                    <div>Recipient: ${data.client_name||'-'}</div>
-                    <div>Date: ${data.payment_date||'-'}</div>
-                    <div>Reference: ${data.reference||'-'}</div>
+                    <div><strong>التاريخ:</strong> ${data.payment_date||'-'}</div>
+                    <div><strong>رقم الوصل:</strong> ${data.reference||'-'}</div>
+                    <div><strong>الزبون:</strong> ${data.client_name||'-'}</div>
+                    <div><strong>طريقة الدفع:</strong> ${data.method||'-'}</div>
+                    <div><strong>الحالة:</strong> ${data.status||'-'}</div>
                 </div>
                 <table>
-                    <tr><th>Payment Method</th><td>${data.method||'-'}</td></tr>
-                    <tr><th>Status</th><td>${data.status||'-'}</td></tr>
-                    <tr><th>Total Amount</th><td>${data.amount||'0.000'}</td></tr>
-                    <tr><th>Remaining / Balance</th><td class="balance">${data.unused||'0.000'}</td></tr>
+                    <tr><td style="width:70%">المجموع المدفوع</td><td style="text-align:left">${data.amount||'0.000'}</td></tr>
+                    <tr><td>المتبقي</td><td style="text-align:left">${data.unused||'0.000'}</td></tr>
                 </table>
-                <div style="margin-top:18px;color:#444">Thank you for using the system.</div>
-                <div class="no-print" style="margin-top:18px;text-align:left"><button onclick="window.print();" style="background:#1976d2;color:#fff;padding:8px 14px;border-radius:8px;border:none;">Print</button></div>
+                <div style="margin-top:18px;color:#444">شكراً لاستخدامكم نظامنا.</div>
+                <div class="no-print" style="margin-top:18px;text-align:left"><button onclick="window.print();" style="background:#1976d2;color:#fff;padding:8px 14px;border-radius:8px;border:none;">طباعة</button></div>
             </div>
             </body></html>`;
         }
         function buildMultiPrintHtml(rows){
             const rowsHtml = rows.map(r=>`<tr><td style="text-align:left">${r.client_name}</td><td style="text-align:left">${r.payment_date}</td><td style="text-align:left">${r.reference}</td><td style="text-align:left">${r.amount}</td><td style="text-align:left;font-weight:700;color:#0b74da">${r.unused}</td></tr>`).join('');
-            return `<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><title>Payments Summary</title>
-            <style>body{font-family: Arial, Helvetica, sans-serif;color:#111;margin:0;padding:20px;background:#f6f7fb} .card{max-width:980px;margin:18px auto;background:#fff;border-radius:10px;padding:22px;box-shadow:0 6px 22px rgba(2,6,23,0.06)} table{width:100%;border-collapse:collapse} th,td{padding:10px;border-bottom:1px solid #eee;text-align:left} th{background:#f3f4f6;font-weight:700} @media print{ .card{box-shadow:none;border-radius:0;padding:8px} }</style>
-            </head><body><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-weight:800;font-size:18px">Selected Payments Summary</div><div class="small-muted">${new Date().toLocaleString('en-US')}</div></div>
-            <table><thead><tr><th>Recipient</th><th>Date</th><th>Reference</th><th>Amount</th><th>Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-            <div style="margin-top:14px;color:#444">Summary of selected payments.</div></div></body></html>`;
+            return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>ملخص الدفعات</title>
+            <style>body{font-family: Tahoma, Arial, Helvetica, sans-serif;color:#111;margin:0;padding:20px;background:#f6f7fb} .card{max-width:980px;margin:18px auto;background:#fff;border-radius:10px;padding:22px;box-shadow:0 6px 22px rgba(2,6,23,0.06);direction:rtl;text-align:right} table{width:100%;border-collapse:collapse} th,td{padding:10px;border-bottom:1px solid #eee;text-align:right} th{background:#f3f4f6;font-weight:700} @media print{ .card{box-shadow:none;border-radius:0;padding:8px} }</style>
+            </head><body><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-weight:800;font-size:18px">ملخص الدفعات المحددة</div><div class="small-muted">${new Date().toLocaleString('ar-EG')}</div></div>
+            <table><thead><tr><th>المستلم</th><th>التاريخ</th><th>المرجع</th><th>المبلغ</th><th>الرصيد</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+            <div style="margin-top:14px;color:#444">ملخص الدفعات المحددة.</div></div></body></html>`;
         }
 
         btnPrint.addEventListener('click', function(){
@@ -309,6 +314,13 @@ document.addEventListener('DOMContentLoaded', function(){
                     if (invoicesJson) {
                         let invoices = [];
                         try { invoices = JSON.parse(invoicesJson); } catch(e){ invoices = []; }
+                        if ((!Array.isArray(invoices) || invoices.length === 0) && window.__payments_invoices_map) {
+                            // fallback to server-provided map using the checkbox value as key
+                            const mapKey = id; // checkbox value is the joined ids string
+                            if (window.__payments_invoices_map[mapKey]) {
+                                invoices = window.__payments_invoices_map[mapKey];
+                            }
+                        }
                         const client_name = row.querySelector('.col-name') ? row.querySelector('.col-name').textContent.trim() : '';
                         const payment_date = (row.children[2] && row.children[2].textContent) ? row.children[2].textContent.trim() : '';
                         const reference = (row.children[3] && row.children[3].textContent) ? row.children[3].textContent.trim() : '';
@@ -318,12 +330,14 @@ document.addEventListener('DOMContentLoaded', function(){
                         const unused = (row.children[7] && row.children[7].textContent) ? row.children[7].textContent.trim() : '0.000';
 
                         // build invoice lines
-                        const invoiceLinesHtml = invoices.map(it => `<tr><td style="width:70%">${it.invoice_number||'-'}</td><td style="text-align:right">${(typeof it.applied!=='undefined')?it.applied.toFixed(3):'0.000'}</td></tr>`).join('');
+                        const invoiceLinesHtml = invoices.map(it => `<tr><td style="width:70%">${it.invoice_number||'-'}</td><td style="text-align:right">${(typeof it.applied!=='undefined')?Number(it.applied).toFixed(3):'0.000'}</td></tr>`).join('');
+                        // compute count robustly: prefer counting rendered rows (reliable), fallback to parsed array length
+                        const invoicesCount = ((invoiceLinesHtml.match(/<tr>/g) || []).length) || (Array.isArray(invoices) ? invoices.length : 0);
 
                         const receiptHtml = `<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><title>Payment Receipt</title>
-                        <style>body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;padding:18px;background:#fff} .card{max-width:680px;margin:12px auto;padding:18px;border-radius:10px;border:1px solid #eee} h1{font-size:20px;margin:0 0 6px} .meta{margin:10px 0 12px} .meta div{margin:3px 0} table{width:100%;border-collapse:collapse;margin-top:8px} td{padding:6px 8px;border-bottom:1px solid #f2f2f2} .total{font-weight:800;font-size:16px;text-align:right;padding-top:8px} .muted{color:#6b7280;font-size:13px}</style>
-                        </head><body><div class="card"><h1>Payment Receipt</h1><div class="meta"><div><strong>Date:</strong> ${payment_date||'-'}</div><div><strong>Receipt #:</strong> ${reference||'-'}</div><div><strong>Customer:</strong> ${client_name||'-'}</div><div><strong>Method:</strong> ${method||'-'}</div><div><strong>Status:</strong> ${status||'-'}</div></div>
-                        <div><strong>Invoices Covered (${invoices.length}):</strong></div>
+                        <style>body{font-family: Arial, Helvetica, sans-serif;color:#111;margin:0;padding:18px;background:#fff} .card{max-width:680px;margin:12px auto;padding:18px;border-radius:10px;border:1px solid #eee;direction:ltr;text-align:left} h1{font-size:20px;margin:0 0 6px} .meta{margin:10px 0 12px} .meta div{margin:3px 0} table{width:100%;border-collapse:collapse;margin-top:8px} td{padding:6px 8px;border-bottom:1px solid #f2f2f2} .total{font-weight:800;font-size:16px;text-align:right;padding-top:8px} .muted{color:#6b7280;font-size:13px}.brand{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.brand .company-name{font-weight:800;font-size:18px;color:#1976d2}.brand img{height:46px}</style>
+                        </head><body><div class="card"><div class="brand"><div style="display:flex;align-items:center;gap:12px"><img src="/static/img/logo.png" onload="this.style.display='inline-block';this.nextElementSibling.style.display='none'" style="height:46px;display:none" alt="logo"><div class="company-name" style="display:inline-block">Workshop Co.</div></div><div style="font-size:12px;color:#666">Print Date: ${new Date().toLocaleString('en-US')}</div></div><h1 style="margin-top:6px">Payment Receipt</h1><div class="meta"><div><strong>Date:</strong> ${payment_date||'-'}</div><div><strong>Receipt #:</strong> ${reference||'-'}</div><div><strong>Customer:</strong> ${client_name||'-'}</div><div><strong>Method:</strong> ${method||'-'}</div><div><strong>Status:</strong> ${status||'-'}</div></div>
+                        <div><strong>Invoices Covered (${invoicesCount}):</strong></div>
                         <table><tbody>${invoiceLinesHtml}</tbody></table>
                         <div class="total">TOTAL PAID: ${total || '0.000'}</div>
                         <div class="muted">Remaining: ${unused || '0.000'}</div>

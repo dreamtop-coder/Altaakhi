@@ -111,7 +111,7 @@
             <button type="button" class="maintenance-cancel" onclick="document.getElementById('hidden-save-draft').click();" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;">Save as Draft</button>
             <button type="button" class="maintenance-btn" onclick="document.getElementById('hidden-save-send').click();" style="padding:8px 14px;background:linear-gradient(90deg,#1976d2 60%,#2196f3 100%);color:#fff;border-radius:6px;">Save and Send</button>
             <a href="{% url 'dashboard' %}" class="maintenance-cancel" style="background:#fff;border:1px solid #d1d5db;padding:8px 12px;border-radius:6px;color:#1976d2;text-decoration:none;">Cancel</a>
-            <a href="{% url 'print_invoice' invoice.id %}" target="_blank" style="color:#1976d2;text-decoration:none;font-weight:700;padding:8px 12px;border-radius:6px;border:1px solid #e6f0fb;margin-left:8px;">Print Invoice</a>
+            <a href="{% url 'invoices:print_invoice' invoice.id %}" target="_blank" style="color:#1976d2;text-decoration:none;font-weight:700;padding:8px 12px;border-radius:6px;border:1px solid #e6f0fb;margin-left:8px;">Print Invoice</a>
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
             <div style="color:#6b7280;font-size:13px;">Make Recurring</div>
