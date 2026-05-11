@@ -3,6 +3,49 @@
 <div class="invoice-page invoice-card">
   <h2>إضافة فاتورة بيع</h2>
 
+  <style>
+    /* Match maintenance item row styling */
+    #items-table th, #items-table td { padding:8px 12px; text-align:left; vertical-align:middle; }
+    #items-table .item-desc, #items-table .service-label {
+        width:100% !important;
+        padding:6px !important;
+        border:1px solid #ddd !important;
+        border-radius:6px !important;
+        font-size:14px !important;
+        color:#374151 !important;
+        font-weight:400 !important;
+        box-sizing:border-box !important;
+        min-height:36px !important;
+        height:36px !important;
+        line-height:20px !important;
+        background:#fff !important;
+        display:block !important;
+    }
+    #items-table input[type="number"]{
+        padding:6px !important;
+        border:1px solid #eee !important;
+        border-radius:6px !important;
+        box-sizing:border-box !important;
+        text-align:center !important;
+        height:36px !important;
+    }
+    #items-table input.item-amount{
+        padding:6px !important;
+        border:1px solid #eee !important;
+        border-radius:6px !important;
+        box-sizing:border-box !important;
+        text-align:right !important;
+        background:#fafafa !important;
+        height:36px !important;
+    }
+    #items-table input.item-qty { width:90px !important; }
+    #items-table input.item-rate { width:110px !important; }
+    #items-table input.item-discount { width:60px !important; }
+    #items-table input.item-amount { width:calc(100% - 12px) !important; }
+    /* Align Quantity input to left for the first (pre-rendered) row to match JS-created rows */
+    #items-table tbody .item-row:first-child input.item-qty { text-align: left !important; }
+  </style>
+
   <!-- Customer header -->
   <section id="invoice-header">
     <label>العميل</label>
@@ -42,5 +85,17 @@
 <script src="{% static 'js/invoice.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function(){ try{ document.body.dataset.page = 'invoices'; }catch(e){} });
+</script>
+<script>
+// Defensive binding: ensure add-row always creates a new JS row even if other scripts fail
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    var btn = document.getElementById('add-row');
+    if(!btn) return;
+    if(btn.dataset && btn.dataset.addlineBound) return;
+    btn.addEventListener('click', function(e){ e && e.preventDefault(); try{ if(window.createItemRow) window.createItemRow(true); else console.error('createItemRow not available'); }catch(err){ console.error('add-row handler error', err); } });
+    try{ btn.dataset.addlineBound = '1'; }catch(e){}
+  }catch(e){ console.error('failed to bind add-row', e); }
+});
 </script>
 {% endblock %}

@@ -3,6 +3,8 @@
     window.createItemRow = function(typeOrFocus, focus){
         try{
             try{ if(window.__creatingItemRow) return null; window.__creatingItemRow = true; }catch(e){}
+            try{ /* global short lock to avoid duplicate creates from multiple handlers */ if(window.__addRowInProgress){ try{ if(window.__debugLineItems) console.debug('[line-items] createItemRow ignored due to addRowInProgress', Date.now()); }catch(e){} return null; } window.__addRowInProgress = true; setTimeout(function(){ try{ window.__addRowInProgress = false; }catch(e){} }, 1200); }catch(e){}
+            try{ if(window.__debugLineItems) console.debug('[line-items] createItemRow start', Date.now(), {typeOrFocus:typeOrFocus, focus:focus}); }catch(e){}
             try{
                 if(window.__logCreateItemRow){
                     try{
@@ -23,6 +25,14 @@
             var itemType;
             if(typeof typeOrFocus === 'string') itemType = typeOrFocus;
             else if(typeof typeOrFocus === 'boolean') { focus = typeOrFocus; }
+            // If this is the automatic initial row creation on a maintenance
+            // page, do NOT short-circuit to legacy `createServiceRow`.
+            // Prefer the unified item-row creation and initialization below.
+            try{
+                if(!itemType && focus === false && (window && window.ITEM_CONTEXT && String(window.ITEM_CONTEXT).trim() === 'maintenance')){
+                    // fallthrough to unified factory below
+                }
+            }catch(e){}
             // If this call is the automatic initial row creation (focus===false),
             // ensure we only do it once across all scripts.
             try{
@@ -64,8 +74,19 @@
             }catch(e){}
             var tr = document.createElement('tr'); tr.className = 'item-row';
             try{ if(itemType) { tr.setAttribute('data-type', itemType); tr.dataset.type = itemType; } }catch(e){}
-            tr.innerHTML = '\n                <td style="padding:8px 12px;vertical-align:middle;">\n                    <input type="text" class="item-desc" value="" style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;" data-bound="true" />\n                    <input type="hidden" class="item-type-hidden" name="item_type[]" value="" />\n                </td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="1" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="0.000" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-discount" value="0.00" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:right;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;text-align:right;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-item-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
+            tr.innerHTML = `
+                <td style="padding:8px 12px;vertical-align:middle;">
+                    <input type="text" class="item-desc" value="" style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;" data-bound="true" />
+                    <input type="hidden" class="item-type-hidden" name="item_type[]" value="" />
+                </td>
+                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="1" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="0.000" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-discount" value="0.00" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                <td style="padding:8px 12px;text-align:right;"><input type="text" class="item-amount" value="0.000" readonly style="width:calc(100% - 12px);padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;text-align:right;box-sizing:border-box;" /></td>
+                <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-item-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
+            `;
             try{ body.appendChild(tr); }catch(e){ try{ document.body.appendChild(tr); }catch(err){} }
+            try{ window.__invBlockAutoOpenUntil = Date.now() + 400; }catch(e){}
             // mark creation time early so other initializers can detect "new" rows
             try{ tr.dataset.__createdAt = Date.now(); }catch(e){}
             try{
@@ -73,31 +94,46 @@
                 try{ if(itemType){ tr.setAttribute('data-type', itemType); tr.dataset.type = itemType; } }catch(e){}
                 try{ var hh_init = tr.querySelector('.item-type-hidden'); if(hh_init && itemType) hh_init.value = itemType; }catch(e){}
             }catch(e){}
-            try{
-                var desc = tr.querySelector('.item-desc');
+                try {
+                    var desc = tr.querySelector('.item-desc');
+                    if (desc) {
                         try{
-                            // Default all new rows to inventory-only
-                            try{ desc.dataset.autocomplete = 'inventory'; }catch(e){}
-                            try{ if(typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(desc); }catch(e){}
+                            var allowed = (typeof window.getAllowedTypes === 'function') ? window.getAllowedTypes() : ['inventory'];
+                        }catch(e){ var allowed = ['inventory']; }
+                        // If caller explicitly requested inventory, or the page only allows inventory,
+                        // bind inventory autocomplete and mark row as inventory. Otherwise leave row untyped
+                        // so merged suggestions (inventory+service) are available.
+                        try{
+                            if(itemType === 'inventory' || (allowed.length === 1 && allowed[0] === 'inventory')){
+                                try{ desc.dataset.autocomplete = 'inventory'; }catch(e){}
+                                try { if (typeof window.initInventoryRow === 'function') window.initInventoryRow(tr); else if (typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(desc); }catch(e){}
+                                try{ desc.addEventListener && desc.addEventListener('service-selected', function(ev){ try{ if(!window._servicesTableInit && window.onServiceSelected) window.onServiceSelected(tr, ev.detail); }catch(e){} }); }catch(e){}
+                                try{ var hh_bind = tr.querySelector('.item-type-hidden'); if(hh_bind) hh_bind.value = 'inventory'; }catch(e){}
+                                try{ tr.dataset.type = 'inventory'; }catch(e){}
+                            } else {
+                                // Mixed mode: initialize inventory binding (so parts are suggested),
+                                // but do not force the row type to inventory so services remain available.
+                                try { if (typeof window.initInventoryRow === 'function') window.initInventoryRow(tr); else if (typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(desc); }catch(e){}
+                                // Also bind service autocomplete so this input can show services too
+                                try{ if (typeof window.initServiceAutocomplete === 'function') window.initServiceAutocomplete(desc); }catch(e){}
+                                try{ desc.addEventListener && desc.addEventListener('service-selected', function(ev){ try{ if(!window._servicesTableInit && window.onServiceSelected) window.onServiceSelected(tr, ev.detail); }catch(e){} }); }catch(e){}
+                            }
                         }catch(e){}
-                    // listen for explicit service selection events and forward to service handler
-                    try{ desc.addEventListener && desc.addEventListener('service-selected', function(ev){ try{ if(!window._servicesTableInit && window.onServiceSelected) window.onServiceSelected(tr, ev.detail); }catch(e){} }); }catch(e){}
-                    // No mutation observer needed in inventory-only mode
-                }catch(e){}
-                // Type selector removed in inventory-only mode; ensure hidden input present and set
-                try{
-                    var hh = tr.querySelector('.item-type-hidden'); if(hh) hh.value = 'inventory';
-                    try{ tr.dataset.type = 'inventory'; }catch(e){}
-                }catch(e){}
+                    }
+                } catch(e) {}
                 var qty = tr.querySelector('.item-qty'); var rate = tr.querySelector('.item-rate'); var disc = tr.querySelector('.item-discount');
                 qty.addEventListener('input', function(){ try{ if(window.updateRowAmount) window.updateRowAmount(tr); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} });
                 rate.addEventListener('input', function(){ try{ if(window.updateRowAmount) window.updateRowAmount(tr); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} });
                 disc.addEventListener('input', function(){ try{ if(window.updateRowAmount) window.updateRowAmount(tr); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} });
                 if(focus!==false) desc.focus();
             }catch(e){}
-            try{ 
+            try{
                 try{ tr.dataset.__createdAt = Date.now(); }catch(e){}
-                try{ var __s = (new Error().stack||'').split('\n')[1] || ''; tr.dataset.__createdBy = __s.trim(); }catch(e){}
+                try{
+                    var __s = (new Error().stack||'').split('\n')[1] || '';
+                    tr.dataset.__createdBy = __s.trim();
+                }catch(e){}
+
                 // dedupe: remove rapid duplicate rows that have identical descriptions
                 try{
                     var runDedupe = function(){
@@ -113,7 +149,11 @@
                                         var sl = r.querySelector && r.querySelector('.service-label');
                                         if(sl && (sl.textContent||'').trim() !== '') key = (sl.textContent||'').trim();
                                     }
-                                    if(!key) return;
+                                    // treat empty descriptions as a special blank key so
+                                    // rapid duplicate empty rows are also de-duped
+                                    if(!key) {
+                                        key = '__BLANK__' + (r.dataset && r.dataset.type ? (':' + r.dataset.type) : '');
+                                    }
                                     var t = parseInt(r.dataset.__createdAt||0,10) || 0;
                                     groups[key] = groups[key] || [];
                                     groups[key].push({row:r, time:t});
@@ -138,14 +178,145 @@
                             });
                         }catch(e){}
                     };
-                    try{ setTimeout(runDedupe, 80); }catch(e){}
-                    try{ setTimeout(runDedupe, 700); }catch(e){}
-                    try{ setTimeout(runDedupe, 1500); }catch(e){}
+                    // Temporarily disable dedupe timers while debugging duplicate
+                    // creation sources. Re-enable these timers once initialization
+
+                        // Remove any legacy service rows found anywhere in the document
+                        // (not relying on `#services-body`) and create a unified first
+                        // `item-row` inside `#items-body` if needed.
+                        try{
+                            function removeLegacyServiceRowsAndCreateUnified(){
+                                try{
+                                    if(window.__legacyRowsRemoved) return;
+                                    var ib = document.getElementById('items-body');
+                                    var all = Array.prototype.slice.call(document.querySelectorAll('tr')) || [];
+                                    var legacyRows = all.filter(function(r){ try{ if(!r) return false; if(r.closest && r.closest('#items-body')) return false; return Boolean(r.querySelector('.service-desc') || r.querySelector('.service-qty') || r.classList.contains('service-row')); }catch(e){return false;} });
+                                    if(!legacyRows || legacyRows.length === 0) return;
+                                    // Remove legacy rows
+                                    legacyRows.forEach(function(r){ try{ if(r && r.parentNode) r.parentNode.removeChild(r); }catch(e){} });
+                                    try{ console.log('[line-items] removed legacy service rows:', legacyRows.length); }catch(e){}
+                                    window.__legacyRowsRemoved = true;
+                                    // Create a unified initial item row (items-body) if the unified factory exists
+                                    try{
+                                        if(typeof window.createItemRow === 'function' && ib){
+                                            try{ window.createItemRow(false); }catch(e){}
+                                            try{ console.log('[line-items] created unified initial item row'); }catch(e){}
+                                        }
+                                    }catch(e){}
+                                }catch(e){}
+                            }
+                            try{ document.addEventListener('DOMContentLoaded', removeLegacyServiceRowsAndCreateUnified); }catch(e){}
+                            try{ window.addEventListener('load', removeLegacyServiceRowsAndCreateUnified); }catch(e){}
+                            try{ setTimeout(removeLegacyServiceRowsAndCreateUnified, 400); }catch(e){}
+                        }catch(e){}
+
+    // Ensure customer-search has basic bindings if the template fallback didn't run
+    try{
+        function __bindCustomerFallback(){
+            try{
+                var el = document.getElementById('customer-search');
+                if(!el || el._custFallbackBound) return;
+                try{ el.readOnly = false; el.removeAttribute && el.removeAttribute('readonly'); el.disabled = false; el.style.pointerEvents = 'auto'; }catch(e){}
+                var handler = function(ev){ try{ ev && ev.stopPropagation && ev.stopPropagation(); if(window.showInlineSuggestions) return window.showInlineSuggestions(''); if(window.toggleCustomerSuggestions) return window.toggleCustomerSuggestions(); }catch(e){} };
+                try{ el.addEventListener('click', handler); el.addEventListener('focus', handler); }catch(e){}
+                try{ el.addEventListener('input', function(ev){ try{ if(window.showInlineSuggestions) window.showInlineSuggestions(ev.target && ev.target.value ? ev.target.value : ''); }catch(e){} }); }catch(e){}
+                el._custFallbackBound = true;
+                var btn = document.getElementById('customer-search-btn');
+                if(btn && !btn._custFallback){
+                    try{ btn.addEventListener('click', function(ev){ try{ ev && ev.preventDefault && ev.preventDefault(); if(window.openCustomerModal) window.openCustomerModal(el?el.value:''); else { var bd = document.getElementById('customer-modal-backdrop'); if(bd){ bd.style.display='flex'; var minp = document.getElementById('modal-customer-query'); if(minp){ minp.value = (el && el.value) || ''; minp.focus(); } try{ if(typeof performModalSearch === 'function') performModalSearch(minp?minp.value:''); }catch(e){} } } }catch(e){} }); }catch(e){}
+                    btn._custFallback = true;
+                }
+            }catch(e){}
+        }
+        try{ document.addEventListener('DOMContentLoaded', __bindCustomerFallback); }catch(e){}
+        try{ window.addEventListener('load', __bindCustomerFallback); }catch(e){}
+        try{ setTimeout(__bindCustomerFallback, 600); }catch(e){}
+    }catch(e){}
+    // Also observe DOM mutations to re-bind if the input is re-rendered dynamically
+    try{
+        (function(){
+            var mo = null;
+            function startObs(){
+                try{
+                    if(typeof MutationObserver === 'undefined') return;
+                    if(mo) return;
+                    mo = new MutationObserver(function(muts){
+                        try{
+                            muts.forEach(function(m){
+                                try{
+                                    if(!m.addedNodes) return;
+                                    for(var i=0;i<m.addedNodes.length;i++){
+                                        var n = m.addedNodes[i];
+                                        try{
+                                            if(n && n.querySelector && n.querySelector('#customer-search')){ __bindCustomerFallback(); return; }
+                                            if(n && n.id === 'customer-search'){ __bindCustomerFallback(); return; }
+                                        }catch(e){}
+                                    }
+                                }catch(e){}
+                            });
+                        }catch(e){}
+                    });
+                    try{ mo.observe(document.body, {childList:true, subtree:true}); }catch(e){}
+                }catch(e){}
+            }
+            try{ if(document.readyState === 'complete' || document.readyState === 'interactive') startObs(); else document.addEventListener('DOMContentLoaded', startObs); }catch(e){}
+            try{ setTimeout(startObs, 1200); }catch(e){}
+        })();
+    }catch(e){}
+
+                            // More robust startup: in case other scripts re-insert legacy rows or items-body
+                            // is rendered late, retry a few times to ensure unified rows are present.
+                            try{
+                                function robustEnsureUnifiedRows(){
+                                    try{
+                                        var attempts = 0;
+                                        var maxAttempts = 8;
+                                        var iv = setInterval(function(){
+                                            try{
+                                                attempts++;
+                                                var ib = document.getElementById('items-body');
+                                                // remove any legacy rows found outside of #items-body
+                                                try{
+                                                    var all = Array.prototype.slice.call(document.querySelectorAll('tr')) || [];
+                                                    var legacy = all.filter(function(r){ try{ if(!r) return false; if(r.closest && r.closest('#items-body')) return false; return Boolean(r.querySelector('.service-desc') || r.querySelector('.service-qty') || r.classList.contains('service-row')); }catch(e){return false;} });
+                                                    if(legacy && legacy.length){
+                                                        legacy.forEach(function(r){ try{ r.parentNode && r.parentNode.removeChild(r); }catch(e){} });
+                                                        try{ console.log('[line-items] robust: removed legacy service rows', legacy.length); }catch(e){}
+                                                    }
+                                                }catch(e){}
+                                                // ensure at least one item-row exists
+                                                var hasItem = ib && ib.querySelector && ib.querySelector('.item-row');
+                                                if(!hasItem && typeof window.createItemRow === 'function' && ib){
+                                                    try{ window.createItemRow(false); }catch(e){}
+                                                    try{ console.log('[line-items] robust: created unified item-row'); }catch(e){}
+                                                }
+                                                // if items exist and no legacy rows remain, stop
+                                                var stillLegacy = Array.prototype.slice.call(document.querySelectorAll('tr')).filter(function(r){ try{ return (r.closest && !r.closest('#items-body')) && (r.querySelector('.service-desc') || r.querySelector('.service-qty') || r.classList.contains('service-row')); }catch(e){return false;} }).length || 0;
+                                                var itemsNow = (document.querySelectorAll && document.querySelectorAll('#items-body .item-row').length) || 0;
+                                                if((itemsNow>0) && (stillLegacy===0)){
+                                                    try{ clearInterval(iv); }catch(e){}
+                                                    return;
+                                                }
+                                                if(attempts >= maxAttempts){ try{ clearInterval(iv); }catch(e){} }
+                                            }catch(e){}
+                                        }, 180);
+                                    }catch(e){}
+                                }
+                                try{ window.addEventListener && window.addEventListener('load', robustEnsureUnifiedRows); }catch(e){}
+                                try{ setTimeout(robustEnsureUnifiedRows, 600); }catch(e){}
+                            }catch(e){}
+                    // is stable.
+                    // try{ setTimeout(runDedupe, 80); }catch(e){}
+                    // try{ setTimeout(runDedupe, 700); }catch(e){}
+                    // try{
+                    //     setTimeout(function(){
+                    //         try{ runDedupe(); }catch(e){}
+                    //     }, 1500);
+                    // }catch(e){}
                 }catch(e){}
             }catch(e){}
             try{ window.__creatingItemRow = false; }catch(e){}
             return tr;
-        }catch(e){ console.error('createItemRow failed', e); try{ window.__creatingItemRow = false; }catch(err){} return null; }
     };
 
     // attach delegated remove handler (robust to text-node targets)
@@ -163,21 +334,188 @@
 
     // minimal createServiceRow delegator: will use canonical implementation if provided
     window.createServiceRow = window.createServiceRow || function(focus, attachToBody){ try{ if(window.__creatingServiceRow) return null; if(attachToBody !== false && !window._addingService && !window.__svcAllowCreate){ /*guard*/ } // fall back to a simple service row
-            var body = document.getElementById('services-body') || document.body;
-            var tr = document.createElement('tr'); tr.className='item-row'; try{ tr.setAttribute('data-type','service'); }catch(e){} tr.innerHTML = '\
-        <td style="padding:8px 12px;vertical-align:middle;">\
-              <div class="service-label" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:14px;color:#374151;font-weight:400;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;display:block;background:#fff">&nbsp;</div>\
-            <input type="hidden" class="service-desc" value=""/>\
-        </td>\
-        <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-qty" step="1" value="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;"/></td>\
-        <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-rate" step="0.001" value="0.000" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;"/></td>\
-        <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-discount" step="0.01" value="0.00" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;"/></td>\
-        <td style="padding:8px 12px;text-align:right;"><input type="text" class="service-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;text-align:right;"/></td>\
-        <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-service-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
-            if(body) body.appendChild(tr); return tr; }catch(e){ console.error(e); return null; } };
+            // Append service rows as unified `item-row` in `#items-body` so they
+            // participate in the unified totals/serialization flow.
+            var body = document.getElementById('items-body') || document.body;
+            var tr = document.createElement('tr'); tr.className='item-row'; try{ tr.setAttribute('data-type','service'); tr.dataset.type = 'service'; }catch(e){}
+            tr.innerHTML = `
+        <td style="padding:8px 12px;vertical-align:middle;">
+              <input type="text" class="service-desc item-desc" value="" style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;background:#fff;" />
+              <input type="hidden" class="item-type-hidden" name="item_type[]" value="service" />
+        </td>
+        <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-qty item-qty" step="1" value="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;"/></td>
+        <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-rate item-rate" step="0.001" value="0.000" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;"/></td>
+        <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-discount item-discount" step="0.01" value="0.00" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;"/></td>
+        <td style="padding:8px 12px;text-align:right;"><input type="text" class="service-amount item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;text-align:right;"/></td>
+        <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-service-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;
+            if(body) body.appendChild(tr);
+            try{
+                var svcInput = tr.querySelector && tr.querySelector('.service-desc');
+                if(svcInput){
+                    try{ if(svcInput.dataset) svcInput.dataset.autocomplete = 'service'; }catch(e){}
+                    try{ if(!svcInput._svcBound) svcInput._svcBound = true; }catch(e){}
+                    try{ if(typeof window.initServiceAutocomplete === 'function') window.initServiceAutocomplete(svcInput); }catch(e){}
+                }
+            }catch(e){}
+            return tr; }catch(e){ console.error(e); return null; } };
+
+    // Aggressive normalization: replace any pre-rendered rows inside #services-body
+    // with canonical rows created by `createServiceRow`, preserving visible values.
+    // This strips legacy event listeners and ensures consistent classnames/handlers.
+    (function normalizeServicesBody(){
+        try{
+            function run(){
+                try{
+                    var all = Array.prototype.slice.call(document.querySelectorAll('tr')) || [];
+                    var rows = all.filter(function(orig){ try{ if(!orig) return false; if(orig.closest && orig.closest('#items-body')) return false; return Boolean(orig.querySelector('.service-desc') || orig.querySelector('.service-qty') || orig.classList.contains('service-row')); }catch(e){return false;} });
+                    rows.forEach(function(orig){ try{
+                        if(!orig) return;
+                        // Skip rows already normalized
+                        if(orig.dataset && orig.dataset.__normalized === '1') return;
+                        // collect visible values
+                        var desc = orig.querySelector && (orig.querySelector('.service-desc') || orig.querySelector('.item-desc'));
+                        var qty = orig.querySelector && (orig.querySelector('.service-qty') || orig.querySelector('.item-qty'));
+                        var rate = orig.querySelector && (orig.querySelector('.service-rate') || orig.querySelector('.item-rate'));
+                        var disc = orig.querySelector && (orig.querySelector('.service-discount') || orig.querySelector('.item-discount'));
+                        var amt = orig.querySelector && (orig.querySelector('.service-amount') || orig.querySelector('.item-amount'));
+                        var vals = { description: desc ? (desc.value||'') : '', qty: qty ? (qty.value||'1') : '1', rate: rate ? (rate.value||'0.000') : '0.000', discount: disc ? (disc.value||'0.00') : '0.00', amount: amt ? (amt.value||'0.000') : '0.000' };
+                        // create canonical row
+                        var newRow = null;
+                        try{ newRow = window.createServiceRow(false); }catch(e){}
+                        if(!newRow) return;
+                        try{
+                            var d = newRow.querySelector('.service-desc') || newRow.querySelector('.item-desc'); if(d) d.value = vals.description;
+                            var qEl = newRow.querySelector('.service-qty') || newRow.querySelector('.item-qty'); if(qEl) qEl.value = vals.qty;
+                            var rEl = newRow.querySelector('.service-rate') || newRow.querySelector('.item-rate'); if(rEl) rEl.value = parseFloat(vals.rate||0).toFixed(3);
+                            var diEl = newRow.querySelector('.service-discount') || newRow.querySelector('.item-discount'); if(diEl) diEl.value = parseFloat(vals.discount||0).toFixed(3);
+                            var aEl = newRow.querySelector('.service-amount') || newRow.querySelector('.item-amount'); if(aEl) aEl.value = parseFloat(vals.amount||0).toFixed(3);
+                            try{ newRow.dataset.__normalized = '1'; }catch(e){}
+                        }catch(e){}
+                            // remove original legacy row (newRow was appended into #items-body)
+                            try{ orig.parentNode && orig.parentNode.removeChild(orig); }catch(e){}
+                    }catch(e){} });
+                }catch(e){}
+            }
+            try{ document.addEventListener('DOMContentLoaded', run); }catch(e){}
+            try{ setTimeout(run, 300); }catch(e){}
+        }catch(e){}
+
+// Delegate customer-search events at document level so replacements still work
+try{
+    document.addEventListener('input', function(e){
+        try{
+            var t = e.target;
+            if(!t) return;
+            if(t.id === 'customer-search'){
+                try{
+                    if(window.showInlineSuggestions){ window.showInlineSuggestions(t.value||''); return; }
+                    try{ window.__suppressClearSuggestions = true; }catch(e){}
+                    // fallback: perform simple fetch + inline render when template helpers are absent
+                    (function(q, inputEl){
+                        try{
+                            q = (q||'').trim();
+                            var fetcher = (typeof window.fetchJson === 'function') ? window.fetchJson : function(url){ return fetch(url, {credentials:'same-origin'}).then(function(r){ return r.json(); }); };
+                            fetcher('/clients/search/?q=' + encodeURIComponent(q)).then(function(data){
+                                try{ console.debug && console.debug('customer fallback fetched', data); var results = (data && data.results) ? data.results : [];
+                                    // render simple inline box
+                                    try{ var live = document.getElementById('customer-search'); var parent = live && live.parentNode ? live.parentNode : document.body; 
+                                        // remove any existing fallback box
+                                        var old = parent.querySelector && parent.querySelector('[data-cust-fallback]'); if(old && old.parentNode) old.parentNode.removeChild(old);
+                                        if(!results || results.length===0) return;
+                                        var box = document.createElement('div'); box.setAttribute('data-cust-fallback','1'); box.style.position='absolute'; box.style.zIndex=600; box.style.background='#fff'; box.style.border='1px solid #ddd'; box.style.width='100%'; box.style.maxHeight='240px'; box.style.overflow='auto'; box.style.top = (live ? (live.offsetHeight + 'px') : '100%'); box.style.left='0'; box.style.boxSizing='border-box';
+                                        results.forEach(function(item){ try{ var row = document.createElement('div'); row.style.padding='8px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid #f3f3f3'; row.textContent = item.name + (item.phone ? (' — ' + item.phone) : ''); row.addEventListener('click', function(ev){ ev && ev.stopPropagation && ev.stopPropagation(); try{ var idCandidate = item.id || item.pk || item.client_id || item.clientId || item._id || ''; try{ var sel = document.getElementById('selected_client_id'); if(sel) sel.value = idCandidate; }catch(e){} try{ window.currentCustomerId = idCandidate; }catch(e){} try{ console.debug && console.debug('customer selected (fallback):', idCandidate, item); }catch(e){} try{ var live2 = document.getElementById('customer-search'); if(live2) live2.value = item.name; }catch(e){} try{ var sp = document.getElementById('selected-plate'); if(sp) sp.textContent = (item.plates && item.plates.length) ? item.plates.join(', ') : ''; }catch(e){} try{ if(typeof window.loadCustomerVehicles === 'function') window.loadCustomerVehicles(idCandidate); }catch(e){} }catch(e){} try{ if(box && box.parentNode) box.parentNode.removeChild(box); }catch(e){} }); box.appendChild(row);}catch(e){} });
+                                        try{ parent.style.position = parent.style.position || 'relative'; parent.appendChild(box); }catch(e){}
+                                    }catch(e){}
+                                }catch(e){}
+                            }).catch(function(){/* ignore */});
+                        }catch(e){}
+                    })(t.value||'', t);
+                }catch(err){}
+            }
+        }catch(err){}
+    }, true);
+
+    document.addEventListener('click', function(e){
+        try{
+            var t = e.target;
+            if(!t) return;
+            // clicks on the customer input -> open inline suggestions
+            if(t.id === 'customer-search' || (t.closest && t.closest('#customer-search'))){
+                try{ if(window.showInlineSuggestions) window.showInlineSuggestions(''); }catch(err){}
+                return;
+            }
+            // clicks on magnifier button -> open modal
+            var mag = t.closest && t.closest('#customer-search-btn');
+            if(mag){ try{ if(window.openCustomerModal) window.openCustomerModal((document.getElementById('customer-search')||{}).value||''); }catch(err){} }
+        }catch(err){}
+    }, true);
+
+    // mousedown listener (capture) — runs earlier than click and helps when other handlers
+    // or CSS prevent default on click. Ensure input receives focus and suggestions open.
+    document.addEventListener('mousedown', function(e){
+        try{
+            var t = e.target;
+            if(!t) return;
+            if(t.id === 'customer-search' || (t.closest && t.closest('#customer-search'))){
+                try{ var inp = document.getElementById('customer-search'); if(inp && typeof inp.focus === 'function') inp.focus(); if(window.showInlineSuggestions) window.showInlineSuggestions(''); }catch(err){}
+                return;
+            }
+            var mag = t.closest && t.closest('#customer-search-btn');
+            if(mag){ try{ if(window.openCustomerModal) window.openCustomerModal((document.getElementById('customer-search')||{}).value||''); }catch(err){} }
+        }catch(err){}
+    }, true);
+
+    document.addEventListener('keydown', function(e){
+        try{
+            var t = e.target;
+            if(!t) return;
+            if(t.id === 'customer-search'){
+                if(e.key === 'Enter' || e.key === ' '){
+                    try{ e.preventDefault(); if(window.toggleCustomerSuggestions) window.toggleCustomerSuggestions(); else if(window.showInlineSuggestions) window.showInlineSuggestions(''); }catch(err){}
+                }
+            }
+        }catch(err){}
+    }, true);
+}catch(e){}
+    })();
 
     // bind add buttons (items + services)
-    window.initItemsTable = window.initItemsTable || function(){ try{ if(window.__addLineHandlerInstalled){} else { var btn = document.querySelector('button[id="add-line-item"], button.add-line-item, #add-line-item, #add-row'); if(btn && !(btn.dataset && btn.dataset.addlineBound === '1')){ btn.addEventListener('click', function(e){ e.preventDefault(); try{ createItemRow(true); if(window.recomputeTotals) window.recomputeTotals(); }catch(err){ console.error(err); } }); try{ btn.dataset.addlineBound = '1'; }catch(e){} try{ window.__addLineHandlerInstalled = true; }catch(e){} } } if(document.querySelectorAll('#items-body .item-row').length === 0 && !window.__isMaintenancePage) createItemRow(false); try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} }catch(e){} };
+    (function(){
+        function bindAddLineButton(){
+            try{
+                var btn = document.querySelector('#add-line-item') || document.querySelector('button.add-line-item') || document.querySelector('button[id*="add"], a[id*="add"], button[id*="add-row"], #add-row');
+                if(!btn) return;
+                try{ if(btn.dataset && btn.dataset.addlineBound === '1') return; }catch(e){}
+                try{ btn.dataset.addlineBound = '1'; }catch(e){}
+                try{ btn.style.cursor = 'pointer'; }catch(e){}
+                try{ btn.addEventListener('click', function(e){ try{ e.preventDefault(); }catch(err){} try{ if(window.createItemRow) window.createItemRow(true); }catch(err){} try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(err){} }, false); }catch(e){}
+                try{ window.__addLineHandlerInstalled = true; }catch(e){}
+            }catch(e){}
+        }
+
+        // schedule binding attempts to catch buttons that are rendered later
+        try{ document.addEventListener('DOMContentLoaded', bindAddLineButton); }catch(e){}
+        try{ setTimeout(bindAddLineButton, 300); }catch(e){}
+        try{ setTimeout(bindAddLineButton, 1200); }catch(e){}
+
+        // expose for manual invocation/tests
+        try{ window.bindAddLineButton = bindAddLineButton; }catch(e){}
+
+        // Watch for late-inserted buttons (frameworks/templates that render after initial load)
+        try{
+            if(window.MutationObserver){
+                var mo = new MutationObserver(function(muts){ try{ for(var i=0;i<muts.length;i++){ var added = muts[i].addedNodes || []; for(var j=0;j<added.length;j++){ try{ var n = added[j]; if(n && n.querySelector){ if(n.querySelector('#add-line-item, .add-line-item, #add-row')){ try{ bindAddLineButton(); }catch(e){} } } else if(n && n.id && (n.id === 'add-line-item' || n.id === 'add-row')){ try{ bindAddLineButton(); }catch(e){} } }catch(e){} } } }catch(e){} });
+                try{ mo.observe(document.body, {childList:true, subtree:true}); }catch(e){}
+            }
+        }catch(e){}
+
+        window.initItemsTable = window.initItemsTable || function(){
+            try{ if(window.__itemsTableInitialized) return; window.__itemsTableInitialized = true; }catch(e){}
+            try{ bindAddLineButton(); }catch(e){}
+            try{ if(!window.__initialRowCreated) window.__initialRowCreated = true; }catch(e){}
+            try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
+        };
+    })();
 
         // Fallback: delegated click handler to catch any "Add Line Item" button
         // even if its listeners were removed or the element was re-rendered.
@@ -186,18 +524,45 @@
                 var t = e.target;
                 var btn = t && t.closest ? t.closest('button, a') : null;
                 if(!btn) return;
-                    try{ if(window.__addLineHandlerInstalled) return; }catch(e){}
+                    // allow delegated handler to run even if a binding flag exists;
+                    // createItemRow is debounce-protected so duplicates are safe.
                 var txt = (btn.textContent||'').trim();
+                // always allow delegated handling for Add Line Item clicks
                 if(btn.id === 'add-line-item' || btn.classList.contains('add-line-item') || txt.indexOf('Add Line Item') !== -1){
                     try{ e.preventDefault(); }catch(err){}
                     try{ /* prevent other click handlers (target/bubble) from also running */ e.stopImmediatePropagation(); }catch(err){}
-                    try{ try{ window.__addLineHandlerInstalled = true; }catch(e){} if(window.createItemRow) window.createItemRow(true); }catch(err){}
+                    try{ try{ window.__addLineHandlerInstalled = true; }catch(e){} try{ if(window.__debugLineItems) console.debug('[line-items] delegated click -> createItemRow', Date.now()); }catch(e){} if(window.createItemRow) window.createItemRow(true); }catch(err){}
                     try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(err){}
                 }
             }catch(err){}
         }, true);
 
-    window.initServicesTable = window.initServicesTable || function(){ try{ window._servicesTableInit = true; var btn = document.getElementById('add-service'); if(btn && btn.dataset.bound !== '1'){ btn.dataset.bound = '1'; btn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); if(btn.dataset.lock === '1') return; btn.dataset.lock = '1'; try{ window._addingService = true; createServiceRow(true); }catch(err){} finally{ setTimeout(function(){ try{ window._addingService = false; }catch(e){} try{ delete btn.dataset.lock; }catch(e){} }, 300); } }, true); } try{ document.querySelectorAll('#services-body .service-row, #services-body .item-row[data-type="service"]').forEach(function(r){ try{ if(window.updateServiceRowAmount) window.updateServiceRowAmount(r); }catch(e){} }); }catch(e){} }catch(e){ console.error('initServicesTable failed', e); } };
+    window.initServicesTable = window.initServicesTable || function(){
+        try{
+            window._servicesTableInit = true;
+            // bind to either legacy 'add-service' or template 'add-service-row'
+            var btn = document.getElementById('add-service') || document.getElementById('add-service-row');
+            if(btn && btn.dataset.bound !== '1'){
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', function(e){
+                    try{ e.preventDefault(); e.stopPropagation(); }catch(err){}
+                    try{ if(btn.dataset.lock === '1') return; btn.dataset.lock = '1'; }catch(e){}
+                    try{ window._addingService = true; createServiceRow(true); }catch(err){}
+                    finally{ setTimeout(function(){ try{ window._addingService = false; }catch(e){} try{ delete btn.dataset.lock; }catch(e){} }, 300); }
+                }, true);
+            }
+            // ensure existing service rows are normalized (now in #items-body)
+            try{ document.querySelectorAll('#items-body .service-row, #items-body .item-row[data-type="service"]').forEach(function(r){ try{ if(window.updateServiceRowAmount) window.updateServiceRowAmount(r); }catch(e){} }); }catch(e){}
+            // If we're on a maintenance page and there are no service rows, create one
+            try{
+                var isMaint = (window && window.ITEM_CONTEXT && String(window.ITEM_CONTEXT).trim() === 'maintenance') || window.__isMaintenancePage;
+                if(isMaint){
+                    var hasSvc = (document.querySelectorAll('#items-body .service-row').length || document.querySelectorAll('#items-body .item-row[data-type="service"]').length) > 0;
+                    if(!hasSvc){ try{ createServiceRow(false); }catch(e){} }
+                }
+            }catch(e){}
+        }catch(e){ console.error('initServicesTable failed', e); }
+    };
 
     // Only load/initialize services-table on maintenance pages.
     try{
@@ -213,7 +578,24 @@
         }
     }catch(e){}
 
-    document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} try{ var __pageInvoiceType = (document && document.body && document.body.dataset && document.body.dataset.invoiceType) ? document.body.dataset.invoiceType : null; if(__pageInvoiceType === 'maintenance'){ try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){} } }catch(e){} });
+    // Defer calling `initItemsTable` until the core signals readiness to avoid
+    // race conditions where UI runs before core has initialized.
+    try{
+        function safeInitItemsTable(){
+            try{
+                if(window.__lineItemsReady){
+                    try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){}
+                    try{ var __pageInvoiceType = (document && document.body && document.body.dataset && document.body.dataset.invoiceType) ? document.body.dataset.invoiceType : null; if(__pageInvoiceType === 'maintenance'){ try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){} } }catch(e){}
+                    return;
+                }
+            }catch(e){}
+            // listen once for readiness; also poll as a fallback
+            try{ if(window.addEventListener){ window.addEventListener('line-items-ready', function onLI(){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} try{ var __pageInvoiceType = (document && document.body && document.body.dataset && document.body.dataset.invoiceType) ? document.body.dataset.invoiceType : null; if(__pageInvoiceType === 'maintenance'){ try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){} } }catch(e){} }); } }catch(e){}
+            try{ setTimeout(safeInitItemsTable, 120); }catch(e){}
+        }
+        try{ document.addEventListener('DOMContentLoaded', safeInitItemsTable); }catch(e){}
+        try{ setTimeout(safeInitItemsTable, 200); }catch(e){}
+    }catch(e){}
 
 // canonical serializer now lives in `static/js/line-items.core.js`.
 // Do not redefine `window.serializeMaintenanceItems` here to avoid
@@ -230,32 +612,15 @@
             // avoid adding a second listener. Respect `data-addline-bound`
             // and the global `__addLineHandlerInstalled` flag.
             try{ if((btn.dataset && btn.dataset.addlineBound === '1') || window.__addLineHandlerInstalled) return; }catch(e){}
-            try{ if(btn.dataset) btn.dataset.directBound = '1'; }catch(e){}
+            try{ if(btn.dataset) btn.dataset.addlineBound = '1'; }catch(e){}
             try{ window.__addLineHandlerInstalled = true; }catch(e){}
-            btn.addEventListener('click', function(e){
-                try{ e.preventDefault(); }catch(err){}
-                try{
-                    var created = null;
-                    try{ if(window.createItemRow) created = window.createItemRow(true); }catch(err){ created = null; }
-                    if(!created){
-                        try{ if(window.__lastCreateItemRowAt && (Date.now() - window.__lastCreateItemRowAt) < 220){ /* another handler already created a row; skip fallback */ created = null; } }catch(e){}
-                    }
-                    if(!created){
-                        // simple safe fallback: append minimal row and init inventory autocomplete if available
-                        try{
-                            var body = document.getElementById('items-body') || document.getElementById('items-body-view') || document.querySelector('tbody#items-body, tbody#items-body-view, tbody');
-                            if(body){
-                                var tr = document.createElement('tr'); tr.className = 'item-row';
-                                tr.innerHTML = '\n                <td style="padding:8px 12px;vertical-align:middle;">\n                    <input type="text" class="item-desc" value="" style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;" />\n                    <input type="hidden" class="item-type-hidden" name="item_type[]" value="" />\n                </td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="1" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="0.000" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-discount" value="0.00" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n                <td style="padding:8px 18px 8px 12px;text-align:right;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;text-align:right;" /></td>\n                <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-item-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
-                                try{ body.appendChild(tr); }catch(e){ document.body.appendChild(tr); }
-                                try{ tr.dataset.__createdAt = Date.now(); }catch(e){}
-                                try{ var desc = tr.querySelector && tr.querySelector('.item-desc'); if(desc && typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(desc); }catch(e){}
-                            }
-                        }catch(e){ console.error('fallback create row failed', e); }
-                    }
-                    try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(err){}
-                }catch(e){}
-            }, false);
+                btn.addEventListener('click', function(e){
+                    try{ e.preventDefault(); }catch(err){}
+                    try{
+                        if(window.createItemRow) window.createItemRow(false);
+                        if(window.recomputeTotals) window.recomputeTotals();
+                    }catch(e){}
+                }, false);
         }catch(e){}
     });
 
@@ -304,11 +669,22 @@
                 if(!inputs) return;
                 Array.prototype.forEach.call(inputs, function(input){
                     try{
-                        if(!input._invBound){
-                            if(typeof window.initInventoryAutocomplete === 'function'){
+                        // Ensure the canonical initializer runs for any input that
+                        // hasn't been initialized yet. Use `_invInit` as the
+                        // authoritative guard so re-initialization is safe.
+                        try{
+                            if(typeof window.initInventoryAutocomplete === 'function' && !input._invInit){
                                 try{ window.initInventoryAutocomplete(input); }catch(e){}
                             }
-                        }
+                        }catch(e){}
+                        // Ensure focus/click open suggestions even if user doesn't type
+                        try{
+                            if(!input._invFocusBound){
+                                input.addEventListener('focus', function(){ try{ input.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){} });
+                                input.addEventListener('click', function(){ try{ input.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){} });
+                                input._invFocusBound = true;
+                            }
+                        }catch(e){}
                     }catch(e){}
                 });
             }catch(e){}
@@ -327,129 +703,47 @@
                     // ensure hidden type input exists
                     if(!row.querySelector('.item-type-hidden')){
                         var h = document.createElement('input'); h.type = 'hidden'; h.name = 'item_type[]'; h.className = 'item-type-hidden'; h.value = 'inventory';
-                        // try to place it in first cell
                         try{ var c = row.querySelector('td'); if(c) c.appendChild(h); else row.appendChild(h); }catch(e){ row.appendChild(h); }
                     }
-                    // normalize any existing select or hidden inputs to expected values
                     try{
-                        var sel = row.querySelector('.item-type');
-                        var hh = row.querySelector('.item-type-hidden');
-                        function normalizeAndApply(v){
-                            if(!v) return 'inventory';
-                            var lv = (v+'').toLowerCase();
-                            if(lv === 'part' || lv === 'parts' || lv === 'inventory') return 'inventory';
-                            if(lv === 'service' || lv === 'services') return 'service';
-                            return lv;
-                        }
-                        if(sel && (typeof sel.value !== 'undefined')){
-                            var mapped = normalizeAndApply(sel.value);
-                            try{ if(hh) hh.value = (mapped === 'inventory' ? 'inventory' : 'service'); }catch(e){}
-                            try{ row.dataset.type = mapped; }catch(e){}
-                        } else if(hh && (typeof hh.value !== 'undefined')){
-                            var mapped2 = normalizeAndApply(hh.value);
-                            try{ if(mapped2 === 'part') mapped2 = 'inventory'; }catch(e){}
-                            try{ row.dataset.type = mapped2; }catch(e){}
-                        } else {
-                            try{ if(!row.dataset.type) row.dataset.type = 'inventory'; }catch(e){}
-                        }
+                        var desc = row.querySelector && (row.querySelector('.item-desc')||row.querySelector('.service-desc'));
+                        if(!desc) return;
+                        var val = (desc.value||'').trim();
+                        if(!val) return;
 
-                        // attach change handler for server-rendered select so switching type updates row dataset and autocomplete
-                        try{
-                            if(sel && !sel._typeBound){
-                                sel._typeBound = true;
-                                sel.addEventListener('change', function(){
-                                    try{
-                                        var val = sel.value; var mapped = normalizeAndApply(val);
-                                        try{ if(hh) hh.value = (mapped === 'inventory' ? 'inventory' : 'service'); }catch(e){}
-                                        try{ row.dataset.type = mapped; }catch(e){}
-                                        var desc = row.querySelector('.item-desc');
-                                        if(mapped === 'inventory'){
-                                            try{ if(desc) desc.dataset.autocomplete = 'inventory'; }catch(e){}
-                                            try{ if(typeof window.initInventoryAutocomplete === 'function' && desc) window.initInventoryAutocomplete(desc); }catch(e){}
-                                        } else {
-                                            try{ if(desc) desc.dataset.autocomplete = 'service'; }catch(e){}
-                                            try{ if(typeof window.initServiceAutocomplete === 'function' && desc) window.initServiceAutocomplete(desc); }catch(e){}
-                                        }
-                                        try{ delete row.dataset.partId; delete row.dataset.inventoryId; delete row.dataset.serviceId; }catch(e){}
-                                    }catch(e){}
-                                });
-                            }
-                        }catch(e){}
-                    }catch(e){}
-                    // If user types a name and blurs without picking suggestion,
-                    // attempt an exact-name lookup and convert to service if matched.
-                    try{
-                        if(desc){
-                            desc.addEventListener('blur', function(){
+                        if(typeof window.fetchInventory === 'function'){
+                            window.fetchInventory(val).then(function(list){
                                 try{
-                                    var v = (desc.value||'').trim(); if(!v) return;
-                                    // try to resolve via fetchInventory (merged services+parts)
+                                    if(!list || !list.length) return;
+                                    var match = list.find(function(it){ return (it.name||'').toLowerCase() === val.toLowerCase(); }) || list[0];
+
+                                    if(!match) return;
+
+                                    var inferred = match.type || ((match.track_stock) ? 'inventory' : 'service');
+
+                                    try{ var hh2 = row.querySelector('.item-type-hidden'); if(hh2) hh2.value = 'inventory'; }catch(e){}
+
+                                    try{ row.dataset.type = 'inventory'; }catch(e){}
+
+                                    try{ if(match.id) { row.dataset.partId = match.id; row.dataset.inventoryId = match.id; } }catch(e){}
+
                                     try{
-                                        if(typeof window.fetchInventory === 'function'){
-                                            window.fetchInventory(v).then(function(list){
-                                                try{
-                                                    if(!list || !list.length) return;
-                                                    var match = list.find(function(it){ return (it.name||'').toLowerCase() === v.toLowerCase(); }) || null;
-                                                    if(!match) return;
-                                                    // if matched item is service, convert row
-                                                    var inferred = match.type || ((match.track_stock) ? 'inventory' : 'service');
-                                                    if(inferred === 'service'){
-                                                        try{ if(!window._servicesTableInit && window.onServiceSelected) window.onServiceSelected(tr, match); }catch(e){}
-                                                        try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
-                                                        try{ if(window.serializeMaintenanceItems) window.serializeMaintenanceItems(); }catch(e){}
-                                                    } else {
-                                                        // mark as inventory selection
-                                                        try{ tr.dataset.inventoryId = match.id; tr.dataset.partId = match.id; }catch(e){}
-                                                        try{ tr.dataset.type = 'inventory'; }catch(e){}
-                                                        try{ var hh2 = tr.querySelector && tr.querySelector('.item-type-hidden'); if(hh2) hh2.value = 'inventory'; }catch(e){}
-                                                        try{ if(window.updateRowAmount) window.updateRowAmount(tr); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
-                                                        try{ var descEl = tr.querySelector && tr.querySelector('.item-desc'); if(descEl && descEl.style) descEl.style.background = '#fff'; }catch(e){}
-                                                    }
-                                                }catch(e){}
-                                            }).catch(function(){});
+                                        var rateEl = row.querySelector && row.querySelector('.item-rate');
+                                        var p = (match.sale_price!==undefined ? match.sale_price : (match.price!==undefined ? match.price : null));
+
+                                        if(rateEl && p!==null && p!==undefined){
+                                            rateEl.value = parseFloat(p).toFixed(3);
                                         }
+                                    }catch(e){}
+
+                                    try{
+                                        if(window.updateRowAmount) window.updateRowAmount(row);
+                                        if(window.recomputeTotals) window.recomputeTotals();
                                     }catch(e){}
                                 }catch(e){}
-                            });
+                            }).catch(function(){});
                         }
                     }catch(e){}
-
-                    // bind autocomplete to desc
-                    var desc = row.querySelector('.item-desc');
-                    if(desc){
-                        try{
-                            // ensure description input has correct autocomplete marker for its row type
-                            try{ if(row.dataset && row.dataset.type === 'service') desc.dataset.autocomplete = 'service'; else desc.dataset.autocomplete = 'inventory'; }catch(e){}
-                        }catch(e){}
-                        try{
-                            try{ if(typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(desc); }catch(e){}
-                            try{ if(typeof window.initServiceAutocomplete === 'function') window.initServiceAutocomplete(desc); }catch(e){}
-                            try{ desc.addEventListener && desc.addEventListener('service-selected', function(ev){ try{ if(!window._servicesTableInit && window.onServiceSelected) window.onServiceSelected(row, ev.detail); }catch(e){} }); }catch(e){}
-                        }catch(e){}
-                        // if value present, try to lookup and annotate the row with ids/prices
-                        var val = (desc.value||'').trim();
-                        if(val){
-                            try{
-                                if(typeof window.fetchInventory === 'function'){
-                                    window.fetchInventory(val).then(function(list){
-                                        try{
-                                            if(list && list.length){
-                                                var match = list.find(function(it){ return (it.name||'').toLowerCase() === val.toLowerCase(); }) || list[0];
-                                                if(match){
-                                                    if(match.id) { row.dataset.partId = match.id; row.dataset.inventoryId = match.id; }
-                                                    if(match.track_stock!==undefined) row.dataset.inventoryTrackStock = String(Boolean(match.track_stock));
-                                                    var rateEl = row.querySelector('.item-rate'); if(rateEl && (match.sale_price!==undefined || match.price!==undefined)){
-                                                        var p = (match.sale_price!==undefined?match.sale_price:(match.price!==undefined?match.price:null)); if(p!==null && p!==undefined) rateEl.value = parseFloat(p).toFixed(3);
-                                                    }
-                                                    try{ if(window.updateRowAmount) window.updateRowAmount(row); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
-                                                }
-                                            }
-                                        }catch(e){}
-                                    }).catch(function(){});
-                                }
-                            }catch(e){}
-                        }
-                    }
                 }catch(e){}
             });
         }catch(e){}
@@ -529,7 +823,10 @@
                 try{
                     if(!input) return;
                     try{ if(input.dataset) input.dataset.autocomplete = 'service'; }catch(e){}
-                    if(typeof window.initInventoryAutocomplete === 'function'){
+                    // Prefer service-specific initializer when available
+                    if(typeof window.initServiceAutocomplete === 'function'){
+                        try{ window.initServiceAutocomplete(input); }catch(e){}
+                    } else if(typeof window.initInventoryAutocomplete === 'function'){
                         try{ window.initInventoryAutocomplete(input); }catch(e){}
                     }
                 }catch(e){}
@@ -537,28 +834,18 @@
 
             // Make clicking a visible .service-label focus the hidden input and open suggestions
             document.querySelectorAll('.service-label').forEach(function(lbl){
-    // Fallback: ensure any remaining unbound `.item-desc` inputs get initialized
-    try{
-        setTimeout(function(){
-            try{
-                document.querySelectorAll('#items-body .item-desc, .item-desc').forEach(function(el){
-                    try{ if(!el._invBound && typeof window.initInventoryAutocomplete === 'function'){ window.initInventoryAutocomplete(el); } }catch(e){}
-                });
-            }catch(e){}
-        }, 60);
-    }catch(e){}
                 try{
                     lbl.style.cursor = lbl.style.cursor || 'pointer';
                     lbl.addEventListener('click', function(){
                         try{
-                                try{ if(window.__debugInventory) console.debug('[line-items.ui] service-label clicked', lbl); }catch(e){}
+                            try{ if(window.__debugInventory) console.debug('[line-items.ui] service-label clicked', lbl); }catch(e){}
                             var row = lbl.closest && lbl.closest('tr'); if(!row) return;
                             // prefer a visible editable input; if only a hidden .service-desc exists, create a temporary editor
                             var hidden = row.querySelector('.service-desc');
                             try{ if(window.__debugInventory) console.debug('[line-items.ui] found hidden,visible inputs', !!hidden, !!row.querySelector('.item-desc')); }catch(e){}
                             var visible = row.querySelector('.item-desc');
                             var edit = null;
-                            if(hidden && hidden.tagName === 'INPUT' && hidden.type === 'hidden'){
+                                if(hidden && hidden.tagName === 'INPUT' && hidden.type === 'hidden'){
                                 try{ if(window.__debugInventory) console.debug('[line-items.ui] creating temporary editor for hidden service-desc'); }catch(e){}
                                 // create temporary visible input to edit service description
                                 edit = document.createElement('input');
@@ -580,8 +867,8 @@
                                 };
                                 edit.addEventListener('blur', function(){ setTimeout(cleanup, 120); });
                                 edit.addEventListener('keydown', function(ev){ if(ev.key === 'Escape'){ try{ if(edit && edit.parentNode) edit.parentNode.removeChild(edit); lbl.style.display = ''; }catch(e){} } if(ev.key === 'Enter'){ try{ edit.blur(); }catch(e){} } });
-                                // ensure autocomplete is initialized on the editor
-                                try{ if(typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(edit); }catch(e){}
+                                // ensure autocomplete is initialized on the editor (service-specific)
+                                try{ if(typeof window.initServiceAutocomplete === 'function') window.initServiceAutocomplete(edit); else if(typeof window.initInventoryAutocomplete === 'function') window.initInventoryAutocomplete(edit); }catch(e){}
                                 try{ edit.focus(); }catch(e){}
                                 return;
                             }
@@ -589,13 +876,187 @@
                             var inp = visible || hidden || row.querySelector('.item-desc');
                             if(!inp) return;
                             try{ if(inp.focus) inp.focus(); }catch(e){}
-                            if(typeof window.initInventoryAutocomplete === 'function'){
-                                try{ window.initInventoryAutocomplete(inp); }catch(e){}
-                            }
+                            // Initialize the appropriate autocomplete for this input
+                            try{
+                                var isService = false;
+                                try{ isService = (row && row.dataset && row.dataset.type === 'service') || (inp.classList && inp.classList.contains('service-desc')); }catch(e){}
+                                if(isService && typeof window.initServiceAutocomplete === 'function'){
+                                    try{ window.initServiceAutocomplete(inp); }catch(e){}
+                                } else if(typeof window.initInventoryAutocomplete === 'function'){
+                                    try{ window.initInventoryAutocomplete(inp); }catch(e){}
+                                }
+                            }catch(e){}
                         }catch(e){}
                     });
                 }catch(e){}
             });
+
+            // Fallback: ensure any remaining unbound `.item-desc` inputs get initialized
+            try{
+                setTimeout(function(){
+                    try{
+                        document.querySelectorAll('#items-body .item-desc, .item-desc').forEach(function(el){
+                            try{ if(!el._invBound && typeof window.initInventoryAutocomplete === 'function'){ window.initInventoryAutocomplete(el); } }catch(e){}
+                        });
+                    }catch(e){}
+                }, 60);
+            }catch(e){}
+            }catch(e){}
+            });
+})();
+
+(function(){
+    function ensureRecompute(){
+        try{
+            if(typeof window.recomputeTotals === 'function'){
+                try{ window.recomputeTotals(); }catch(e){}
+            } else {
+                setTimeout(ensureRecompute, 50);
+            }
+        }catch(e){}
+    }
+    try{ window.addEventListener && window.addEventListener('core-ready', function(){ try{ if(typeof window.recomputeTotals === 'function') window.recomputeTotals(); else setTimeout(ensureRecompute,50); }catch(e){} }); }catch(e){}
+    try{ ensureRecompute(); }catch(e){}
+})();
+
+// Delegate customer-search events at document level so replacements still work
+try{
+    document.addEventListener('input', function(e){
+        try{
+            var t = e.target;
+            if(!t) return;
+            if(t.id === 'customer-search'){
+                try{ if(window.showInlineSuggestions) window.showInlineSuggestions(t.value||''); }catch(err){}
+            }
+        }catch(err){}
+    }, true);
+
+    document.addEventListener('click', function(e){
+        try{
+            var t = e.target;
+            if(!t) return;
+            // clicks on the customer input -> open inline suggestions
+            if(t.id === 'customer-search' || (t.closest && t.closest('#customer-search'))){
+                try{ if(window.showInlineSuggestions) window.showInlineSuggestions(''); }catch(err){}
+                return;
+            }
+            // clicks on magnifier button -> open modal
+            var mag = t.closest && t.closest('#customer-search-btn');
+            if(mag){ try{ if(window.openCustomerModal) window.openCustomerModal((document.getElementById('customer-search')||{}).value||''); }catch(err){} }
+        }catch(err){}
+    }, true);
+
+    document.addEventListener('keydown', function(e){
+        try{
+            var t = e.target;
+            if(!t) return;
+            if(t.id === 'customer-search'){
+                if(e.key === 'Enter' || e.key === ' '){
+                    try{ e.preventDefault(); if(window.toggleCustomerSuggestions) window.toggleCustomerSuggestions(); else if(window.showInlineSuggestions) window.showInlineSuggestions(''); }catch(err){}
+                }
+            }
+        }catch(err){}
+    }, true);
+}catch(e){}
+
+(function(){
+    // Normalize server-rendered rows: replace any `svc_...` prefilled row
+    // with a JS-created row so all rows share the same factory/behavior.
+    document.addEventListener('DOMContentLoaded', function(){
+        try{
+            var body = document.getElementById('items-body'); if(!body) return;
+            var first = body.querySelector('tr.item-row'); if(!first) return;
+            try{
+                var isServerRow = false;
+                if(first.dataset && first.dataset.rowId && String(first.dataset.rowId).indexOf('svc_') === 0) isServerRow = true;
+                if(!isServerRow) return;
+                // extract visible values to preserve prefills
+                var descEl = first.querySelector('.item-desc'); var qtyEl = first.querySelector('.item-qty'); var rateEl = first.querySelector('.item-rate'); var discEl = first.querySelector('.item-discount');
+                var vals = { description: descEl ? (descEl.value||'') : '', qty: qtyEl ? (qtyEl.value||'1') : '1', rate: rateEl ? (rateEl.value||'0.000') : '0.000', discount: discEl ? (discEl.value||'0.000') : '0.000', inventoryId: (first.dataset && (first.dataset.inventoryId||first.dataset.partId)) || null };
+                try{ first.parentNode.removeChild(first); }catch(e){}
+                // create canonical JS row
+                var newRow = null;
+                try{ if(typeof window.createItemRow === 'function') newRow = window.createItemRow(false); }catch(e){}
+                if(!newRow) return;
+                try{
+                    var d = newRow.querySelector('.item-desc'); if(d) d.value = vals.description;
+                    var q = newRow.querySelector('.item-qty'); if(q) q.value = vals.qty;
+                    var r = newRow.querySelector('.item-rate'); if(r) r.value = parseFloat(vals.rate||0).toFixed(3);
+                    var di = newRow.querySelector('.item-discount'); if(di) di.value = parseFloat(vals.discount||0).toFixed(3);
+                    if(vals.inventoryId){ try{ newRow.dataset.inventoryId = vals.inventoryId; newRow.dataset.partId = vals.inventoryId; }catch(e){} }
+                    try{ if(window.updateRowAmount) window.updateRowAmount(newRow); if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
+                }catch(e){}
+            }catch(e){}
         }catch(e){}
     });
 })();
+
+// Normalize any pre-rendered rows (services or items) by running the
+// canonical initializers on them. This ensures server-rendered rows use the
+// same factory/handlers as dynamic rows without relying on cloning hacks.
+(function(){
+    function normalizeRow(row){
+        try{
+            if(!row) return;
+            if(row.dataset && row.dataset.__normalized === '1') return;
+            var svcInput = row.querySelector && row.querySelector('.service-desc');
+            var itemInput = row.querySelector && row.querySelector('.item-desc');
+            try{
+                if(itemInput){
+                    if(typeof window.initInventoryRow === 'function'){
+                        try{ window.initInventoryRow(row); }catch(e){}
+                    } else if(typeof window.initInventoryAutocomplete === 'function'){
+                        try{ window.initInventoryAutocomplete(itemInput); }catch(e){}
+                    }
+                }
+            }catch(e){}
+            try{
+                if(svcInput){
+                    if(typeof window.initServiceAutocomplete === 'function'){
+                        try{ window.initServiceAutocomplete(svcInput); }catch(e){}
+                    } else if(typeof window.initInventoryAutocomplete === 'function'){
+                        try{ window.initInventoryAutocomplete(svcInput); }catch(e){}
+                    }
+                }
+            }catch(e){}
+            try{ if(row.dataset) row.dataset.__normalized = '1'; }catch(e){}
+        }catch(e){}
+    }
+
+    function runNormalize(){
+        try{
+            // Normalize any legacy service rows found outside #items-body
+            try{
+                var all = Array.prototype.slice.call(document.querySelectorAll('tr')) || [];
+                var legacy = all.filter(function(r){ try{ if(!r) return false; if(r.closest && r.closest('#items-body')) return false; return Boolean(r.querySelector('.service-desc') || r.querySelector('.service-qty') || r.classList.contains('service-row')); }catch(e){return false;} });
+                legacy.forEach(function(r){ try{ normalizeRow(r); }catch(e){} });
+            }catch(e){}
+            var ib = document.getElementById('items-body');
+            if(ib){ Array.prototype.slice.call(ib.querySelectorAll('.item-row')).forEach(normalizeRow); }
+        }catch(e){}
+    }
+
+    try{ document.addEventListener('DOMContentLoaded', runNormalize); }catch(e){}
+    try{ setTimeout(runNormalize, 300); }catch(e){}
+    try{ window.addEventListener('load', runNormalize); }catch(e){}
+})();
+
+// Ensure the first service input on the page is explicitly initialized
+// after all scripts and elements have loaded. This guarantees server-
+// rendered first rows receive the same autocomplete handlers as dynamic rows.
+    try{
+    window.addEventListener('load', function(){
+        try{
+            var inp = document.querySelector('#items-body .item-row[data-type="service"] .service-desc') || document.querySelector('.service-desc');
+            if(!inp) return;
+            try{ if(inp.dataset && inp.dataset.autocompleteInitialized === '1') return; }catch(e){}
+            if(typeof window.initServiceAutocomplete === 'function'){
+                try{ window.initServiceAutocomplete(inp); }catch(e){}
+            } else if(typeof window.initInventoryAutocomplete === 'function'){
+                try{ window.initInventoryAutocomplete(inp); }catch(e){}
+            }
+            try{ if(inp.dataset) inp.dataset.autocompleteInitialized = '1'; }catch(e){}
+            try{ console.log('[line-items] first service row autocomplete initialized'); }catch(e){}
+        }catch(e){}
+    }, false);
+}catch(e){}

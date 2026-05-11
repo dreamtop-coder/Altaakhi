@@ -1,4 +1,7 @@
+// Temporary runtime marker: set `window.__coreLoaded = true` when executed
+// Remove this marker after verifying the core script is loaded in the browser.
 (function(){
+    try{ console.log('CORE LOADED: line-items.core.js'); window.__coreLoaded = true; }catch(e){}
     // Core: calculations and serializers
     function toFixed3(v){ try{ return parseFloat(v||0).toFixed(3); }catch(e){ return '0.000'; } }
 
@@ -28,8 +31,9 @@
 
     window.serializeMaintenanceItems = function(){
             try{
-                // Collect rows from both items and services containers so payload includes everything
-                var rows = Array.prototype.slice.call(document.querySelectorAll('#items-body .item-row, #services-body .service-row, #services-body .item-row')) || [];
+                // Collect rows only from the unified items container; service rows
+                // should be present as `.item-row[data-type="service"]`.
+                var rows = Array.prototype.slice.call(document.querySelectorAll('#items-body .item-row')) || [];
                 var items = [];
                 rows.forEach(function(row){ try{
                     // Determine row type robustly. Normalize legacy values like
@@ -109,11 +113,24 @@
                     }
                 }catch(e){}
             }
-            // Sum services across the whole document (handles service rows in either
-            // `#services-body` or dynamically-created `.item-row[data-type="service"]`).
+            // Sum services only from unified item rows marked as service.
             var svcTotal = 0;
             try{
-                document.querySelectorAll('.service-row, .item-row[data-type="service"]').forEach(function(r){ try{ var el = r.querySelector('.service-amount') || r.querySelector('.item-amount'); var val = el ? parseFloat(el.value)||0 : 0; svcTotal += val; }catch(e){} });
+                var allRows = document.querySelectorAll('#items-body .item-row');
+                Array.prototype.forEach.call(allRows, function(r){
+                    try{
+                        var dtype = '';
+                        try{ dtype = (r.dataset && (r.dataset.type || r.getAttribute && r.getAttribute('data-type'))) || ''; }catch(e){}
+                        dtype = (dtype+'').toLowerCase();
+                        var hasServiceId = false;
+                        try{ hasServiceId = Boolean((r.dataset && (r.dataset.serviceId)) || (r.getAttribute && r.getAttribute('data-service-id'))); }catch(e){}
+                        var isServiceRow = (r.classList && r.classList.contains('service-row')) || (dtype === 'service') || !!hasServiceId || !!(r.querySelector && (r.querySelector('.service-desc') || r.querySelector('.service-qty')));
+                        if(!isServiceRow) return;
+                        var el = r.querySelector('.service-amount') || r.querySelector('.item-amount');
+                        var val = el ? parseFloat(el.value)||0 : 0;
+                        svcTotal += val;
+                    }catch(e){}
+                });
             }catch(e){}
             // If client computes zero services but server provided a subtotal, prefer server value
             try{
@@ -133,9 +150,12 @@
                     try{
                         // Determine row type robustly: prefer explicit dataset.type,
                         // but also treat rows with a linked service id as service rows.
-                        var dtype = (r.dataset && (r.dataset.type || r.getAttribute && r.getAttribute('data-type'))) || '';
-                        var hasServiceId = (r.dataset && (r.dataset.serviceId || r.getAttribute && r.getAttribute('data-service-id')));
-                        var isServiceRow = (dtype === 'service') || !!hasServiceId;
+                        var dtype = '';
+                        try{ dtype = (r.dataset && (r.dataset.type || r.getAttribute && r.getAttribute('data-type'))) || ''; }catch(e){}
+                        dtype = (dtype+'').toLowerCase();
+                        var hasServiceId = false;
+                        try{ hasServiceId = Boolean((r.dataset && (r.dataset.serviceId)) || (r.getAttribute && r.getAttribute('data-service-id'))); }catch(e){}
+                        var isServiceRow = (r.classList && r.classList.contains('service-row')) || (dtype === 'service') || !!hasServiceId || !!(r.querySelector && (r.querySelector('.service-desc') || r.querySelector('.service-qty')));
                         if(isServiceRow) return; // skip service rows when summing parts
                         var q = parseFloat(r.querySelector('.item-qty').value)||0;
                         var rate = parseFloat(r.querySelector('.item-rate').value)||0;
@@ -163,6 +183,9 @@
             return true;
         }catch(e){ console.error('recomputeTotals failed', e); return false; }
     };
+    try{ window.dispatchEvent && window.dispatchEvent(new Event('core-ready')); }catch(e){}
+    // Signal that line-items core is fully initialized so UI modules may safely run
+    try{ window.__lineItemsReady = true; window.dispatchEvent && window.dispatchEvent(new Event('line-items-ready')); }catch(e){}
 
 })();
 // Ensure hidden `items_json` is populated before any form submit and once on load

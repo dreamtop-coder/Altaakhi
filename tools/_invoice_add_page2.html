@@ -1384,20 +1384,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if(document.getElementById('__items_table_loader')){
             var loader = document.getElementById('__items_table_loader');
-            loader.addEventListener('load', function(){ try{ if(window.createItemRow && window.createItemRow !== createItemRow) window.createItemRow(true); }catch(e){} });
+            loader.addEventListener('load', function(){ try{ if(window.createItemRow && window.createItemRow !== createItemRow) window.createItemRow(false); }catch(e){} });
             return null;
         }
         var urls = [
-            '{% static "js/line-items.api.js" %}?v=4',
-            '{% static "js/line-items.core.js" %}?v=4',
-            '{% static "js/line-items.ui.js" %}?v=4'
+            '{% static "js/line-items.api.js" %}?v=6',
+            '{% static "js/line-items.core.js" %}?v=5',
+            '{% static "js/line-items.ui.js" %}?v=5'
         ];
-        function appendSeq(i){ if(i>=urls.length) return; var s = document.createElement('script'); s.id = '__items_table_loader' + (i===0? '':'_'+i); s.src = urls[i]; s.onload = function(){ if(i===urls.length-1){ try{ if(window.createItemRow && window.createItemRow !== createItemRow) window.createItemRow(true); }catch(e){} } appendSeq(i+1); }; document.head.appendChild(s); }
+        function appendSeq(i){ if(i>=urls.length) return; var s = document.createElement('script'); s.id = '__items_table_loader' + (i===0? '':'_'+i); s.src = urls[i]; s.onload = function(){ if(i===urls.length-1){ try{ if(window.createItemRow && window.createItemRow !== createItemRow) window.createItemRow(false); }catch(e){} } appendSeq(i+1); }; document.head.appendChild(s); }
         appendSeq(0);
         return null;
     }
 
-    document.getElementById('add-row').addEventListener('click', function(){ createItemRow(true); });
+    var __addRowBtn = document.getElementById('add-row');
+    if(__addRowBtn){ __addRowBtn.addEventListener('click', function(){ createItemRow(false); }); try{ __addRowBtn.dataset.addlineBound = '1'; }catch(e){} }
 
     // --- Inventory autocomplete for Item Details ---
     var invTimer = null;
@@ -1488,16 +1489,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // attach to any existing item-desc inputs
     // if there are no rows yet, create an initial empty row
-    if(document.querySelectorAll('#items-body .item-row').length === 0){ createItemRow(true); }
+    if(document.querySelectorAll('#items-body .item-row').length === 0){ createItemRow(false); }
     document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ attachInventoryAutocomplete(inp); });
     // ensure totals and bottom total reflect any server-rendered rows
     try{ recomputeTotals(); }catch(e){}
 
     // close inventory suggestions when clicking elsewhere
     document.addEventListener('click', function(ev){
-        if(ev.target && ev.target.closest && ev.target.closest('.inventory-suggestions')) return;
-        // remove all inventory suggestion boxes
-        document.querySelectorAll('.inventory-suggestions').forEach(function(b){ b.parentNode && b.parentNode.removeChild(b); });
+        try{
+            if(ev.target && ev.target.closest && (ev.target.closest('.inventory-suggestions') || ev.target.closest('.item-desc'))) return;
+            // remove all inventory suggestion boxes
+            document.querySelectorAll('.inventory-suggestions').forEach(function(b){ b.parentNode && b.parentNode.removeChild(b); });
+        }catch(e){}
     });
 
     // serialize items into hidden input on submit

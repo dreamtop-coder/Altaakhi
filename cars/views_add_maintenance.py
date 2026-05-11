@@ -1,5 +1,9 @@
 from django.views.decorators.http import require_GET
 from django.db.models import Q
+import logging
+
+# module logger
+logger = logging.getLogger(__name__)
 
 # API: جلب بيانات السيارة والعميل بناءً على رقم اللوحة
 @require_GET
@@ -51,6 +55,12 @@ def get_services_json(request):
     if q:
         qs = qs.filter(name__icontains=q)
 
+    # Debug: log and include matched count to help diagnose frontend empty results
+    try:
+        logger.debug('get_services_json: q=%r matched=%d', q, qs.count())
+    except Exception:
+        pass
+
     # limit and return lightweight structures
     svc_vals = list(qs.values('id', 'name', 'default_price')[:100])
     results = []
@@ -63,7 +73,12 @@ def get_services_json(request):
             'track_stock': False,
             'quantity': None,
         })
-    return JsonResponse({'results': results})
+    # Include lightweight debug info temporarily to aid diagnosis in-browser
+    try:
+        debug_info = {'q': q, 'matched': len(results)}
+    except Exception:
+        debug_info = {'q': q}
+    return JsonResponse({'results': results, 'debug': debug_info})
 from django.shortcuts import render, redirect
 from .forms_add_maintenance import AddMaintenanceForm
 
@@ -76,13 +91,35 @@ def add_maintenance_record(request):
     from .models import Car
     car_id = request.GET.get('car_id')
     car_instance = None
+    # locked_car: logical guard layer when this view is opened with a car_id
+    locked_car = None
     initial = {}
     if car_id:
         try:
             car_instance = Car.objects.get(id=car_id)
+            locked_car = car_instance
             initial['plate_number'] = car_instance.plate_number
         except Car.DoesNotExist:
             car_instance = None
+    # Shadow: resolve ContextGuard for monitoring/comparison (no enforcement yet)
+    try:
+        try:
+            from services.context_guard import ContextGuard
+            ctx = ContextGuard.resolve(request, model='maintenance')
+        except Exception:
+            ctx = {'locked': False, 'car': None, 'customer': None}
+        try:
+            with open('debug_context_guard.log', 'a', encoding='utf-8') as _f:
+                _f.write(
+                    f"CTX_GUARD: car_id_param={car_id} "
+                    f"car_instance_id={getattr(car_instance,'id',None)} "
+                    f"ctx_locked={ctx.get('locked')} ctx_car_id={getattr(ctx.get('car'), 'id', None)} "
+                    f"ctx_customer_id={getattr(ctx.get('customer'), 'id', None)}\n"
+                )
+        except Exception:
+            pass
+    except Exception:
+        ctx = {'locked': False, 'car': None, 'customer': None}
     # Prefill maintenance/invoice date with today's date (editable)
     try:
         from django.utils import timezone
@@ -98,6 +135,39 @@ def add_maintenance_record(request):
                 _f.write(f"RECEIVED POST: keys={list(request.POST.keys())}\n")
         except Exception:
             pass
+        # Controlled enforcement via ContextGuard behind feature toggle.
+        try:
+            from django.conf import settings
+            if getattr(settings, 'CONTEXT_GUARD_ENFORCE', False) or getattr(settings, 'ENABLE_CONTEXT_GUARD_POST_OVERRIDE', False):
+                try:
+                    from services.context_guard import ContextGuard
+                    ContextGuard.enforce_request_post(request, ctx)
+                    try:
+                        with open('debug_context_guard.log', 'a', encoding='utf-8') as _f:
+                            _f.write(f"ENFORCE_APPLIED: enforced_by=ContextGuard\n")
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Existing local fallback: if this page was opened with a `car_id`, treat
+        # that as the source of truth and ensure submitted client/car/plate values
+        # are set. Keep this as a fallback even when the ContextGuard enforcement
+        # is enabled so we have deterministic behavior and an easy rollback.
+        if locked_car:
+            try:
+                p = request.POST.copy()
+                if getattr(locked_car, 'client', None):
+                    p['selected_client_id'] = str(locked_car.client.id)
+                p['selected_client_car'] = str(locked_car.id)
+                p['plate_number'] = locked_car.plate_number or ''
+                # replace request.POST locally so downstream code reads the enforced values
+                request.POST = p
+            except Exception:
+                pass
+
         # If user selected a client earlier in the form (selected_client_id),
         # prepare the `selected_client_car` queryset before validating the form
         sel_cid = request.POST.get('selected_client_id')
@@ -164,6 +234,23 @@ def add_maintenance_record(request):
                         client_obj = Client.objects.get(id=sel_cid)
                     except Exception:
                         client_obj = None
+
+            # Server-side guard: if this page was opened with a locked car, ensure
+            # the resolved client/car pair matches the locked context. This defends
+            # against malicious manual POSTs that attempt to change the client.
+            if locked_car:
+                try:
+                    if car and client_obj:
+                        if int(getattr(car, 'id', 0)) != int(getattr(locked_car, 'id', 0)) or int(getattr(client_obj, 'id', 0)) != int(getattr(getattr(locked_car, 'client', None), 'id', 0)):
+                            return render(request, 'add_maintenance_record.html', {
+                                'form': form,
+                                'car_instance': car_instance,
+                                'clients_sample': [],
+                                'error': 'تم قفل هذه الصفحة على مركبة محددة. لإجراء تغييرات، اضغط "تغيير المركبة".',
+                                'invoice_type': 'maintenance'
+                            })
+                except Exception:
+                    pass
 
             # If car wasn't resolved earlier, attempt to resolve from submitted plate
             if not car:
@@ -332,8 +419,14 @@ def add_maintenance_record(request):
                             break
             except Exception:
                 items_json = request.POST.get('items_json')
-            print('DEBUG: full POST ->', repr(dict(request.POST)))
-            print('DEBUG: received items_json ->', items_json)
+            try:
+                logger.debug('DEBUG: full POST -> %s', repr(dict(request.POST)))
+            except Exception:
+                pass
+            try:
+                logger.debug('DEBUG: received items_json -> %s', items_json)
+            except Exception:
+                pass
             # Debug: log raw items_json to file for inspection
             try:
                 if items_json:

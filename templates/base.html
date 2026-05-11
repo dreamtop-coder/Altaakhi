@@ -375,7 +375,8 @@
     
 </head>
 </head>
-<body data-invoice-type="{% if invoice_type %}{{ invoice_type }}{% else %}{% endif %}"{% if invoice_type == 'sales' %} data-page="sales-invoice"{% endif %}>
+{# page-type determined inline in body tag below #}
+<body data-page-type="{% if request.path|slice:':7' == '/bills/' %}bills{% elif request.path|slice:':13' == '/maintenance/' %}maintenance{% elif request.path|slice:':10' == '/invoices/' %}invoices{% else %}{{ page_type|default:'' }}{% endif %}" data-invoice-type="{% if invoice_type %}{{ invoice_type }}{% else %}{% endif %}"{% if invoice_type == 'sales' %} data-page="sales-invoice"{% endif %}>
     <!-- Persistent container for floating dropdowns to avoid removal by subtree re-renders -->
     <div id="dropdown-root" style="position:relative;z-index:1400;"></div>
     {% if not request.path == '/users/login/' %}
@@ -1040,6 +1041,26 @@ window.fetchJson = function(url, opts){
         });
     });
 };
+</script>
+<script>
+// Ensure customer autocomplete initialization is available on pages that include
+// a `#customer-search` input but don't load the dedicated init script.
+document.addEventListener('DOMContentLoaded', function(){
+    try{
+        if(!document.getElementById('customer-search')) return;
+        // If the fallback binder exists, call it
+        if(typeof window.__bindCustomerFallback === 'function'){
+            try{ window.__bindCustomerFallback(); return; }catch(e){}
+        }
+        // If core helpers are already present, nothing to do
+        if(typeof window.showInlineSuggestions === 'function' && typeof window.toggleCustomerSuggestions === 'function') return;
+        // Lazy-load the line-items UI script (non-blocking) to provide autocomplete
+        var src = '/static/js/line-items.ui.js';
+        if(!document.querySelector('script[src="' + src + '"]')){
+            var s = document.createElement('script'); s.src = src; s.async = true; document.head.appendChild(s);
+        }
+    }catch(e){}
+});
 </script>
 <script>
 // Page Policies scaffold (Phase 1+2): define Policies and fetchItems

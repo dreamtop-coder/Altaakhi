@@ -1,4 +1,9 @@
 from django.views.decorators.http import require_GET
+import logging
+
+# module logger for debug/info messages (avoid direct print() which may fail
+# when stdout is redirected or wrapped by colorama in some runtimes)
+logger = logging.getLogger(__name__)
 
 @require_GET
 def bookings_clients(request):
@@ -269,7 +274,11 @@ def cars_ajax_filter(request):
 	for phone in existing_phones:
 		bookings_per_phone[phone] = list(Booking.objects.filter(phone=phone).order_by('-service_date'))
 	# تمرير القاموس للقالب
-	print(f"[DEBUG] فلتر: {status} - عدد السيارات: {len(cars)}")
+	try:
+		logger.debug("[DEBUG] فلتر: %s - عدد السيارات: %d", status, len(cars))
+	except Exception:
+		# best-effort: avoid failing the view if logging has issues
+		pass
 	html = render_to_string('cars_list_partial.html', {
 		'cars': cars,
 		'existing_phones': existing_phones,
@@ -876,7 +885,10 @@ def start_maintenance(request, car_id):
 	# جلب جميع سجلات الصيانة المرتبطة بالسيارة
 	maintenance_records = list(car.maintenance_records.all().order_by('created_at'))
 	# مثال: طباعة عدد سجلات الصيانة لهذه السيارة
-	print(f"عدد سجلات الصيانة للسيارة {car.plate_number}: {len(maintenance_records)}")
+	try:
+		logger.debug("عدد سجلات الصيانة للسيارة %s: %d", car.plate_number, len(maintenance_records))
+	except Exception:
+		pass
 	if car.status == 'waiting':
 		car.status = 'in_progress'
 		car.save()

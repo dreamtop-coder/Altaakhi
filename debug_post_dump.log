@@ -318,3 +318,65 @@ INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_numbe
 {'plate_number': ['P-001'], 'maintenance_date': ['2026-05-04'], 'notes': ['persistence test'], 'items_json': ['[{"description": "Persist Service", "qty": 1, "rate": 30.0, "discount": 0, "service_id": 1}, {"description": "Brake Pad", "qty": 2, "rate": 20.0, "discount": 0, "part_id": 1}]']}
 FORM-VALID: False client_for_q=1 sel_cid=1 resolved_car_by_form=None form_errors=<ul class="errorlist"><li>maintenance_date<ul class="errorlist"><li>This field is required.</li></ul></li></ul>
 FORM-VALID: False client_for_q=1 sel_cid=1 resolved_car_by_form=None form_errors=<ul class="errorlist"><li>maintenance_date<ul class="errorlist"><li>This field is required.</li></ul></li></ul>
+FORM-VALID: True client_for_q=None sel_cid=None resolved_car_by_form=None form_errors=
+FORM-VALID: True client_for_q=None sel_cid=None resolved_car_by_form=None form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'plate_number': ['SM-001'], 'maintenance_date': ['2026-05-04'], 'notes': ['smoke maintenance'], 'items_json': ['[{"description": "SmokeService", "qty": 1, "rate": 15.0, "discount": 0, "service_id": 1}, {"description": "SmokePart", "qty": 2, "rate": 20.0, "discount": 0, "part_id": 1}]']}
+FORM-VALID: True client_for_q=None sel_cid=None resolved_car_by_form=None form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'plate_number': ['SM-001'], 'maintenance_date': ['2026-05-04'], 'notes': ['smoke maintenance'], 'items_json': ['[{"description": "SmokeService", "qty": 1, "rate": 15.0, "discount": 0, "service_id": 1}, {"description": "SmokePart", "qty": 2, "rate": 20.0, "discount": 0, "part_id": 1}]']}
+FORM-VALID: True client_for_q=15 sel_cid=15 resolved_car_by_form=70016 - TOYOTA COROLLA form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'csrfmiddlewaretoken': ['tGg1QYM5QqUyC258vLSQajZvpPqZChPhkdEXwV7Mhwbr2VQUc3ADepKbICu5oEe3'], 'items_json': ['[{"type":"part","item_type":"part","description":"فلتر زيت","qty":1,"rate":5,"discount":0,"amount":5,"part_id":"4"}]', ''], 'selected_client_id': ['15'], 'plate_number': ['70016'], 'selected_client_car': ['14'], 'invoice_number': ['INV-000001'], 'maintenance_date': ['2026-05-08'], 'subject': [''], 'item_type[]': ['inventory']}
+FORM-VALID: True client_for_q=15 sel_cid=15 resolved_car_by_form=70016 - TOYOTA COROLLA form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'csrfmiddlewaretoken': ['uz1GFQ9fiwWohl9oW8M2brOBVq5vVsTbl6pClNuWJCdhHeUaDquPfxzhed9BHPiX'], 'items_json': ['[{"type":"part","item_type":"part","description":"فحمات فرامل 2","qty":1,"rate":20,"discount":0,"amount":20,"part_id":"7"},{"type":"part","item_type":"part","description":"Installing Items on it","qty":1,"rate":100,"discount":0,"amount":100,"part_id":"2"}]', ''], 'selected_client_id': ['15'], 'plate_number': ['70016'], 'selected_client_car': ['14'], 'invoice_number': ['INV-000001'], 'maintenance_date': ['2026-05-10'], 'subject': [''], 'item_type[]': ['inventory', 'inventory'], 'action': ['save_send']}
+FORM-VALID: True client_for_q=None sel_cid= resolved_car_by_form=None form_errors=
+FORM-VALID: True client_for_q=None sel_cid= resolved_car_by_form=None form_errors=
+FORM-VALID: True client_for_q=None sel_cid= resolved_car_by_form=None form_errors=
+FORM-VALID: True client_for_q=16 sel_cid=16 resolved_car_by_form=None form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'csrfmiddlewaretoken': ['TYlkO1LnlcBqM9iqY9D4g8SvibeKrL23KvJguY64MiSjc23cFrlRkeDbBYiQd8rP'], 'items_json': ['[{"type":"part","item_type":"part","description":"فحمات فرامل 2","qty":1,"rate":20,"discount":0,"amount":20,"part_id":"7"},{"type":"part","item_type":"part","description":"New installation","qty":1,"rate":120,"discount":0,"amount":120,"part_id":"1"}]', ''], 'selected_client_id': ['16'], 'plate_number': ['75871'], 'invoice_number': ['INV-000001'], 'maintenance_date': ['2026-05-11'], 'subject': ['MikroTik CCR2116-12G-4S+ Cloud Core Router'], 'item_type[]': ['inventory', 'inventory'], 'action': ['save_send']}
+FORM-VALID: True client_for_q=16 sel_cid=16 resolved_car_by_form=None form_errors=
+{'csrfmiddlewaretoken': ['TYlkO1LnlcBqM9iqY9D4g8SvibeKrL23KvJguY64MiSjc23cFrlRkeDbBYiQd8rP'], 'items_json': ['[{"type":"part","item_type":"part","description":"Brake removal","qty":1,"rate":10,"discount":0,"amount":10,"part_id":"4"}]', ''], 'selected_client_id': ['16'], 'plate_number': ['75871'], 'invoice_number': ['INV-000001'], 'maintenance_date': ['2026-05-11'], 'subject': ['MikroTik CCR2116-12G-4S+ Cloud Core Router'], 'item_type[]': ['inventory'], 'action': ['save_send']}
+FORM-VALID: False client_for_q=17 sel_cid=17 resolved_car_by_form=None form_errors=<ul class="errorlist"><li>selected_client_car<ul class="errorlist"><li>Select a valid choice. That choice is not one of the available choices.</li></ul></li></ul>
+FORM-VALID: True client_for_q=17 sel_cid=17 resolved_car_by_form=1119 - KIA HHYUNDAI KIA form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000002
+{'csrfmiddlewaretoken': ['PHQ1Z3THceolQZ9vC8wCQR7SFlxYYFQcGeeXF0eoDkFegSUhjqepUXSyY8B4K2fY'], 'items_json': ['[{"type":"part","item_type":"part","description":"Brake Adjustments","qty":1,"rate":20,"discount":0,"amount":20,"part_id":"3"}]', ''], 'selected_client_id': ['17'], 'plate_number': [''], 'selected_client_car': ['16'], 'invoice_number': ['INV-000002'], 'maintenance_date': ['2026-05-11'], 'subject': [''], 'item_type[]': ['inventory'], 'action': ['save_send']}
+FORM-VALID: True client_for_q=17 sel_cid=17 resolved_car_by_form=70016 - TOYOTA COROLLA form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000003
+{'csrfmiddlewaretoken': ['WFI9rkIwUgWATNFDqhBTlGogyg7EZUr5Nc657h3dlmdtjGqp7zjGpM9WR3bKLhQR'], 'items_json': ['[{"type":"part","item_type":"part","description":"Installing Items on it","qty":1,"rate":100,"discount":0,"amount":100,"part_id":"2"}]', ''], 'selected_client_id': ['17'], 'plate_number': ['70016'], 'selected_client_car': ['15'], 'invoice_number': ['INV-000003'], 'maintenance_date': ['2026-05-11'], 'subject': [''], 'item_type[]': ['inventory'], 'action': ['save_send']}
+FORM-VALID: True client_for_q=17 sel_cid=17 resolved_car_by_form=1119 - KIA HHYUNDAI KIA form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000004
+{'csrfmiddlewaretoken': ['rX89OgcsGtQvCxFN6MOTFOQuRoOCLBZOiuw5udx97z7o2qqzN4wGJUBaabSIxYoA'], 'items_json': ['[{"type":"part","item_type":"part","description":"Brake Adjustments","qty":1,"rate":20,"discount":0,"amount":20,"part_id":"3"}]', ''], 'selected_client_id': ['17'], 'plate_number': [''], 'selected_client_car': ['16'], 'invoice_number': ['INV-000004'], 'maintenance_date': ['2026-05-11'], 'subject': [''], 'item_type[]': ['inventory'], 'action': ['save_send']}
+FORM-VALID: True client_for_q=17 sel_cid=17 resolved_car_by_form=2016 - HYUNDAI SONATA form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000005
+{'csrfmiddlewaretoken': ['5kJHb4HPcJ1Dr7thcD4w53gFydPR3iU4WR7DR12wDPiwR0e3TVMj991lR0TXPFjQ'], 'items_json': ['[{"type":"part","item_type":"part","description":"Installing Items on it","qty":1,"rate":100,"discount":0,"amount":100,"part_id":"2"}]', ''], 'selected_client_id': ['17'], 'plate_number': ['2016'], 'selected_client_car': ['18'], 'invoice_number': ['INV-000005'], 'maintenance_date': ['2026-05-11'], 'subject': [''], 'item_type[]': ['inventory'], 'action': ['save_send']}
+FORM-VALID: True client_for_q=16 sel_cid=16 resolved_car_by_form=None form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000006
+{'csrfmiddlewaretoken': ['Ai3F2H6dW2IXhqXuZTMPvPAN1JljPSVArPrBIErUn8ZQHjIgGbuCzVltkwppBfkm'], 'items_json': ['[{"type":"part","item_type":"part","description":"Brake Adjustments","qty":1,"rate":20,"discount":0,"amount":20,"part_id":"3"}]', ''], 'selected_client_id': ['16'], 'plate_number': ['75871'], 'invoice_number': ['INV-000006'], 'maintenance_date': ['2026-05-11'], 'subject': [''], 'item_type[]': ['inventory'], 'action': ['save_send']}
+FORM-VALID: True client_for_q=16 sel_cid=16 resolved_car_by_form=None form_errors=
+FORM-VALID: True client_for_q=17 sel_cid=17 resolved_car_by_form=70016 - TOYOTA COROLLA form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000007
+{'csrfmiddlewaretoken': ['eh2wUoXavm6aJDcBPYdhd3rP77YATRfp5OqsAliRWsn39wXnwgV4h9cvqU2GFeEb'], 'items_json': ['[{"type":"part","item_type":"part","description":"New installation","qty":1,"rate":120,"discount":0,"amount":120,"part_id":"1"}]', ''], 'selected_client_id': ['17'], 'plate_number': [''], 'selected_client_car': ['15'], 'invoice_number': ['INV-000007'], 'maintenance_date': ['2026-05-11'], 'subject': [''], 'item_type[]': ['inventory'], 'action': ['save_send']}
+FORM-VALID: True client_for_q=1 sel_cid=1 resolved_car_by_form=TAMPER-001 form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'selected_client_id': ['1'], 'selected_client_car': ['1'], 'plate_number': ['TAMPER-001'], 'maintenance_date': ['2026-05-11'], 'items_json': ['[{"description": "Test item", "qty": 1, "rate": 5, "discount": 0}]']}
+FORM-VALID: True client_for_q=1 sel_cid=1 resolved_car_by_form=TAMPER-001 form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'selected_client_id': ['1'], 'selected_client_car': ['1'], 'plate_number': ['TAMPER-001'], 'maintenance_date': ['2026-05-11'], 'items_json': ['[{"description": "Test item", "qty": 1, "rate": 5, "discount": 0}]']}
+FORM-VALID: True client_for_q=1 sel_cid=1 resolved_car_by_form=TAMPER-001 form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'selected_client_id': ['1'], 'selected_client_car': ['1'], 'plate_number': ['TAMPER-001'], 'maintenance_date': ['2026-05-11'], 'items_json': ['[{"description": "Test item", "qty": 1, "rate": 5, "discount": 0}]']}
+FORM-VALID: True client_for_q=None sel_cid=None resolved_car_by_form=None form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'plate_number': ['P-001'], 'maintenance_date': ['2026-05-11'], 'notes': ['persistence test'], 'items_json': ['[{"description": "Persist Service", "qty": 1, "rate": 30.0, "discount": 0, "service_id": 1}, {"description": "Brake Pad", "qty": 2, "rate": 20.0, "discount": 0, "part_id": 1}]']}
+FORM-VALID: True client_for_q=1 sel_cid=1 resolved_car_by_form=TAMPER-001 form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000001
+{'selected_client_id': ['1'], 'selected_client_car': ['1'], 'plate_number': ['TAMPER-001'], 'maintenance_date': ['2026-05-11'], 'items_json': ['[{"description": "Test item", "qty": 1, "rate": 5, "discount": 0}]']}
+FORM-VALID: True client_for_q=17 sel_cid=17 resolved_car_by_form=1535 - HYUNDAI SONATA form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000008
+{'csrfmiddlewaretoken': ['1KiSeLQ1JrqovP9wRht3G1ApZAXLxvGGShGOUIbIaxHhVIUiyzbQK7l5in1RjS5s'], 'items_json': ['[{"type":"part","item_type":"part","description":"New installation","qty":1,"rate":120,"discount":0,"amount":120,"part_id":"1"}]', ''], 'selected_client_id': ['17'], 'plate_number': ['1535'], 'selected_client_car': ['19'], 'invoice_number': ['INV-000008'], 'maintenance_date': ['2026-05-11'], 'subject': [''], 'item_type[]': ['inventory'], 'action': ['save_send']}
+FORM-VALID: True client_for_q=16 sel_cid=16 resolved_car_by_form=1010 - TOYOTA COROLLA form_errors=
+INVOICE-CREATED-DEBUG: invoice_id=None items_json_present=True use_invoice_number=INV-000009
+{'selected_client_id': ['16'], 'selected_client_car': ['20'], 'plate_number': ['1010'], 'maintenance_date': ['2026-05-11'], 'items_json': ['[{"description": "TamperTest", "qty": 1, "rate": 5, "discount": 0}]']}

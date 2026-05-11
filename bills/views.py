@@ -75,6 +75,20 @@ def add_bill(request):
             except Exception:
                 # skip malformed line entries but continue processing others
                 pass
+        # For non-draft saves, require at least one valid line and a bill date.
+        if action != 'save_draft':
+            if not bill_date:
+                try:
+                    messages.error(request, 'يرجى تحديد تاريخ الفاتورة')
+                except Exception:
+                    pass
+                return redirect('/bills/add/')
+            if len(lines) == 0:
+                try:
+                    messages.error(request, 'يرجى إضافة صنف واحد على الأقل للفاتورة')
+                except Exception:
+                    pass
+                return redirect('/bills/add/')
         # For purchase bills we do not perform inventory availability checks here.
         # Bills represent incoming stock (purchases) and will increase Part.quantity
         # when saved. Any inventory validation for sales is handled elsewhere.

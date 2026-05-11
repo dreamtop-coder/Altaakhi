@@ -1,11 +1,16 @@
 (function(){
   if(window.__coreInventoryInit) return; window.__coreInventoryInit = true;
+  // If the newer inventory-autocomplete implementation is loaded, skip
+  // defining the legacy initializer to avoid duplicate bindings and fetches.
+  try{ if(window.__inventoryAutocompleteLoaded){ try{ console.debug('[core-inventory] skipping legacy init (new autocomplete present)'); }catch(e){}; return; } }catch(e){}
   try{ console.log('[LOAD]', 'core-inventory.js'); }catch(e){}
 
   // Fetch inventory results; fall back to fetch if fetchJson not present
   window.fetchInventory = function(q){
     var fetcher = (window.fetchJson) ? window.fetchJson : function(url){ return fetch(url).then(function(r){ return r.json(); }); };
-    return fetcher('/inventory/json/?q=' + encodeURIComponent(q||'')).then(function(d){ return (d && d.results) ? d.results : []; });
+    var qq = (q || '').trim();
+    var url = (qq === '') ? '/inventory/json/?all=1' : '/inventory/json/?q=' + encodeURIComponent(qq);
+    return fetcher(url).then(function(d){ return (d && d.results) ? d.results : []; });
   };
 
   // Lookup part price by name (server endpoint optional)

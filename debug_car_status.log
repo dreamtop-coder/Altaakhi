@@ -470,3 +470,37 @@ STATUS-TRANSITION: car_id=1 -> in_progress
 BEFORE: car_id=13 status=done
 BEFORE: car_id=1 status=waiting
 STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=14 status=waiting
+STATUS-TRANSITION: car_id=14 -> in_progress
+BEFORE: car_id=14 status=in_progress
+BEFORE: car_id=17 status=waiting
+BEFORE: car_id=17 status=waiting
+STATUS-TRANSITION: car_id=17 -> in_progress
+BEFORE: car_id=16 status=waiting
+STATUS-TRANSITION: car_id=16 -> in_progress
+BEFORE: car_id=15 status=waiting
+STATUS-TRANSITION: car_id=15 -> in_progress
+BEFORE: car_id=16 status=done
+BEFORE: car_id=18 status=waiting
+STATUS-TRANSITION: car_id=18 -> in_progress
+BEFORE: car_id=17 status=done
+BEFORE: car_id=17 status=done
+BEFORE: car_id=15 status=done
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=1 status=waiting
+STATUS-TRANSITION: car_id=1 -> in_progress
+BEFORE: car_id=19 status=waiting
+STATUS-TRANSITION: car_id=19 -> in_progress
+BEFORE: car_id=20 status=waiting
+STATUS-TRANSITION: car_id=20 -> in_progress

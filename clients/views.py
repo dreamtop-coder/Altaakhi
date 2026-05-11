@@ -215,7 +215,8 @@ def search_clients_api(request):
 				continue
 			brand = car.brand.name if getattr(car, 'brand', None) else ''
 			model = car.model.name if getattr(car, 'model', None) else ''
-			cars_list.append({'id': car.id, 'plate': car.plate_number, 'brand': brand, 'model': model})
+			year = car.year if getattr(car, 'year', None) else ''
+			cars_list.append({'id': car.id, 'plate': car.plate_number, 'brand': brand, 'model': model, 'year': year})
 		results.append({'id': c.id, 'name': f"{c.first_name} {c.last_name or ''}".strip(), 'phone': getattr(c, 'phone_number', ''), 'plates': plates, 'cars': cars_list})
 	return JsonResponse({'results': results})
 

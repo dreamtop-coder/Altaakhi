@@ -437,10 +437,58 @@ document.addEventListener('DOMContentLoaded', function(){
         var top = document.createElement('div'); top.style.display='flex'; top.appendChild(input); top.appendChild(btn);
         card.appendChild(top); card.appendChild(body);
         modal.appendChild(card); document.body.appendChild(modal);
-        function closeModal(){ document.body.removeChild(modal); }
+        function closeModal(){ try{ document.body.removeChild(modal); }catch(e){} try{ document.removeEventListener('keydown', __esc); }catch(e){} }
         header.querySelector('button').addEventListener('click', closeModal);
-        btn.addEventListener('click', function(){ body.innerHTML = '<div style="padding:12px;color:#666">Searching...</div>'; fetch('/clients/search/?q='+encodeURIComponent(input.value)).then(r=>r.json()).then(data=>{ renderModalResults(data.results||[]); }).catch(()=>{ body.innerHTML = '<div style="padding:12px;color:#c00">Search failed</div>'; }); });
-        function renderModalResults(list){ body.innerHTML=''; if(!list.length){ body.innerHTML = '<div style="padding:12px;color:#666">No results</div>'; return; } var tbl=document.createElement('table'); tbl.style.width='100%'; var thead=document.createElement('thead'); thead.innerHTML='<tr><th>NAME</th><th>PHONE</th></tr>'; tbl.appendChild(thead); var tbody=document.createElement('tbody'); list.forEach(function(it){ var tr=document.createElement('tr'); tr.style.cursor='pointer'; tr.innerHTML = '<td style="color:#1976d2;font-weight:600">'+(it.name||'')+'</td><td>'+(it.phone||'')+'</td>'; tr.addEventListener('click', function(){ selectCustomer(it); closeModal(); }); tbody.appendChild(tr); }); tbl.appendChild(tbody); body.appendChild(tbl); }
+
+        function debounce(fn, wait){ var t=null; return function(){ var args=arguments; var ctx=this; if(t) clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, wait||250); }; }
+        var __doSearch = function(q){ body.innerHTML = '<div style="padding:12px;color:#666">Searching...</div>'; fetch('/clients/search/?q='+encodeURIComponent(q)).then(r=>r.json()).then(data=>{ renderModalResults(data.results||[]); }).catch(()=>{ body.innerHTML = '<div style="padding:12px;color:#c00">Search failed</div>'; }); };
+        var debouncedSearch = debounce(function(){ __doSearch(input.value || ''); }, 180);
+
+        btn.addEventListener('click', function(){ __doSearch(input.value || ''); });
+        input.addEventListener('input', function(){ if(!(input.value||'').trim()){ body.innerHTML = '<div style="padding:12px;color:#666">Type to search</div>'; return; } debouncedSearch(); });
+
+        modal.addEventListener('click', function(ev){ if(ev.target === modal){ closeModal(); } });
+        var __esc = function(ev){ if(ev.key === 'Escape'){ closeModal(); } };
+        document.addEventListener('keydown', __esc);
+        function renderModalResults(list){
+            body.innerHTML = '';
+            if(!list || !list.length){ body.innerHTML = '<div style="padding:12px;color:#666">No results</div>'; return; }
+
+            var container = document.createElement('div');
+            container.style.maxHeight = '360px';
+            container.style.overflow = 'auto';
+            container.style.border = '1px solid #e6e6e6';
+            container.style.borderRadius = '6px';
+
+            var tbl = document.createElement('table'); tbl.style.width = '100%'; tbl.style.borderCollapse = 'collapse';
+            var thead = document.createElement('thead');
+            thead.style.position = 'sticky'; thead.style.top = '0'; thead.style.background = '#fff'; thead.style.zIndex = '10';
+            thead.innerHTML = '<tr>' +
+                '<th style="text-align:left;padding:8px;border-bottom:1px solid #eee">CUSTOMER NAME</th>' +
+                '<th style="text-align:left;padding:8px;border-bottom:1px solid #eee">PHONE</th>' +
+                '<th style="text-align:left;padding:8px;border-bottom:1px solid #eee">PLATES</th>' +
+                '<th style="text-align:left;padding:8px;border-bottom:1px solid #eee">MODEL</th>' +
+                '</tr>';
+            tbl.appendChild(thead);
+
+            var tbody = document.createElement('tbody');
+            list.forEach(function(it){
+                var tr = document.createElement('tr'); tr.style.cursor = 'pointer'; tr.style.borderBottom = '1px solid #f1f5f9';
+                tr.addEventListener('mouseover', function(){ tr.style.background = '#f8fafc'; });
+                tr.addEventListener('mouseout', function(){ tr.style.background = ''; });
+
+                var nameTd = document.createElement('td'); nameTd.style.padding='8px'; nameTd.style.fontWeight='600'; nameTd.textContent = it.name || '';
+                var phoneTd = document.createElement('td'); phoneTd.style.padding='8px'; phoneTd.textContent = it.phone || '';
+                var platesTd = document.createElement('td'); platesTd.style.padding='8px'; platesTd.textContent = (it.plates && it.plates.length)? it.plates.join(', ') : '';
+                var modelTd = document.createElement('td'); modelTd.style.padding='8px'; var modelLabel=''; if(it.cars && it.cars.length){ var c0 = it.cars[0]; var br = (c0.brand && (c0.brand.name || c0.brand)) || c0.brand || ''; var mo = (c0.model && (c0.model.name || c0.model)) || c0.model || ''; var yr = c0.year || c0.year===0 ? String(c0.year) : ''; var parts = []; if(br) parts.push(String(br).toUpperCase()); if(mo) parts.push(String(mo).toUpperCase()); if(yr) parts.push(String(yr)); modelLabel = parts.join(' - '); } modelTd.textContent = modelLabel;
+
+                tr.addEventListener('click', function(){ try{ selectCustomer(it); }catch(e){} closeModal(); });
+                tr.appendChild(nameTd); tr.appendChild(phoneTd); tr.appendChild(platesTd); tr.appendChild(modelTd);
+                tbody.appendChild(tr);
+            });
+
+            tbl.appendChild(tbody); container.appendChild(tbl); body.appendChild(container);
+        }
     }
 
     // Client search filtering: filter options in the select as the user types

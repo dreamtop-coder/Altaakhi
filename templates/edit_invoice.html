@@ -111,35 +111,19 @@
                             <th style="padding:10px 12px;text-align:center;width:60px;"></th>
                         </tr>
                     </thead>
-                    <tbody id="services-body">
-                        {% for item in invoice_items %}
-                            {% if item.service_id %}
-                                <tr class="item-row" data-type="service" data-service-id="{{ item.service_id }}" {% if item.id %}data-invoice-item-id="{{ item.id }}"{% endif %}>
-                                    <td style="padding:8px 12px;vertical-align:middle;">
-                                        <div class="service-label" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:14px;color:#374151;font-weight:400;box-sizing:border-box;min-height:36px;height:36px;line-height:20px;display:block;background:#fff">{{ item.description }}</div>
-                                        <input type="hidden" class="service-desc" value="{{ item.description }}" />
-                                    </td>
-                                    <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-qty" step="1" value="{{ item.qty|floatformat:0 }}" style="width:90px;padding:6px;border:1px solid #ddd;border-radius:6px;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-rate" step="0.001" value="{{ item.rate|floatformat:3 }}" style="width:110px;padding:6px;border:1px solid #ddd;border-radius:6px;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><input type="number" class="service-discount" step="0.01" value="{{ item.disc|floatformat:3 }}" style="width:60px;padding:6px;border:1px solid #ddd;border-radius:6px;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><input type="text" class="service-amount" value="{{ item.amount|floatformat:3 }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-service-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
-                                </tr>
-                            {% endif %}
-                        {% endfor %}
-                    </tbody>
+                    
                     <tbody id="items-body">
                         {% for item in invoice_items %}
-                            {% if not item.service_id %}
-                                <tr class="item-row" data-type="inventory" {% if item.id %}data-invoice-item-id="{{ item.id }}"{% endif %}>
-                                    <td style="padding:8px 12px;"><input type="text" class="item-desc" value="{{ item.description }}" style="width:100%;padding:8px;border:1px solid #eee;border-radius:6px;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="{{ item.qty|floatformat:0 }}" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="{{ item.rate|floatformat:3 }}" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-discount" value="{{ item.disc|floatformat:3 }}" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
-                                    <td style="padding:8px 12px 8px 8px;text-align:right;"><input type="text" class="item-amount" value="{{ item.amount|floatformat:3 }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;" /></td>
-                                    <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-item-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
-                                </tr>
-                            {% endif %}
+                            <tr class="item-row" data-type="{% if item.service_id %}service{% else %}inventory{% endif %}" {% if item.id %}data-invoice-item-id="{{ item.id }}"{% endif %} {% if item.service_id %}data-service-id="{{ item.service_id }}"{% endif %}>
+                                <td style="padding:8px 12px;vertical-align:middle;">
+                                    <input type="text" class="item-desc" value="{{ item.description }}" style="width:100%;padding:8px;border:1px solid #eee;border-radius:6px;" />
+                                </td>
+                                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="{{ item.qty|floatformat:0 }}" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="{{ item.rate|floatformat:3 }}" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                                <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-discount" value="{{ item.disc|floatformat:3 }}" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>
+                                <td style="padding:8px 12px 8px 8px;text-align:right;"><input type="text" class="item-amount" value="{{ item.amount|floatformat:3 }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;" /></td>
+                                <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-item-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -209,23 +193,60 @@
     </div>
 </div>
  
-<script>window.__isMaintenancePage = true;</script>
-<script src="{% static 'js/line-items.api.js' %}?v=4"></script>
-<script src="{% static 'js/line-items.core.js' %}?v=4"></script>
-<script src="{% static 'js/line-items.ui.js' %}?v=4"></script>
+<script>window.ITEM_CONTEXT = 'invoices';</script>
+<script src="{% static 'js/line-items.api.js' %}?v=6"></script>
+<script src="{% static 'js/line-items.core.js' %}?v=5"></script>
+<script src="{% static 'js/line-items.ui.js' %}?v=5"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-    try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){}
-    try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){}
-    try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
+    try{
+        var doInit = function(){ try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){} try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} };
+        if(window.__lineItemsReady){ try{ doInit(); }catch(e){} }
+        else if(window.addEventListener){ window.addEventListener('line-items-ready', doInit); }
+        else { setTimeout(doInit, 200); }
+    }catch(e){}
 });
+</script>
+<script>
+// Robust: remove any legacy rows in `#services-body` and ensure a unified `item-row` exists.
+(function(){
+    function ensureUnified(){
+        try{
+            var attempts = 0;
+            function runOnce(){
+                attempts++;
+                try{
+                    try{
+                        var all = Array.prototype.slice.call(document.querySelectorAll('tr')) || [];
+                        var legacy = all.filter(function(r){ try{ if(!r) return false; if(r.closest && r.closest('#items-body')) return false; return Boolean(r.querySelector('.service-desc') || r.querySelector('.service-qty') || r.classList.contains('service-row')); }catch(e){return false;} });
+                        if(legacy && legacy.length){
+                            legacy.forEach(function(r){ try{ if(r && r.parentNode) r.parentNode.removeChild(r); }catch(e){} });
+                            try{ console.log('[line-items] removed legacy service rows', legacy.length); }catch(e){}
+                        }
+                    }catch(e){}
+                    var ib = document.getElementById('items-body');
+                    var hasItem = ib && ib.querySelector && ib.querySelector('.item-row');
+                    if(!hasItem && typeof window.createItemRow === 'function'){
+                        try{ window.createItemRow(false); }catch(e){}
+                        try{ console.log('[line-items] created unified initial item row'); }catch(e){}
+                    }
+                    var stillLegacy = Array.prototype.slice.call(document.querySelectorAll('tr')).filter(function(r){ try{ return (r.closest && !r.closest('#items-body')) && (r.querySelector('.service-desc') || r.querySelector('.service-qty') || r.classList.contains('service-row')); }catch(e){return false;} }).length || 0;
+                    var itemsNow = (document.querySelectorAll && document.querySelectorAll('#items-body .item-row').length) || 0;
+                    if(itemsNow > 0 && stillLegacy === 0) return; // success
+                }catch(e){}
+                if(attempts < 6) setTimeout(runOnce, attempts * 120);
+            }
+            runOnce();
+        }catch(e){}
+    }
+    if(document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(ensureUnified, 40);
+    else { document.addEventListener('DOMContentLoaded', ensureUnified); window.addEventListener('load', ensureUnified); }
+})();
 </script>
 <script>
 // Ensure init runs after all scripts/resources are loaded (extra guard)
 window.addEventListener('load', function(){
-    try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){}
-    try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){}
-    try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
+    try{ if(window.__lineItemsReady){ try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){} try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} } else { try{ window.addEventListener && window.addEventListener('line-items-ready', function(){ try{ if(window.initServicesTable) window.initServicesTable(); }catch(e){} try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){} }); }catch(e){} }
 });
 </script>
 

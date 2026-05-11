@@ -102,6 +102,12 @@ def delete_supplier(request, supplier_id):
 def inventory_list(request):
 	"""List parts (inventory)."""
 	q = request.GET.get('q', '').strip()
+	# support sentinel from frontend to request defaults
+	if q == '__ALL__':
+		q = ''
+	# allow frontend to request a full/default list using a sentinel token
+	if q == '__ALL__':
+		q = ''
 
 	# Order by code length then code so shorter codes (e.g. 001) come before longer (e.g. 0001)
 	parts_qs = Part.objects.annotate(
@@ -224,25 +230,30 @@ def inventory_search_json(request):
 			return JsonResponse({'results': [result]})
 		except Exception:
 			return JsonResponse({'results': []})
-	# Use a limited, efficient QuerySet and return only required fields
-	parts_qs = Part.objects.all().order_by('code')
-	if q:
-		parts_qs = parts_qs.filter(Q(name__icontains=q) | Q(code__icontains=q))
-
-	# limit and materialize only needed fields to avoid heavy model instantiation
-	parts_vals = list(parts_qs.values('id', 'name', 'code', 'sale_price', 'purchase_price', 'quantity', 'track_stock')[:50])
+	# Use a limited, efficient QuerySet and return only required fields.
+	# If a query was provided, search by name/code; otherwise return
+	# a sensible default list (recent parts) so the autocomplete shows
+	# useful suggestions on focus/click with an empty query.
+	# Support explicit `all=1` param for clients that request the full/default list.
 	results = []
-	for p in parts_vals:
-		results.append({
-			'id': p.get('id'),
-			'name': p.get('name') or '',
-			'code': p.get('code') or '',
-			'sale_price': str(p.get('sale_price')) if p.get('sale_price') is not None else None,
-			'purchase_price': str(p.get('purchase_price')) if p.get('purchase_price') is not None else None,
-			'quantity': p.get('quantity'),
-			'stock': p.get('quantity'),
-			'track_stock': bool(p.get('track_stock')),
-		})
+	try:
+		if request.GET.get('all') == '1' or not q:
+			parts_vals = list(Part.objects.all().order_by('-id').values('id', 'name', 'code', 'sale_price', 'purchase_price', 'quantity', 'track_stock')[:50])
+		else:
+			parts_vals = list(Part.objects.all().order_by('code').filter(Q(name__icontains=q) | Q(code__icontains=q)).values('id', 'name', 'code', 'sale_price', 'purchase_price', 'quantity', 'track_stock')[:50])
+		for p in parts_vals:
+			results.append({
+				'id': p.get('id'),
+				'name': p.get('name') or '',
+				'code': p.get('code') or '',
+				'sale_price': str(p.get('sale_price')) if p.get('sale_price') is not None else None,
+				'purchase_price': str(p.get('purchase_price')) if p.get('purchase_price') is not None else None,
+				'quantity': p.get('quantity'),
+				'stock': p.get('quantity'),
+				'track_stock': bool(p.get('track_stock')),
+			})
+	except Exception:
+		results = []
 	return JsonResponse({'results': results})
 
 

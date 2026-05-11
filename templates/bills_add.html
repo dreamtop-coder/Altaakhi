@@ -1,26 +1,75 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block content %}
-{% if messages %}
-    <div style="max-width:1200px;margin:0 auto;padding:8px 18px;">
-        {% for message in messages %}
-            <div style="padding:10px;border-radius:6px;margin-bottom:8px;{% if message.tags == 'error' %}background:#ffe8e8;border:1px solid #f5c2c2;color:#811;{% else %}background:#eef7ff;border:1px solid #cfe8ff;color:#0a3;{% endif %}">{{ message }}</div>
-        {% endfor %}
-    </div>
-{% endif %}
+{# Messages rendered as toasts in base.html; inline banner removed to avoid duplication #}
 {% comment %}Expose suppliers_sample and bill_json to client-side for edit hydration and debugging{% endcomment %}
 <script>
-    try{
-        // Safely parse server-provided JSON using escapejs to avoid breaking the script
-        try{ window.suppliers_sample = JSON.parse('{{ suppliers_sample|default:'[]'|escapejs }}'); }catch(e){ window.suppliers_sample = []; }
-        try{ window._bill_json_debug = (function(){ try{ return JSON.parse('{{ bill_json|default:'null'|escapejs }}'); }catch(e){ return null; } })(); }catch(e){ window._bill_json_debug = null; }
-        try{ console.log('suppliers_sample', window.suppliers_sample); console.log('bill_json', window._bill_json_debug); }catch(e){}
-    }catch(e){ console.error('inject suppliers/bill_json failed', e); }
+    try {
+        window.suppliers_sample = JSON.parse('{{ suppliers_sample|default:'[]'|escapejs }}');
+    } catch (e) {
+        window.suppliers_sample = [];
+    }
+    try {
+        window._bill_json_debug = (function(){ try{ return JSON.parse('{{ bill_json|default:'null'|escapejs }}'); } catch(e){ return null; } })();
+    } catch (e) {
+        window._bill_json_debug = null;
+    }
+    try {
+        console.log('suppliers_sample', window.suppliers_sample);
+        console.log('bill_json', window._bill_json_debug);
+    } catch (e) {}
 </script>
 <script>
     // Opt-in: allow selecting out-of-stock items in inventory autocomplete
     // (used for purchase bills where adding incoming stock with current 0 quantity is valid)
     window.inventory_allow_out_of_stock = true;
+</script>
+<script>
+// Safe page-level initializer for inventory autocomplete (retries briefly)
+window.safeInitInventoryAutocomplete = function(input){
+    try{ if(!input) return; }catch(e){}
+    try{ if(typeof window.initInventoryAutocomplete === 'function'){ try{ window.initInventoryAutocomplete(input); }catch(e){} return; } }catch(e){}
+    var tries = 0;
+    var iv = setInterval(function(){
+        try{
+            if(typeof window.initInventoryAutocomplete === 'function'){
+                clearInterval(iv);
+                try{ window.initInventoryAutocomplete(input); }catch(e){}
+                return;
+            }
+        }catch(e){}
+        tries++;
+        if(tries > 20) clearInterval(iv);
+    }, 50);
+};
+</script>
+<script>
+    // Safe shim: queue calls to `recomputeTotals` and invoke them when the
+    // canonical core script defines the real function. Uses both the
+    // `core-ready` event and a short polling fallback to ensure delivery.
+    (function(){
+        if(typeof window.recomputeTotals === 'function') return;
+        var shim = function(){
+            try{ shim._pending = true; }catch(e){}
+        };
+        shim._pending = false;
+        function tryFlush(){
+            try{
+                // If core replaced the shim with the real function, call it.
+                if(typeof window.recomputeTotals === 'function' && window.recomputeTotals !== shim){
+                    var real = window.recomputeTotals;
+                    if(shim._pending){ shim._pending = false; try{ real(); }catch(e){} }
+                    return true;
+                }
+            }catch(e){}
+            return false;
+        }
+        window.recomputeTotals = shim;
+        // Attempt to flush when core signals readiness
+        try{ window.addEventListener && window.addEventListener('core-ready', tryFlush); }catch(e){}
+        // Poll briefly in case the event was missed
+        var _poll = setInterval(function(){ if(tryFlush()) clearInterval(_poll); }, 100);
+    })();
 </script>
 <!-- Debug banner removed: bill_json debug output hidden in template to avoid duplicate header text -->
 <style>
@@ -145,6 +194,15 @@
     #items-table tbody td { padding:8px; border-bottom:1px solid #f1f5f9; }
     #items-table input { border:1px solid #e6e9ee; padding:6px; border-radius:6px; }
     #items-table .item-amount[readonly] { background:#f8fafc; border-color:#eceff4; }
+    /* Make Quantity, Rate, Discount and Amount inputs the same visual width */
+    #items-table .item-qty,
+    #items-table .item-rate,
+    #items-table .item-discount,
+    #items-table .item-amount {
+        width:100px !important;
+        box-sizing:border-box;
+        padding:6px !important;
+    }
     .invoice-summary-card { background:transparent;border-radius:0;border:0;padding:8px; }
     #bottom-action-bar { box-shadow:0 -4px 18px rgba(15,23,42,0.03); }
     /* customer selector look */
@@ -183,23 +241,11 @@
                 <label class="maintenance-label">Supplier Name</label>
                 <div class="customer-selector">
                     <input id="supplier-search" type="text" placeholder="Click to search suppliers" autocomplete="off" oninput="showInlineSupplierSuggestions(this.value);" onclick="showInlineSupplierSuggestions('');" value="{{ bill.supplier_name|default:'' }}" />
-                    <button type="button" id="supplier-suggest-toggle" onclick="toggleSupplierSuggestions();">∨</button>
+                    <button type="button" id="supplier-suggest-toggle">∨</button>
                     <button type="button" id="supplier-search-btn" onclick="openSupplierModal('');" style="background:#1976d2;color:#fff;border:none;padding:6px 8px;border-radius:6px;">🔍</button>
                 </div>
                 <input type="hidden" name="selected_supplier_id" id="selected_supplier_id" value="{{ bill.supplier_id|default:'' }}" />
-                <script>
-                (function(){
-                    function clearInline(){ try{ document.querySelectorAll('.customer-selector > [role="listbox"]').forEach(function(el){ if(el && el.parentNode) el.parentNode.removeChild(el); }); }catch(e){}
-                    }
-                    function renderInline(list){ try{ clearInline(); if(!list || !list.length) return; var container = document.querySelector('.customer-selector'); if(!container) container = document.body; var box = document.createElement('div'); box.setAttribute('role','listbox'); box.style.position='absolute'; box.style.top='100%'; box.style.left='0'; box.style.width='100%'; box.style.zIndex=800; box.style.background='#fff'; box.style.border='1px solid #e6e6e6'; box.style.borderRadius='6px'; box.style.maxHeight='320px'; box.style.overflow='auto'; list.forEach(function(item){ var row=document.createElement('div'); row.style.padding='8px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid #f1f5f9'; var title=document.createElement('div'); title.style.fontWeight='600'; title.textContent = item.name || ''; var meta=document.createElement('div'); meta.className='small-muted'; meta.style.fontSize='13px'; meta.textContent = item.phone || ''; row.appendChild(title); row.appendChild(meta); row.addEventListener('click', function(e){ e.stopPropagation(); try{ var sid = document.getElementById('selected_supplier_id'); if(sid) sid.value = item.id; var supInput = document.getElementById('supplier-search'); if(supInput){ supInput.value = item.name || ''; supInput.title = item.name || ''; } var loc = document.getElementById('id_selected_supplier_location'); if(loc){ loc.innerHTML=''; if(item.locations && item.locations.length){ item.locations.forEach(function(l){ var o=document.createElement('option'); o.value = l.id || l.name || ''; o.text = l.name || l.address || ''; loc.appendChild(o); }); } else if(item.address){ var o=document.createElement('option'); o.value=''; o.text = item.address || ''; loc.appendChild(o); } } }catch(e){} clearInline(); }); box.appendChild(row); }); container.appendChild(box); try{ var local = box.querySelector('input[type="search"]'); if(local) local.focus(); }catch(e){} }catch(er){ console.error(er); } }
-                    function fetchAndShow(q){ q = (q||'').trim(); window.fetchJson('/suppliers/json/?q=' + encodeURIComponent(q)).then(function(data){ var list = data.results || data || []; renderInline(list); }).catch(function(err){ console.error('inline fallback supplier fetch failed', err); }); }
-                    var supInput = document.getElementById('supplier-search'); var supToggle = document.getElementById('supplier-suggest-toggle'); var supBtn = document.getElementById('supplier-search-btn');
-                    if(supInput){ supInput.addEventListener('click', function(e){ e.stopPropagation(); fetchAndShow(''); }); supInput.addEventListener('input', function(e){ fetchAndShow(this.value||''); }); }
-                    if(supToggle){ supToggle.addEventListener('click', function(e){ e.stopPropagation(); var container = (supInput && supInput.parentNode) ? supInput.parentNode : document.body; var isOpen = !!container.querySelector('[role="listbox"]'); if(isOpen){ clearInline(); } else { fetchAndShow(''); } }); }
-                    if(supBtn){ supBtn.addEventListener('click', function(e){ e.stopPropagation(); var q = (supInput && supInput.value) ? supInput.value : ''; fetchAndShow(q); }); }
-                    document.addEventListener('click', function(e){ if(e.target && e.target.closest && e.target.closest('.customer-selector')) return; clearInline(); });
-                })();
-                </script>
+                <!-- Inline supplier fallback removed; consolidated later in page -->
                 <div style="margin-top:8px;">
                     <label class="maintenance-label">Select Supplier's Location (if any)</label>
                     <select id="id_selected_supplier_location" name="selected_supplier_location" class="maintenance-input"></select>
@@ -211,7 +257,11 @@
             </div>
             <div style="width:180px;">
                 <label class="maintenance-label">Bill Date</label>
-                <input id="id_bill_date" type="date" name="bill_date" class="maintenance-input" value="{{ bill.bill_date|default:'' }}" />
+                {% if bill.bill_date %}
+                <input id="id_bill_date" type="date" name="bill_date" class="maintenance-input" value="{{ bill.bill_date }}" />
+                {% else %}
+                <input id="id_bill_date" type="date" name="bill_date" class="maintenance-input" value="{% now "Y-m-d" %}" />
+                {% endif %}
             </div>
         </div>
         <div style="margin-bottom:12px;">
@@ -228,7 +278,7 @@
                         <th style="padding:8px 6px;width:12%">Rate</th>
                         <th style="padding:8px 6px;width:12%">Discount %</th>
                         <!-- Type column removed: system is inventory-only -->
-                        <th style="padding:8px 6px;width:12%">Amount</th>
+                        <th style="padding:8px 6px;width:12%;text-align:right;">Amount</th>
                         <th style="padding:8px 6px;width:7%"></th>
                     </tr>
                 </thead>
@@ -244,7 +294,7 @@
                                 <!-- Inventory-only: keep hidden marker for serialization -->
                                 <input type="hidden" class="item-type-hidden" name="item_type[]" value="inventory" />
                             </td>
-                            <td style="padding:6px 12px 6px 6px;width:12%;"><input type="text" class="item-amount" value="{{ it.amount|default:'0.000' }}" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>
+                            <td style="padding:6px 12px 6px 6px;width:12%;"><input type="text" class="item-amount" value="{{ it.amount|default:'0.000' }}" readonly style="width:calc(100% - 12px);padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;box-sizing:border-box;"/></td>
                             <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>
                         </tr>
                         {% endfor %}
@@ -285,33 +335,46 @@
     </form>
 </div>
 
-<script src="{% static 'js/line-items.api.js' %}?v=4"></script>
+<!-- loader will append scripts in required order; remove static include to avoid double-load -->
 <script>
 // Minimal JS to add one empty row and compute totals like maintenance template
 document.addEventListener('DOMContentLoaded', function(){
     function parseFloatSafe(v){var n=parseFloat(v);return isNaN(n)?0:n}
-            function createItemRow(){var tbody=document.getElementById('items-body');var tr=document.createElement('tr');tr.className='item-row';tr.innerHTML = `\
-                        <td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                        <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                        <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                        <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                        <td style="padding:6px;width:12%;">\
-                            <input type="hidden" class="item-type-hidden" name="item_type[]" value="inventory" />\
-                        </td>\
-                        <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
-                        <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;tbody.appendChild(tr);try{ tr.dataset.__createdAt = Date.now(); }catch(e){}try{var newInput=tr.querySelector('.item-desc');if(newInput){try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); newInput.focus();}catch(e){}}}catch(e){}return tr}
-                            <td style="padding:6px 12px 6px 6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
-                            <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;tbody.appendChild(tr);try{ tr.dataset.__createdAt = Date.now(); }catch(e){}try{var newInput=tr.querySelector('.item-desc');if(newInput){try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); newInput.focus();}catch(e){}}}catch(e){}return tr}
-    }
+    var createItemRow = (function(){
+        if(typeof window.createItemRow !== 'undefined'){
+            return function(focus){ try{ return window.createItemRow(focus); }catch(e){ return null; } };
+        }
+        return function(focus){
+            var focusOnCreate = (focus === undefined) ? true : !!focus;
+            var tbody=document.getElementById('items-body');
+            if(!tbody) return null;
+            var tr=document.createElement('tr');
+            tr.className='item-row';
+            tr.innerHTML = ""+
+                '<td style="padding:6px;width:45%;"><input type="text" class="item-desc maintenance-input" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>'+
+                '<td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>'+
+                '<td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>'+
+                '<td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>'+
+                '<td style="padding:6px;width:12%;">' +
+                '<input type="hidden" class="item-type-hidden" name="item_type[]" value="inventory" />' +
+                '</td>' +
+                '<td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:calc(100% - 12px);padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;box-sizing:border-box;"/></td>'+
+                '<td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
+            tbody.appendChild(tr);
+            try{ tr.dataset.__createdAt = Date.now(); }catch(e){}
+            try{ var newInput = tr.querySelector('.item-desc'); if(newInput){ try{ if(typeof window.initInventoryRow === 'function') window.initInventoryRow(tr); else if(window.safeInitInventoryAutocomplete) window.safeInitInventoryAutocomplete(newInput); else if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); if(focusOnCreate){ try{ newInput.focus(); }catch(e){} } }catch(e){} } }catch(e){}
+            return tr;
+        };
+    })();
     var __itemsBodyEl = document.getElementById('items-body');
     if(__itemsBodyEl){
         __itemsBodyEl.addEventListener('click',function(e){ if(e.target && e.target.classList && e.target.classList.contains('remove-row')){ var r = e.target.closest && e.target.closest('.item-row'); if(r && r.parentNode) r.parentNode.removeChild(r); try{ recomputeTotals(); }catch(e){} } });
         __itemsBodyEl.addEventListener('input',function(e){ if(e.target && (e.target.classList.contains('item-qty')||e.target.classList.contains('item-rate')||e.target.classList.contains('item-discount'))){ try{ updateRowAmount(e.target.closest('.item-row')); recomputeTotals(); }catch(err){} } });
     }
     var __addRowBtn = document.getElementById('add-row');
-    if(__addRowBtn){ __addRowBtn.addEventListener('click',function(){ createItemRow(); try{ recomputeTotals(); }catch(e){} }); }
+    if(__addRowBtn){ __addRowBtn.addEventListener('click',function(){ createItemRow(); try{ recomputeTotals(); }catch(e){} }); try{ __addRowBtn.dataset.addlineBound = '1'; }catch(e){} }
     if(document.querySelectorAll('#items-body .item-row').length===0) {
-        createItemRow();
+        createItemRow(false);
         recomputeTotals();
     } else {
         // If server-rendered rows exist (edit page), ensure each row's amount is updated
@@ -348,32 +411,56 @@ document.addEventListener('DOMContentLoaded', function(){
             document.getElementById('bottom-total').textContent = 'BHD ' + (parseFloat(document.getElementById('grand-total').textContent)||0).toFixed(3); }catch(e){} }
     // Use shared inventory autocomplete from static/js/inventory-autocomplete.js
     try{
-        if(window.initInventoryAutocomplete){
-            document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ window.initInventoryAutocomplete(inp); }catch(e){} });
-        } else {
-            console.warn('initInventoryAutocomplete not available yet');
-        }
+            document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ if(window.safeInitInventoryAutocomplete) window.safeInitInventoryAutocomplete(inp); else if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(inp); }catch(e){} });
         // close inventory suggestions when clicking elsewhere
         document.addEventListener('click', function(ev){ if(ev.target && ev.target.closest && ev.target.closest('.inventory-suggestions')) return; document.querySelectorAll('.inventory-suggestions').forEach(function(b){ b.parentNode && b.parentNode.removeChild(b); }); });
     }catch(e){}
 });
 </script>
 <script>
+try{
+    (function(){
+        var form = document.getElementById('bill-form');
+        if(!form) return;
+        form.addEventListener('submit', function(ev){
+            try{ if(window.serializeBillItems) window.serializeBillItems(); }catch(e){}
+            try{
+                var itemsInput = document.getElementById('items_json');
+                var items = [];
+                try{ items = itemsInput && itemsInput.value ? JSON.parse(itemsInput.value) : []; }catch(err){ items = []; }
+                var actionField = form.querySelector('input[name="action"]');
+                var action = actionField ? (actionField.value || '') : '';
+                if((!items || items.length === 0) && action !== 'save_draft'){
+                    ev.preventDefault();
+                    try{ if(window.createToast) window.createToast('يرجى إضافة صنف واحد على الأقل للفاتورة', 'error'); }catch(e){}
+                    return false;
+                }
+            }catch(e){}
+        }, false);
+    })();
+}catch(e){}
+</script>
+<script>
 // Ensure canonical items-table is loaded and initialized for this page.
 (function(){
     function ensureItemsTable(){
         if(window.initItemsTable && window.createItemRow && window.serializeMaintenanceItems){
-            try{ document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(inp); }catch(e){} }); }catch(e){}
-            try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){}
+            try{ document.querySelectorAll('#items-body .item-desc').forEach(function(inp){ try{ if(window.safeInitInventoryAutocomplete) window.safeInitInventoryAutocomplete(inp); else if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(inp); }catch(e){} }); }catch(e){}
+            var doInit = function(){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} };
+            if(window.__lineItemsReady){ try{ doInit(); }catch(e){} }
+            else if(window.addEventListener){ window.addEventListener('line-items-ready', doInit); }
+            else { setTimeout(doInit, 200); }
             return;
         }
         if(document.getElementById('__items_table_loader')) return;
         var loaderId = '__items_table_loader';
-        var urls = [
-            '{% static "js/line-items.api.js" %}?v=3',
-            '{% static "js/line-items.core.js" %}?v=3',
-            '{% static "js/line-items.ui.js" %}?v=3'
-        ];
+            var urls = [
+                '{% static "js/line-items.core.js" %}?v=5',
+                '{% static "js/line-items.api.js" %}?v=6',
+                '{% static "js/inventory-autocomplete.js" %}?v=9',
+                '{% static "js/dropdown-manager.js" %}?v=1',
+                '{% static "js/line-items.ui.js" %}?v=5'
+            ];
         function appendSequential(i){ if(i>=urls.length){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} return; } var s = document.createElement('script'); s.id = (i===0?loaderId: loaderId + '_' + i); s.src = urls[i]; s.onload = function(){ appendSequential(i+1); }; document.head.appendChild(s); }
         appendSequential(0);
     }
@@ -384,11 +471,19 @@ document.addEventListener('DOMContentLoaded', function(){
 document.addEventListener('DOMContentLoaded', function(){
     var supInput = document.getElementById('supplier-search');
     var supToggle = document.getElementById('supplier-suggest-toggle');
+    // timestamp to suppress immediate re-open after toggle click
+    var _supSuppressOpen = 0;
     var supBtn = document.getElementById('supplier-search-btn');
 
     function clearSupplierSuggestions(){
-        try{ document.querySelectorAll('.customer-selector > [role="listbox"]').forEach(function(el){ if(el && el.parentNode) el.parentNode.removeChild(el); }); }catch(e){}
-        try{ if(document.getElementById('supplier-suggest-toggle')) document.getElementById('supplier-suggest-toggle').textContent = '∨'; }catch(e){}
+        try{
+            var container = (supInput && supInput.parentNode) ? supInput.parentNode : document.body;
+            // remove any listboxes inside the container
+            try{ container.querySelectorAll('[role="listbox"]').forEach(function(el){ if(el && el.parentNode) el.parentNode.removeChild(el); }); }catch(e){}
+            // also defensively remove any stray listboxes under .customer-selector
+            try{ document.querySelectorAll('.customer-selector [role="listbox"]').forEach(function(el){ if(el && el.parentNode) el.parentNode.removeChild(el); }); }catch(e){}
+        }catch(e){}
+        try{ if(supToggle) supToggle.textContent = '∨'; }catch(e){}
     }
 
     function renderSupplierSuggestions(list){
@@ -425,6 +520,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
     function showInlineSupplierSuggestions(q){
         q = (q||'').trim();
+        // if suppression flag set recently, ignore open request
+        try{ if(_supSuppressOpen && (Date.now() - _supSuppressOpen) < 250) return; }catch(e){}
         // if preloaded list exists
         if(window.suppliers_sample && window.suppliers_sample.length){
             if(!q) return renderSupplierSuggestions(window.suppliers_sample.slice(0,500));
@@ -437,11 +534,34 @@ document.addEventListener('DOMContentLoaded', function(){
 
     function toggleSupplierSuggestions(){
         var container = (supInput && supInput.parentNode) ? supInput.parentNode : document.body;
-        var isOpen = !!container.querySelector('[role="listbox"]');
-        if(isOpen){ clearSupplierSuggestions(); } else { showInlineSupplierSuggestions(''); }
+        var box = container.querySelector('[role="listbox"]') || document.querySelector('.customer-selector [role="listbox"]');
+
+        // إذا القائمة مفتوحة → اقفلها
+        if(box){
+            try{ box.parentNode && box.parentNode.removeChild(box); }catch(e){}
+            try{ if(supToggle) supToggle.textContent = '∨'; }catch(e){}
+            return;
+        }
+
+        // مغلقة → افتحها
+        showInlineSupplierSuggestions('');
+        try{ if(supToggle) supToggle.textContent = '∧'; }catch(e){}
     }
 
-    if(supInput){ supInput.addEventListener('focus', function(){ showInlineSupplierSuggestions(''); }); supInput.addEventListener('click', function(){ showInlineSupplierSuggestions(''); }); }
+    if(supInput){
+
+        supInput.addEventListener('focus', function(e){
+            var container = supInput.parentNode || document.body;
+            if(container.querySelector('[role="listbox"]')) return; // already open
+            showInlineSupplierSuggestions('');
+        });
+
+        supInput.addEventListener('click', function(e){
+            var container = supInput.parentNode || document.body;
+            if(container.querySelector('[role="listbox"]')) return; // already open
+            showInlineSupplierSuggestions('');
+        });
+    }
     // magnifier: open advanced supplier search modal (like maintenance customer modal)
     function openSupplierModal(prefill){
         var backdrop = document.getElementById('supplier-modal-backdrop');
@@ -481,7 +601,11 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 
     if(supBtn){ supBtn.addEventListener('click', function(e){ e.stopPropagation(); openSupplierModal(supInput ? supInput.value : ''); }); supBtn.onclick = function(){ try{ openSupplierModal(supInput ? supInput.value : ''); }catch(err){ console.error(err); } }; }
-    if(supToggle){ supToggle.addEventListener('click', function(e){ e.stopPropagation(); toggleSupplierSuggestions(); }); }
+    if(supToggle){
+        try{ supToggle.style.pointerEvents = 'auto'; supToggle.setAttribute('tabindex','0'); }catch(e){}
+        supToggle.addEventListener('click', function(e){ e.stopPropagation(); toggleSupplierSuggestions(); });
+        supToggle.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggleSupplierSuggestions(); } });
+    }
     // close when clicking elsewhere
     document.addEventListener('click', function(e){ if(e.target && e.target.closest && e.target.closest('.customer-selector')) return; clearSupplierSuggestions(); });
     // expose handlers globally so inline onclick works even if the DOMContentLoaded listener timing varies
@@ -567,22 +691,29 @@ document.addEventListener('DOMContentLoaded', function(){
             var tbody = document.getElementById('items-body'); if(!tbody) return; tbody.innerHTML = '';
             billData.items.forEach(function(it){
                 var tr = document.createElement('tr'); tr.className = 'item-row';
-                        tr.innerHTML = `\
-                        <td style="padding:6px;width:50%;"><input type="text" class="item-desc maintenance-input" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                        <td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                        <td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                        <td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>\
-                        <td style="padding:6px;width:12%;">\
-                            <input type="hidden" class="item-type-hidden" name="item_type[]" value="inventory" />\
-                        </td>\
-                        <td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;"/></td>\
-                        <td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>`;tbody.appendChild(tr);try{var newInput=tr.querySelector('.item-desc');if(newInput){try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(newInput); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(newInput); newInput.focus();}catch(e){}}}catch(e){}return tr}
-                    if(disc) disc.value = (it.discount!==undefined?String(it.discount):'0');
-                    if(amt) amt.value = (it.amount!==undefined?parseFloat(it.amount).toFixed(3):'0.000');
-                    try{ if(it.id) tr.dataset.inventoryId = it.id; }catch(e){}
-                    try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(desc); else if(window.attachInventoryAutocomplete) window.attachInventoryAutocomplete(desc); }catch(e){}
-                    // ensure calculations update
-                    try{ if(window.serializeBillItems){ /* will be called after loop */ } else { [qty, rate, disc].forEach(function(el){ if(el) el.dispatchEvent(new Event('input',{bubbles:true})); }); } }catch(e){}
+                tr.innerHTML = '' +
+                    '<td style="padding:6px;width:50%;"><input type="text" class="item-desc maintenance-input" value="" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
+                    '<td style="padding:6px;width:12%;"><input type="number" class="item-qty" step="1" value="1" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
+                    '<td style="padding:6px;width:12%;"><input type="number" class="item-rate" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
+                    '<td style="padding:6px;width:12%;"><input type="number" class="item-discount" step="0.001" value="0.000" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;"/></td>' +
+                    '<td style="padding:6px;width:12%;"><input type="hidden" class="item-type-hidden" name="item_type[]" value="inventory" /></td>' +
+                    '<td style="padding:6px;width:12%;"><input type="text" class="item-amount" value="0.000" readonly style="width:calc(100% - 12px);padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;box-sizing:border-box;"/></td>' +
+                    '<td style="padding:6px;width:7%;text-align:center;"><button type="button" class="remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
+                tbody.appendChild(tr);
+                var desc = tr.querySelector('.item-desc');
+                var qty = tr.querySelector('.item-qty');
+                var rate = tr.querySelector('.item-rate');
+                var disc = tr.querySelector('.item-discount');
+                var amt = tr.querySelector('.item-amount');
+                try{ if(desc) desc.value = it.description || ''; }catch(e){}
+                try{ if(qty) qty.value = (typeof it.qty !== 'undefined') ? it.qty : 1; }catch(e){}
+                try{ if(rate) rate.value = (typeof it.rate !== 'undefined') ? (parseFloat(it.rate)||0).toFixed(3) : '0.000'; }catch(e){}
+                try{ if(disc) disc.value = (typeof it.discount !== 'undefined') ? String(it.discount) : '0'; }catch(e){}
+                try{ if(amt) amt.value = (typeof it.amount !== 'undefined') ? (parseFloat(it.amount)||0).toFixed(3) : '0.000'; }catch(e){}
+                try{ if(it.id) tr.dataset.inventoryId = it.id; }catch(e){}
+                try{ if(window.initInventoryAutocomplete) window.initInventoryAutocomplete(desc); }catch(e){}
+                // ensure calculations update for this row
+                try{ if(qty) qty.dispatchEvent(new Event('input',{bubbles:true})); if(rate) rate.dispatchEvent(new Event('input',{bubbles:true})); if(disc) disc.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
             });
 
             // ensure totals and hidden items_json set (use serializer if available)

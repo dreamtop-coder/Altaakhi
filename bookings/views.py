@@ -1,5 +1,9 @@
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+import logging
+
+# module logger
+logger = logging.getLogger(__name__)
 # تحويل الحجز إلى سجل صيانة
 @require_POST
 def booking_start_maintenance(request, booking_id):
@@ -66,8 +70,12 @@ def bookings_list(request):
     from datetime import date
     bookings = Booking.objects.filter(status='pending').order_by('-service_date')
     today = date.today()
-    print('DEBUG: عدد الحجوزات:', bookings.count())
-    print('DEBUG: الحجوزات:', list(bookings.values()))
+    logger.debug('DEBUG: عدد الحجوزات: %d', bookings.count())
+    try:
+        logger.debug('DEBUG: الحجوزات: %s', list(bookings.values()))
+    except Exception:
+        # best-effort: avoid failing view if serialization of values() trips
+        logger.debug('DEBUG: الحجوزات: (unserializable)')
     return render(request, 'bookings_list.html', {'bookings': bookings, 'today': today})
 
 def booking_create(request):

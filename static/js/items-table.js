@@ -7,13 +7,14 @@
     // Normalize server-rendered rows: ensure dataset.type is present
     function normalizeServerRenderedRows(){
         try{
-            // Mark any rows in #services-body as service
-            try{ document.querySelectorAll('#services-body .service-row, #services-body tr').forEach(function(r){ try{ if(!r.dataset || !r.dataset.type) r.dataset.type = 'service'; if(!r.classList.contains('item-row')) r.classList.add('item-row'); }catch(e){} }); }catch(e){}
+            // Legacy: do not rely on `#services-body`. Ensure any rows inside
+            // `#items-body` that look like service rows are marked accordingly.
+            try{ document.querySelectorAll('#items-body .service-row, #items-body tr').forEach(function(r){ try{ if(!r.dataset || !r.dataset.type) r.dataset.type = 'service'; if(!r.classList.contains('item-row')) r.classList.add('item-row'); }catch(e){} }); }catch(e){}
 
             // Remove server-rendered placeholder/empty rows that were previously saved
             // (no description, zero rate and zero amount, and no linked ids).
             try{
-                var maybeEmpty = document.querySelectorAll('#items-body .item-row, #services-body .item-row');
+                var maybeEmpty = document.querySelectorAll('#items-body .item-row');
                 Array.prototype.forEach.call(maybeEmpty, function(r){ try{
                     var descEl = r.querySelector && (r.querySelector('.item-desc') || r.querySelector('.service-desc') || r.querySelector('.service-label'));
                     var desc = '';
@@ -31,7 +32,7 @@
 
             // Ensure numeric inputs for inventory (part) rows are left-aligned
             try{
-                var allRows = document.querySelectorAll('#items-body .item-row, #services-body .item-row');
+                var allRows = document.querySelectorAll('#items-body .item-row');
                 Array.prototype.forEach.call(allRows, function(r){ try{
                     var isInv = false;
                     try{ if(r.dataset && r.dataset.type === 'inventory') isInv = true; }catch(e){}
@@ -49,7 +50,7 @@
                 try{
                     // On maintenance pages the items table should create service rows,
                     // not plain inventory item rows. Redirect to createServiceRow when available.
-                    try{ if(window.__isMaintenancePage){ if(typeof window.createServiceRow === 'function') return window.createServiceRow(focus); if(window.createServiceRow) return window.createServiceRow(focus); } }catch(e){}
+                    try{ var __isMaint = (window.ITEM_CONTEXT === 'maintenance') || (window.__isMaintenancePage === true) || (window.getAllowedTypes && window.getAllowedTypes().indexOf && window.getAllowedTypes().indexOf('service') !== -1); if(__isMaint){ /* Do not delegate to legacy createServiceRow; use unified createItemRow factory. */ } }catch(e){}
                     var body = document.getElementById('items-body') || document.getElementById('items-body-view') || null;
                     if(!body){ try{ body = document.querySelector('tbody#items-body, tbody#items-body-view, tbody'); }catch(e){} }
                     if(!body) return null;
@@ -61,12 +62,16 @@
                     // freshly-added rows when the user clicks "Item Details".
                     tr.innerHTML = '\n        <td style="padding:8px 12px;"><input type="text" class="item-desc" value="" style="width:100%;padding:8px;border:1px solid #eee;border-radius:6px;" /></td>\n        <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-qty" value="1" min="0" step="1" style="width:90px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n        <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-rate" value="0.000" step="0.001" style="width:110px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n        <td style="padding:8px 12px;text-align:center;"><input type="number" class="item-discount" value="0.00" step="0.001" style="width:60px;padding:6px;border:1px solid #eee;border-radius:6px;text-align:center;" /></td>\n        <td style="padding:8px 18px 8px 12px;text-align:right;"><input type="text" class="item-amount" value="0.000" readonly style="width:100%;padding:6px;border:1px solid #eee;border-radius:6px;background:#fafafa;text-align:right;" /></td>\n        <td style="padding:8px 12px;text-align:center;"><button type="button" class="remove-item-row remove-row" style="background:#ff5252;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;">×</button></td>';
                     try{ body.appendChild(tr); }catch(e){ try{ document.body.appendChild(tr); }catch(err){} }
+                    try{ window.__invBlockAutoOpenUntil = Date.now() + 400; }catch(e){}
                     try{
                         var desc = tr.querySelector('.item-desc');
                         try{
                             // default: mark new rows as inventory to avoid accidental service classification
                             try{ if(desc && desc.setAttribute) desc.setAttribute('data-autocomplete','inventory'); }catch(e){}
-                            if(window.initInventoryAutocomplete) {
+                            if(typeof window.initInventoryRow === 'function'){
+                                window.initInventoryRow(tr);
+                                try{ desc.dataset.step = desc.dataset.step || 'view'; }catch(e){}
+                            } else if(window.initInventoryAutocomplete){
                                 window.initInventoryAutocomplete(desc);
                                 try{ desc.dataset.step = desc.dataset.step || 'view'; }catch(e){}
                             } else if(window.initServiceAutocomplete) {
@@ -165,10 +170,10 @@
         try{
             // Sum services globally. Use defensive detection for rows missing dataset.type
             var svcTotal = 0;
-            try{
-                // Scan legacy service rows first
-                document.querySelectorAll('.service-row').forEach(function(r){ try{ var el = r.querySelector('.service-amount') || r.querySelector('.item-amount'); var val = el ? parseFloat(el.value)||0 : 0; svcTotal += val; }catch(e){} });
-                // Scan item rows and detect effective type
+                try{
+                // Scan item rows and detect effective type (service rows are
+                // indicated by dataset.type === 'service' or by presence of
+                // service-specific inputs).
                 document.querySelectorAll('#items-body .item-row').forEach(function(r){ try{
                     var effective = (r.dataset && r.dataset.type) ? r.dataset.type : null;
                     var descEl = r.querySelector && r.querySelector('.item-desc');
@@ -210,14 +215,14 @@
             try{ if(!(btn.dataset && btn.dataset.addlineBound === '1')){ btn.addEventListener('click', function(e){ e.preventDefault(); try{ createItemRow(true); }catch(err){ console.error('createItemRow failed', err); } }); try{ btn.dataset.addlineBound = '1'; }catch(e){} try{ window.__addLineHandlerInstalled = true; }catch(e){} } }catch(e){}
         }
         // Check both possible items containers before auto-adding a blank row.
-        try{
-            var count = 0;
-            var bodyA = document.querySelector('#items-body');
-            var bodyB = document.querySelector('#items-body-view');
+            try{
+                var count = 0;
+                var bodyA = document.querySelector('#items-body');
+                var bodyB = document.querySelector('#items-body-view');
             if(bodyA) count += (bodyA.querySelectorAll('.item-row') || []).length;
             if(bodyB) count += (bodyB.querySelectorAll('.item-row') || []).length;
             if(count === 0 && !window.__isMaintenancePage) createItemRow(false);
-        }catch(e){ if(document.querySelectorAll('#items-body .item-row').length === 0 && !window.__isMaintenancePage) createItemRow(false); }
+            }catch(e){ if(document.querySelectorAll('#items-body .item-row').length === 0){ var __isMaint2 = (window.ITEM_CONTEXT === 'maintenance') || (window.__isMaintenancePage === true) || (window.getAllowedTypes && window.getAllowedTypes().indexOf && window.getAllowedTypes().indexOf('service') !== -1); if(!__isMaint2) createItemRow(false); } }
         // ensure totals update
         try{ if(window.recomputeTotals) window.recomputeTotals(); }catch(e){}
         // Delegated input handler to keep amounts working for dynamically-created rows
@@ -240,8 +245,18 @@
         }catch(e){}
     }catch(e){ console.error('initItemsTable failed', e); } };
 
-    // initialize when DOM ready if called
-    document.addEventListener('DOMContentLoaded', function(){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} });
+    // initialize when DOM ready, but wait for core readiness to avoid races
+    try{
+        function safeInitItemsTable(){
+            try{
+                if(window.__lineItemsReady){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} return; }
+            }catch(e){}
+            try{ if(window.addEventListener){ window.addEventListener('line-items-ready', function(){ try{ if(window.initItemsTable) window.initItemsTable(); }catch(e){} }); } }catch(e){}
+            try{ setTimeout(safeInitItemsTable, 120); }catch(e){}
+        }
+        try{ document.addEventListener('DOMContentLoaded', safeInitItemsTable); }catch(e){}
+        try{ setTimeout(safeInitItemsTable, 200); }catch(e){}
+    }catch(e){}
 
 // Robustly bind the Add Line Item button so it works even if the
 // button is re-rendered or the DOM changes after initial load.
@@ -260,6 +275,6 @@ function bindAddButton(){
 }
 
 // Run immediately and a couple of retries to handle late-rendered buttons
-try{ bindAddButton(); setTimeout(bindAddButton, 500); setTimeout(bindAddButton, 1500); }catch(e){}
+    try{ bindAddButton(); setTimeout(bindAddButton, 500); setTimeout(bindAddButton, 1500); }catch(e){}
 
 })();
